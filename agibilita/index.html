@@ -233,6 +233,8 @@
             font-family: 'Courier New', monospace;
             font-size: 0.875rem;
             line-height: 1.5;
+            max-height: 500px;
+            overflow-y: auto;
         }
         
         /* Agibilità list */
@@ -291,26 +293,106 @@
             position: absolute;
             background: white;
             border: 1px solid #e5e7eb;
-            border-radius: 6px;
-            max-height: 200px;
+            border-radius: 8px;
+            max-height: 300px;
             overflow-y: auto;
-            z-index: 100;
+            z-index: 1000;
             width: 100%;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+            border-top: none;
+            margin-top: -1px;
         }
         
         .autocomplete-item {
-            padding: 0.5rem;
+            padding: 12px 16px;
             cursor: pointer;
             border-bottom: 1px solid #f3f4f6;
+            transition: all 0.2s ease;
         }
         
         .autocomplete-item:hover {
-            background: var(--light);
+            background: #f8fafc;
+            border-left: 3px solid var(--primary);
         }
         
         .autocomplete-item:last-child {
             border-bottom: none;
+            border-radius: 0 0 8px 8px;
+        }
+        
+        .autocomplete-item strong {
+            color: var(--dark);
+            font-weight: 600;
+        }
+        
+        .autocomplete-item small {
+            color: #6b7280;
+            font-size: 0.875rem;
+        }
+        
+        .autocomplete-header {
+            padding: 8px 16px;
+            background: #f3f4f6;
+            font-weight: bold;
+            color: #6b7280;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .autocomplete-loading {
+            padding: 12px 16px;
+            text-align: center;
+            color: #6b7280;
+            font-style: italic;
+        }
+        
+        .autocomplete-no-results {
+            padding: 12px 16px;
+            text-align: center;
+            color: #6b7280;
+            font-style: italic;
+        }
+        
+        /* Validazione campi località */
+        .form-control.valid {
+            border-color: #10b981 !important;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%2310b981' d='m2.3 6.73.4.4L7.5 2.4l-.5-.5L3.7 5.2 1.5 3l-.5.5 1.3 1.23z'/%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 16px 16px;
+            padding-right: 40px;
+        }
+        
+        .form-control.invalid {
+            border-color: #ef4444 !important;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23ef4444'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath d='m6 3v3m0 3h.01'/%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 16px 16px;
+            padding-right: 40px;
+        }
+        
+        .province-badge {
+            display: inline-block;
+            background: var(--primary);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-left: 4px;
+        }
+        
+        .highlight {
+            background-color: #fef3c7;
+            font-weight: 600;
+            padding: 1px 2px;
+            border-radius: 2px;
+        }
+        
+        .location-helper-text {
+            font-size: 0.875rem;
+            color: #6b7280;
+            margin-top: 4px;
         }
         
         /* Alert messages */
@@ -318,6 +400,9 @@
             padding: 1rem;
             border-radius: 6px;
             margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
         
         .alert-success {
@@ -330,6 +415,17 @@
             background: #fee2e2;
             color: #991b1b;
             border: 1px solid #f87171;
+        }
+        
+        .alert-warning {
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #fbbf24;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
@@ -430,17 +526,20 @@
                     <input type="text" class="form-control" id="indirizzo" required>
                 </div>
                 <div class="form-row">
-                    <div class="form-group">
+                    <div class="form-group" style="position: relative;">
                         <label class="form-label">Città *</label>
                         <input type="text" class="form-control" id="citta" required>
+                        <div class="location-helper-text">Inizia a digitare per cercare la città</div>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" style="position: relative;">
                         <label class="form-label">CAP *</label>
                         <input type="text" class="form-control" id="cap" pattern="[0-9]{5}" maxlength="5" required>
+                        <div class="location-helper-text">Inserisci il CAP a 5 cifre</div>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Provincia *</label>
                         <input type="text" class="form-control" id="provincia" maxlength="2" required style="text-transform: uppercase;">
+                        <div class="location-helper-text">Codice provincia (es: VI, VE, PD)</div>
                     </div>
                 </div>
                 <div class="form-group">
@@ -494,10 +593,7 @@
                     <h3>Opzioni di Invio</h3>
                     <div class="btn-group" style="flex-direction: column; gap: 1rem;">
                         <button class="btn btn-primary" onclick="downloadAndSave()">
-                            📥 Scarica XML e PDF + Salva
-                        </button>
-                        <button class="btn btn-info" onclick="downloadPDF()">
-                            📄 Scarica solo PDF
+                            📥 Scarica XML e Salva
                         </button>
                         <button class="btn btn-secondary" onclick="window.open('https://www.inps.it', '_blank')">
                             🌐 Vai al Portale INPS
@@ -513,7 +609,7 @@
                 <button class="btn btn-secondary" onclick="showSection('step2')">Indietro</button>
                 <button class="btn btn-primary" id="btnConfirm" onclick="confirmAndProceed()">Conferma e Scarica XML</button>
                 <button class="btn btn-success" id="btnNewAgibilita" style="display: none;" onclick="newAgibilita()">
-                    Scarica XML e Nuova Agibilità
+                    Nuova Agibilità
                 </button>
             </div>
         </div>
@@ -535,7 +631,8 @@
         </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- Scripts -->
+    <script src="comuni-loader.js"></script>
     <script src="agibilita.js"></script>
 </body>
 </html>

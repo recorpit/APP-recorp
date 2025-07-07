@@ -1,4 +1,4 @@
-// agibilita.js - Sistema Gestione Agibilità RECORP
+// agibilita.js - Sistema Gestione Agibilità RECORP con Database GI
 
 // Variabili globali
 let selectedArtists = [];
@@ -25,6 +25,17 @@ try {
 
 // Inizializzazione
 document.addEventListener('DOMContentLoaded', function() {
+    // Inizializza database GI per primi
+    if (typeof window.GIDatabase !== 'undefined') {
+        window.GIDatabase.init().then(() => {
+            console.log('✅ Database GI inizializzato, setup autocomplete...');
+            setupLocationAutocomplete();
+        });
+    } else {
+        console.warn('⚠️ Database GI non disponibile, uso fallback');
+        setupLocationAutocomplete();
+    }
+    
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('dataInizio').value = today;
     document.getElementById('dataInizio').min = today;
@@ -36,7 +47,6 @@ document.addEventListener('DOMContentLoaded', function() {
         sessionStorage.removeItem('selectedArtistId');
         startNewAgibilita();
 
-        // Add the selected artist
         setTimeout(() => {
             const artistId = parseInt(selectedArtistId);
             const artist = artistsDB.find(a => a.id === artistId);
@@ -46,16 +56,28 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 100);
     }
 
+    // Check if coming from registration
+    const newArtistId = sessionStorage.getItem('newArtistId');
+    if (newArtistId) {
+        sessionStorage.removeItem('newArtistId');
+        const newArtist = artistsDB.find(a => a.id == newArtistId);
+        if (newArtist) {
+            startNewAgibilita();
+            setTimeout(() => {
+                showAddArtistModal();
+                addArtistToList(parseInt(newArtistId));
+            }, 500);
+        }
+    }
+
     // Check if coming from chat
     const quickAgibilita = sessionStorage.getItem('quickAgibilita');
     if (quickAgibilita) {
         sessionStorage.removeItem('quickAgibilita');
         const data = JSON.parse(quickAgibilita);
 
-        // Start new agibilità
         startNewAgibilita();
 
-        // Add artists
         setTimeout(() => {
             data.artisti.forEach(artistData => {
                 const artist = artistsDB.find(a => a.cf === artistData.cf);
@@ -69,7 +91,6 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             updateArtistsList();
 
-            // Set dates
             if (data.dataInizio) {
                 document.getElementById('dataInizio').value = data.dataInizio;
             }
@@ -77,7 +98,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('dataFine').value = data.dataFine;
             }
 
-            // Set venue
             if (data.locale) {
                 document.getElementById('descrizioneLocale').value = data.locale.nome;
                 document.getElementById('indirizzo').value = data.locale.indirizzo;
@@ -86,7 +106,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('provincia').value = data.locale.provincia;
             }
 
-            // Auto advance to step 2 if we have artists
             if (selectedArtists.length > 0) {
                 setTimeout(() => {
                     goToStep2();
@@ -96,7 +115,331 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// Navigazione sezioni
+// SETUP AUTOCOMPLETE LOCALITÀ CON DATABASE GI
+
+function setupLocationAutocomplete() {
+    const cittaInput = document.getElementById('citta');
+    const capInput = document.getElementById('cap');
+    const provinciaInput = document.getElementById('provincia');
+    
+    if (!cittaInput || !capInput || !provinciaInput) {
+        console.warn('⚠️ Campi località non trovati');
+        return;
+    }
+    
+    // Autocomplete città
+    cittaInput.addEventListener('input', function() {
+        showCityAutocompleteGI(this.value);
+    });
+    
+    // Autocomplete CAP
+    capInput.addEventListener('input', function() {
+        if (this.value.length === 5) {
+            autoFillFromCAPGI(this.value);
+        } else if (this.value.length === 0) {
+            resetLocationValidation();
+        }
+    });
+    
+    // Validazione provincia
+    provinciaInput.addEventListener('change', function() {
+        validateProvinciaAndCAPGI();
+    });
+    
+    // Event listeners per chiudere dropdown
+    document.addEventListener('click', function(event) {
+        if (!event.target.closest('#citta') && !event.target.closest('#cityAutocompleteDropdown')) {
+            hideCityAutocomplete();
+        }
+        
+        if (!event.target.closest('#cap') && !event.target.closest('#capMultipleDropdown')) {
+            hideMultipleDropdowns();
+        }
+    });
+}
+
+// Mostra autocomplete città con database GI
+function showCityAutocompleteGI(searchTerm) {
+    if (searchTerm.length < 2) {
+        hideCityAutocomplete();
+        return;
+    }
+    
+    if (!window.GIDatabase || !window.GIDatabase.isLoaded()) {
+        showLoadingInAutocomplete();
+        return;
+    }
+    
+    const results = window.GIDatabase.searchComuni(searchTerm);
+    
+    if (results.length === 0) {
+        showNoResultsInAutocomplete();
+        return;
+    }
+    
+    let dropdown = document.getElementById('cityAutocompleteDropdown');
+    if (!dropdown) {
+        dropdown = createAutocompleteDropdown('cityAutocompleteDropdown', 'citta');
+    }
+    
+    dropdown.innerHTML = results.map(comune => {
+        const highlighted = highlightSearchTerm(comune.nome, searchTerm);
+        return `
+            <div class="autocomplete-item" onclick="selectCityGI('${comune.nome}', '${comune.cap || ''}', '${comune.provincia}', '${comune.codice}')">
+                <strong>${highlighted}</strong>
+                <span class="province-badge">${comune.provincia}</span><br>
+                <small>CAP: ${comune.cap || 'N/D'} - ${getProvinciaNameByCode(comune.provincia)}</small>
+            </div>
+        `;
+    }).join('');
+    
+    dropdown.style.display = 'block';
+}
+
+// Auto-riempimento da CAP con database GI
+function autoFillFromCAPGI(cap) {
+    if (!window.GIDatabase || !window.GIDatabase.isLoaded()) {
+        showCAPError('Database non caricato');
+        return;
+    }
+    
+    const results = window.GIDatabase.searchByCAP(cap);
+    
+    if (results.length === 0) {
+        showCAPError('CAP non trovato');
+        return;
+    }
+    
+    if (results.length === 1) {
+        const result = results[0];
+        const comune = window.GIDatabase.getComuneByCodice(result.comune);
+        
+        if (comune) {
+            document.getElementById('citta').value = comune.nome;
+            document.getElementById('provincia').value = comune.provincia;
+            document.getElementById('citta').dataset.codiceIstat = comune.codice;
+            
+            validateLocationDataGI();
+        }
+    } else {
+        showCAPMultipleResultsGI(results);
+    }
+}
+
+// Mostra risultati multipli per CAP
+function showCAPMultipleResultsGI(results) {
+    let dropdown = document.getElementById('capMultipleDropdown');
+    if (!dropdown) {
+        dropdown = createAutocompleteDropdown('capMultipleDropdown', 'cap');
+    }
+    
+    dropdown.innerHTML = `
+        <div class="autocomplete-header">
+            Più comuni con questo CAP:
+        </div>
+        ${results.map(result => {
+            const comune = window.GIDatabase.getComuneByCodice(result.comune);
+            if (!comune) return '';
+            
+            return `
+                <div class="autocomplete-item" onclick="selectCityGI('${comune.nome}', '${result.cap}', '${comune.provincia}', '${comune.codice}')">
+                    <strong>${comune.nome}</strong>
+                    <span class="province-badge">${comune.provincia}</span><br>
+                    <small>${getProvinciaNameByCode(comune.provincia)}</small>
+                </div>
+            `;
+        }).join('')}
+    `;
+    
+    dropdown.style.display = 'block';
+    
+    setTimeout(() => {
+        if (dropdown) dropdown.style.display = 'none';
+    }, 15000);
+}
+
+// Seleziona città dall'autocomplete
+function selectCityGI(nome, cap, provincia, codiceIstat) {
+    document.getElementById('citta').value = nome;
+    document.getElementById('cap').value = cap;
+    document.getElementById('provincia').value = provincia;
+    
+    document.getElementById('citta').dataset.codiceIstat = codiceIstat;
+    
+    hideCityAutocomplete();
+    hideMultipleDropdowns();
+    
+    validateLocationDataGI();
+}
+
+// Valida dati località
+function validateLocationDataGI() {
+    const citta = document.getElementById('citta').value;
+    const cap = document.getElementById('cap').value;
+    const provincia = document.getElementById('provincia').value;
+    
+    if (!citta || !cap || !provincia) return;
+    
+    if (!window.GIDatabase || !window.GIDatabase.isLoaded()) {
+        return;
+    }
+    
+    const isValid = window.GIDatabase.validateCAP(cap, provincia);
+    
+    if (isValid) {
+        setFieldValidation('citta', true);
+        setFieldValidation('cap', true);
+        setFieldValidation('provincia', true);
+        
+        showValidationMessage('✅ Dati località validati', 'success');
+    } else {
+        setFieldValidation('cap', false);
+        showValidationMessage('⚠️ CAP e provincia potrebbero non essere coerenti', 'warning');
+    }
+}
+
+function validateProvinciaAndCAPGI() {
+    validateLocationDataGI();
+}
+
+// Ottieni codice ISTAT
+function getCodiceIstatFromCityGI() {
+    const cittaInput = document.getElementById('citta');
+    const codiceIstat = cittaInput.dataset.codiceIstat;
+    
+    if (codiceIstat) {
+        return codiceIstat;
+    }
+    
+    if (window.GIDatabase && window.GIDatabase.isLoaded()) {
+        const citta = cittaInput.value;
+        const provincia = document.getElementById('provincia').value;
+        
+        const comuni = window.GIDatabase.getComuniByProvincia(provincia);
+        const comune = comuni.find(c => c.nome.toUpperCase() === citta.toUpperCase());
+        
+        return comune ? comune.codice : 'L736';
+    }
+    
+    return 'L736';
+}
+
+// Ottieni nome provincia da codice
+function getProvinciaNameByCode(codice) {
+    if (!window.GIDatabase || !window.GIDatabase.isLoaded()) {
+        return codice;
+    }
+    
+    const provincia = window.GIDatabase.getProvinciaByCode(codice);
+    return provincia ? provincia.nome : codice;
+}
+
+// FUNZIONI UTILITÀ UI
+
+function createAutocompleteDropdown(id, parentInputId) {
+    const dropdown = document.createElement('div');
+    dropdown.id = id;
+    dropdown.className = 'autocomplete-dropdown';
+    
+    const parentInput = document.getElementById(parentInputId);
+    parentInput.parentNode.style.position = 'relative';
+    parentInput.parentNode.appendChild(dropdown);
+    
+    return dropdown;
+}
+
+function highlightSearchTerm(text, searchTerm) {
+    if (!searchTerm) return text;
+    
+    const regex = new RegExp(`(${escapeRegExp(searchTerm)})`, 'gi');
+    return text.replace(regex, '<span class="highlight">$1</span>');
+}
+
+function escapeRegExp(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function showLoadingInAutocomplete() {
+    let dropdown = document.getElementById('cityAutocompleteDropdown');
+    if (!dropdown) {
+        dropdown = createAutocompleteDropdown('cityAutocompleteDropdown', 'citta');
+    }
+    
+    dropdown.innerHTML = '<div class="autocomplete-loading">Caricamento database...</div>';
+    dropdown.style.display = 'block';
+}
+
+function showNoResultsInAutocomplete() {
+    let dropdown = document.getElementById('cityAutocompleteDropdown');
+    if (!dropdown) {
+        dropdown = createAutocompleteDropdown('cityAutocompleteDropdown', 'citta');
+    }
+    
+    dropdown.innerHTML = '<div class="autocomplete-no-results">Nessun comune trovato</div>';
+    dropdown.style.display = 'block';
+}
+
+function hideCityAutocomplete() {
+    const dropdown = document.getElementById('cityAutocompleteDropdown');
+    if (dropdown) {
+        dropdown.style.display = 'none';
+    }
+}
+
+function hideMultipleDropdowns() {
+    const dropdowns = ['capMultipleDropdown'];
+    dropdowns.forEach(id => {
+        const dropdown = document.getElementById(id);
+        if (dropdown) {
+            dropdown.style.display = 'none';
+        }
+    });
+}
+
+function setFieldValidation(fieldId, isValid) {
+    const field = document.getElementById(fieldId);
+    if (!field) return;
+    
+    field.classList.remove('valid', 'invalid');
+    field.classList.add(isValid ? 'valid' : 'invalid');
+}
+
+function showValidationMessage(message, type) {
+    const existing = document.querySelectorAll('.validation-message');
+    existing.forEach(msg => msg.remove());
+    
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `alert alert-${type} validation-message`;
+    messageDiv.textContent = message;
+    
+    const provinciaInput = document.getElementById('provincia');
+    provinciaInput.parentNode.appendChild(messageDiv);
+    
+    setTimeout(() => messageDiv.remove(), 3000);
+}
+
+function showCAPError(message) {
+    const capInput = document.getElementById('cap');
+    setFieldValidation('cap', false);
+    
+    showValidationMessage(`❌ ${message}`, 'error');
+}
+
+function resetLocationValidation() {
+    ['citta', 'cap', 'provincia'].forEach(id => {
+        const field = document.getElementById(id);
+        if (field) {
+            field.classList.remove('valid', 'invalid');
+            field.style.borderColor = '';
+        }
+    });
+    
+    const messages = document.querySelectorAll('.validation-message');
+    messages.forEach(msg => msg.remove());
+}
+
+// NAVIGAZIONE SEZIONI
+
 function showSection(sectionId) {
     document.querySelectorAll('.step-section').forEach(section => {
         section.classList.remove('active');
@@ -104,9 +447,7 @@ function showSection(sectionId) {
     document.getElementById(sectionId).classList.add('active');
 }
 
-// Start new agibilità
 function startNewAgibilita() {
-    console.log('Starting new agibilità...'); // Debug
     agibilitaData.isModifica = false;
     agibilitaData.codiceAgibilita = null;
     selectedArtists = [];
@@ -114,29 +455,19 @@ function startNewAgibilita() {
     showSection('step1');
 }
 
-// Show edit list
 function showEditAgibilita() {
     document.getElementById('editListSection').style.display = 'block';
     showExistingAgibilita();
 }
 
-// Hide edit search
-function hideEditSearch() {
-    document.getElementById('editListSection').style.display = 'none';
-}
-
-// Clear all forms
 function clearAllForms() {
-    // Clear artists
     selectedArtists = [];
     updateArtistsList();
 
-    // Clear dates
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('dataInizio').value = today;
     document.getElementById('dataFine').value = '';
 
-    // Clear location
     document.getElementById('descrizioneLocale').value = '';
     document.getElementById('indirizzo').value = '';
     document.getElementById('citta').value = '';
@@ -144,11 +475,12 @@ function clearAllForms() {
     document.getElementById('provincia').value = '';
     document.getElementById('noteLocale').value = '';
 
-    // Hide edit list
     document.getElementById('editListSection').style.display = 'none';
+    resetLocationValidation();
 }
 
-// Modal functions
+// GESTIONE ARTISTI
+
 function showAddArtistModal() {
     document.getElementById('addArtistModal').style.display = 'block';
     document.getElementById('artistSearch').value = '';
@@ -159,7 +491,6 @@ function closeModal() {
     document.getElementById('addArtistModal').style.display = 'none';
 }
 
-// Search artists
 function searchArtists() {
     const searchTerm = document.getElementById('artistSearch').value.toLowerCase();
     const results = artistsDB.filter(artist => 
@@ -171,7 +502,14 @@ function searchArtists() {
 
     const resultsDiv = document.getElementById('searchResults');
     if (results.length === 0) {
-        resultsDiv.innerHTML = '<p>Nessun artista trovato</p>';
+        resultsDiv.innerHTML = `
+            <p>Nessun artista trovato</p>
+            <div style="text-align: center; margin-top: 1rem;">
+                <button class="btn btn-primary" onclick="goToRegistration()">
+                    ➕ Registra Nuovo Artista
+                </button>
+            </div>
+        `;
     } else {
         resultsDiv.innerHTML = results.map(artist => `
             <div class="search-result" onclick="addArtistToList(${artist.id})">
@@ -182,7 +520,11 @@ function searchArtists() {
     }
 }
 
-// Add artist to list
+function goToRegistration() {
+    sessionStorage.setItem('returnToAgibilita', 'true');
+    window.location.href = '../registrazione-artista.html';
+}
+
 function addArtistToList(artistId) {
     const artist = artistsDB.find(a => a.id === artistId);
     if (!artist) return;
@@ -196,14 +538,14 @@ function addArtistToList(artistId) {
     selectedArtists.push({
         ...artist,
         ruolo: artist.mansione || '',
-        compenso: 0
+        compenso: 0,
+        matricolaEnpals: artist.matricolaEnpals || generateMatricolaEnpals()
     });
 
     updateArtistsList();
     closeModal();
 }
 
-// Update artists list display
 function updateArtistsList() {
     const listDiv = document.getElementById('artistList');
 
@@ -217,14 +559,17 @@ function updateArtistsList() {
                 <div class="artist-info">
                     <strong>${artist.nome} ${artist.cognome}${artist.nomeArte ? ' - ' + artist.nomeArte : ''}</strong><br>
                     <small>CF: ${artist.cf}</small>
+                    ${artist.matricolaEnpals ? `<br><small>Matricola ENPALS: ${artist.matricolaEnpals}</small>` : ''}
                 </div>
                 <div class="artist-role-compensation">
                     <select class="form-control" required onchange="updateArtistRole(${index}, this.value)">
                         <option value="">Seleziona ruolo...</option>
-                        <option value="DJ" ${artist.ruolo === 'DJ' ? 'selected' : ''}>DJ</option>
-                        <option value="Vocalist" ${artist.ruolo === 'Vocalist' ? 'selected' : ''}>Vocalist</option>
-                        <option value="Ballerino/a" ${artist.ruolo === 'Ballerino/a' ? 'selected' : ''}>Ballerino/a</option>
-                        <option value="Tecnico" ${artist.ruolo === 'Tecnico' ? 'selected' : ''}>Tecnico</option>
+                        <option value="DJ" ${artist.ruolo === 'DJ' ? 'selected' : ''}>DJ (032)</option>
+                        <option value="Vocalist" ${artist.ruolo === 'Vocalist' ? 'selected' : ''}>Vocalist (031)</option>
+                        <option value="Ballerino/a" ${artist.ruolo === 'Ballerino/a' ? 'selected' : ''}>Ballerino/a (092)</option>
+                        <option value="Tecnico" ${artist.ruolo === 'Tecnico' ? 'selected' : ''}>Tecnico (117)</option>
+                        <option value="Fotografo" ${artist.ruolo === 'Fotografo' ? 'selected' : ''}>Fotografo (126)</option>
+                        <option value="Truccatore" ${artist.ruolo === 'Truccatore' ? 'selected' : ''}>Truccatore (141)</option>
                     </select>
                     <input type="number" class="form-control" placeholder="Compenso €" 
                            value="${artist.compenso || ''}" min="0" step="0.01"
@@ -241,40 +586,34 @@ function updateArtistsList() {
     }
 }
 
-// Update artist role
 function updateArtistRole(index, role) {
     selectedArtists[index].ruolo = role;
     checkCanProceed();
 }
 
-// Update artist compensation
 function updateArtistCompensation(index, value) {
     selectedArtists[index].compenso = parseFloat(value) || 0;
     updateTotalCompensation();
     checkCanProceed();
 }
 
-// Update total compensation
 function updateTotalCompensation() {
     const total = selectedArtists.reduce((sum, artist) => sum + (artist.compenso || 0), 0);
     document.getElementById('totalArtists').textContent = selectedArtists.length;
     document.getElementById('totalCompensation').textContent = total.toFixed(2);
 }
 
-// Remove artist
 function removeArtist(index) {
     selectedArtists.splice(index, 1);
     updateArtistsList();
 }
 
-// Check if can proceed
 function checkCanProceed() {
     const canProceed = selectedArtists.length > 0 && 
         selectedArtists.every(a => a.ruolo && a.compenso > 0);
     document.getElementById('btnNext1').style.display = canProceed ? 'inline-block' : 'none';
 }
 
-// Go to step 2
 function goToStep2() {
     if (selectedArtists.length === 0) {
         alert('Seleziona almeno un artista');
@@ -283,7 +622,8 @@ function goToStep2() {
     showSection('step2');
 }
 
-// Validate dates
+// GESTIONE DATE E VALIDAZIONE
+
 function validateDates() {
     const startDate = document.getElementById('dataInizio').value;
     const endDate = document.getElementById('dataFine').value;
@@ -294,7 +634,6 @@ function validateDates() {
             document.getElementById('dataFine').value = startDate;
         }
 
-        // Calculate duration
         const start = new Date(startDate);
         const end = new Date(endDate);
         const diffTime = Math.abs(end - start);
@@ -305,7 +644,8 @@ function validateDates() {
     }
 }
 
-// Search venue
+// GESTIONE VENUE
+
 function searchVenue() {
     const searchTerm = document.getElementById('descrizioneLocale').value.toLowerCase();
     const dropdown = document.getElementById('venueDropdown');
@@ -333,7 +673,6 @@ function searchVenue() {
     }
 }
 
-// Select venue
 function selectVenue(nome, indirizzo, citta, cap, provincia) {
     document.getElementById('descrizioneLocale').value = nome;
     document.getElementById('indirizzo').value = indirizzo;
@@ -341,11 +680,12 @@ function selectVenue(nome, indirizzo, citta, cap, provincia) {
     document.getElementById('cap').value = cap;
     document.getElementById('provincia').value = provincia;
     document.getElementById('venueDropdown').style.display = 'none';
+    
+    // Valida i dati dopo la selezione
+    validateLocationDataGI();
 }
 
-// Go to step 3
 function goToStep3() {
-    // Validate all fields
     const requiredFields = ['dataInizio', 'dataFine', 'descrizioneLocale', 'indirizzo', 'citta', 'cap', 'provincia'];
     const missingFields = requiredFields.filter(field => !document.getElementById(field).value);
 
@@ -354,7 +694,6 @@ function goToStep3() {
         return;
     }
 
-    // Save venue if new
     const venueName = document.getElementById('descrizioneLocale').value;
     const existingVenue = venuesDB.find(v => v.nome.toLowerCase() === venueName.toLowerCase());
 
@@ -371,21 +710,19 @@ function goToStep3() {
         localStorage.setItem('venuesDB', JSON.stringify(venuesDB));
     }
 
-    // Update summaries
     updateSummaries();
     generateXMLPreview();
     showSection('step3');
 }
 
-// Update summaries
+// GESTIONE RIEPILOGO E TAB
+
 function updateSummaries() {
-    // Artists summary
     const artistsHtml = selectedArtists.map(artist => 
         `<p><strong>${artist.nome} ${artist.cognome}</strong> - ${artist.ruolo} - €${artist.compenso.toFixed(2)}</p>`
     ).join('');
     document.getElementById('summaryArtists').innerHTML = artistsHtml;
 
-    // Dates summary
     const startDate = new Date(document.getElementById('dataInizio').value);
     const endDate = new Date(document.getElementById('dataFine').value);
     const datesHtml = `
@@ -394,7 +731,6 @@ function updateSummaries() {
     `;
     document.getElementById('summaryDates').innerHTML = datesHtml;
 
-    // Location summary
     const locationHtml = `
         <p><strong>${document.getElementById('descrizioneLocale').value}</strong></p>
         <p>${document.getElementById('indirizzo').value}</p>
@@ -403,89 +739,222 @@ function updateSummaries() {
     document.getElementById('summaryLocation').innerHTML = locationHtml;
 }
 
-// Show tab
 function showTab(tabName) {
-    // Update tab buttons
     document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
     event.target.classList.add('active');
 
-    // Update tab content
     document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
     document.getElementById('tab' + tabName.charAt(0).toUpperCase() + tabName.slice(1)).classList.add('active');
 }
 
-// Generate XML
+// GENERAZIONE XML CON DATABASE GI
+
 function generateXML() {
     const startDate = document.getElementById('dataInizio').value;
     const endDate = document.getElementById('dataFine').value;
     const tipo = agibilitaData.isModifica ? 'V' : 'N';
+    
+    const descrizioneLocale = document.getElementById('descrizioneLocale').value;
+    const indirizzo = document.getElementById('indirizzo').value;
+    const citta = document.getElementById('citta').value;
+    const cap = document.getElementById('cap').value;
+    const provincia = document.getElementById('provincia').value;
+    
+    const codiceComune = getCodiceIstatFromCityGI();
+
+    const qualificaMap = {
+        'DJ': '032',
+        'Vocalist': '031',
+        'Ballerino/a': '092',
+        'Tecnico': '117',
+        'Fotografo': '126',
+        'Truccatore': '141'
+    };
 
     let xml = `<?xml version="1.0" encoding="UTF-8"?>
-<Agibilita xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-    <CodiceFiscaleAzienda>04433920248</CodiceFiscaleAzienda>
-    <Matricola>9112806447</Matricola>
-    <Descrizione>OKL SRL</Descrizione>
-    <Tipo>${tipo}</Tipo>`;
+<ImportAgibilita>
+    <ElencoAgibilita>
+        <Agibilita>
+            <Tipo>${tipo}</Tipo>
+            <CodiceFiscaleAzienda>04433920248</CodiceFiscaleAzienda>
+            <Matricola>9112806447</Matricola>
+            <Descrizione>${descrizioneLocale}</Descrizione>
+            <Indirizzo>Via Monte Pasubio 222/1</Indirizzo>
+            <CodiceComune>M145</CodiceComune>
+            <Provincia>VI</Provincia>
+            <Cap>36010</Cap>
+            <Occupazioni>`;
 
-    if (agibilitaData.isModifica && agibilitaData.codiceAgibilita) {
-        xml += `\n    <IdentificativoAgibilita>${agibilitaData.codiceAgibilita}</IdentificativoAgibilita>`;
-    }
-
-    xml += `
-    <Occupazione>
-        <Tipo>O</Tipo>
-        <TipoRetribuzione>G</TipoRetribuzione>
-        <Descrizione>${document.getElementById('descrizioneLocale').value}</Descrizione>
-        <Indirizzo>${document.getElementById('indirizzo').value}</Indirizzo>
-        <Comune>${document.getElementById('citta').value}</Comune>
-        <CAP>${document.getElementById('cap').value}</CAP>
-        <Provincia>${document.getElementById('provincia').value}</Provincia>
-        <Periodo>
-            <DataDal>${startDate}</DataDal>
-            <DataAl>${endDate}</DataAl>
-        </Periodo>`;
-
-    // Add workers
-    selectedArtists.forEach(artist => {
-        const qualificaMap = {
-            'DJ': '032',
-            'Vocalist': '101',
-            'Ballerino/a': '102',
-            'Tecnico': '103'
-        };
-
-        // Calculate daily compensation
-        const start = new Date(startDate);
-        const end = new Date(endDate);
-        const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
-        const dailyCompensation = (artist.compenso / days).toFixed(2);
-
+    selectedArtists.forEach((artist, index) => {
+        const codiceQualifica = qualificaMap[artist.ruolo] || '032';
+        
         xml += `
-        <Lavoratore>
-            <CodiceFiscale>${artist.cf}</CodiceFiscale>
-            <Nome>${artist.nome}</Nome>
-            <Cognome>${artist.cognome}</Cognome>
-            <CodiceQualifica>${qualificaMap[artist.ruolo] || '032'}</CodiceQualifica>
-            <Retribuzione>${dailyCompensation}</Retribuzione>
-            <LegaleRappresentante>NO</LegaleRappresentante>
-        </Lavoratore>`;
+                <Occupazione>
+                    <Tipo>O</Tipo>
+                    <TipoRetribuzione>G</TipoRetribuzione>
+                    <Luogo>${citta}</Luogo>
+                    <Descrizione>Evento specifico per ${artist.nome}</Descrizione>
+                    <Indirizzo>${indirizzo}</Indirizzo>
+                    <CodiceComune>${codiceComune}</CodiceComune>
+                    <Provincia>${provincia}</Provincia>
+                    <Cap>${cap}</Cap>
+                    <Periodi>
+                        <Periodo>
+                            <DataDal>${startDate}</DataDal>
+                            <DataAl>${endDate}</DataAl>
+                        </Periodo>
+                    </Periodi>
+                    <Lavoratori>
+                        <Lavoratore>
+                            <CodiceFiscale>${artist.cf}</CodiceFiscale>
+                            <MatricolaEnpals>${artist.matricolaEnpals || generateMatricolaEnpals()}</MatricolaEnpals>
+                            <Cognome>${artist.cognome.toUpperCase()}</Cognome>
+                            <Nome>${artist.nome.toUpperCase()}</Nome>
+                            <LegaleRappresentante>NO</LegaleRappresentante>
+                            <CodiceQualifica>${codiceQualifica}</CodiceQualifica>
+                            <Retribuzione>${formatRetribuzione(artist.compenso)}</Retribuzione>
+                        </Lavoratore>
+                    </Lavoratori>
+                </Occupazione>`;
     });
 
     xml += `
-    </Occupazione>
-</Agibilita>`;
+            </Occupazioni>
+        </Agibilita>
+    </ElencoAgibilita>
+</ImportAgibilita>`;
 
     return xml;
 }
 
-// Generate XML preview
-function generateXMLPreview() {
-    const xml = generateXML();
-    const preview = xml.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    document.getElementById('xmlPreview').innerHTML = preview;
+function generateMatricolaEnpals() {
+    return Math.floor(1000000 + Math.random() * 9000000).toString();
 }
 
-// Save agibilità to database
+function formatRetribuzione(amount) {
+    return parseFloat(amount).toFixed(2).replace('.', ',');
+}
+
+function generateXMLPreview() {
+    try {
+        const xml = generateXML();
+        const validation = validateINPSXML(xml);
+        
+        let preview = xml.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        
+        preview = preview.replace(/(&lt;\/?[^&gt;]+&gt;)/g, '<span style="color: #e06c75;">$1</span>');
+        preview = preview.replace(/(&lt;!\[CDATA\[.*?\]\]&gt;)/g, '<span style="color: #98c379;">$1</span>');
+        
+        document.getElementById('xmlPreview').innerHTML = `<pre style="white-space: pre-wrap; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.4;">${preview}</pre>`;
+        
+        const statusDiv = document.createElement('div');
+        statusDiv.style.marginTop = '1rem';
+        statusDiv.style.padding = '0.5rem';
+        statusDiv.style.borderRadius = '4px';
+        
+        if (validation.isValid) {
+            statusDiv.className = 'alert alert-success';
+            statusDiv.innerHTML = '✅ XML valido e pronto per l\'invio INPS';
+        } else {
+            statusDiv.className = 'alert alert-error';
+            statusDiv.innerHTML = `❌ Errori di validazione:<br>${validation.errors.map(error => `• ${error}`).join('<br>')}`;
+        }
+        
+        document.getElementById('xmlPreview').parentNode.appendChild(statusDiv);
+        
+    } catch (error) {
+        document.getElementById('xmlPreview').innerHTML = 
+            `<span style="color: #e06c75;">Errore nella generazione XML: ${error.message}</span>`;
+    }
+}
+
+// VALIDAZIONE XML
+
+function validateINPSXML(xmlString) {
+    const errors = [];
+    
+    if (!xmlString.includes('<ImportAgibilita>')) {
+        errors.push('Tag principale ImportAgibilita mancante');
+    }
+    
+    if (!xmlString.includes('<ElencoAgibilita>')) {
+        errors.push('Tag ElencoAgibilita mancante');
+    }
+    
+    if (!xmlString.includes('<Occupazioni>')) {
+        errors.push('Sezione Occupazioni mancante');
+    }
+    
+    const requiredFields = [
+        'CodiceFiscaleAzienda',
+        'Matricola', 
+        'Descrizione',
+        'CodiceComune',
+        'Provincia',
+        'Cap'
+    ];
+    
+    requiredFields.forEach(field => {
+        if (!xmlString.includes(`<${field}>`)) {
+            errors.push(`Campo obbligatorio ${field} mancante`);
+        }
+    });
+    
+    const datePattern = /\d{4}-\d{2}-\d{2}/;
+    if (!datePattern.test(xmlString)) {
+        errors.push('Formato date non valido (deve essere YYYY-MM-DD)');
+    }
+    
+    selectedArtists.forEach(artist => {
+        if (!validaCodiceFiscale(artist.cf)) {
+            errors.push(`Codice fiscale non valido per ${artist.nome} ${artist.cognome}`);
+        }
+    });
+    
+    return {
+        isValid: errors.length === 0,
+        errors: errors
+    };
+}
+
+function validaCodiceFiscale(cf) {
+    const regex = /^[A-Z]{6}[0-9]{2}[A-Z][0-9]{2}[A-Z][0-9]{3}[A-Z]$/;
+    return regex.test(cf.toUpperCase());
+}
+
+// DOWNLOAD E SALVATAGGIO
+
+function downloadXML(xmlContent) {
+    const blob = new Blob([xmlContent], { type: 'text/xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ImportAgibilita_${new Date().toISOString().slice(0,10).replace(/-/g, '')}.xml`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function downloadAndSave() {
+    const xmlContent = generateXML();
+    const validation = validateINPSXML(xmlContent);
+    
+    if (!validation.isValid) {
+        alert('Errori di validazione:\n' + validation.errors.join('\n'));
+        return;
+    }
+
+    downloadXML(xmlContent);
+    saveAgibilitaToDatabase(xmlContent);
+
+    document.getElementById('btnConfirm').style.display = 'none';
+    document.getElementById('btnNewAgibilita').style.display = 'inline-block';
+
+    const successMsg = document.createElement('div');
+    successMsg.className = 'alert alert-success';
+    successMsg.textContent = 'XML scaricato e agibilità salvata con successo!';
+    document.getElementById('tabInvio').insertBefore(successMsg, document.getElementById('tabInvio').firstChild);
+}
+
 function saveAgibilitaToDatabase(xmlContent) {
     const agibilita = {
         id: Date.now(),
@@ -506,7 +975,8 @@ function saveAgibilitaToDatabase(xmlContent) {
             cognome: a.cognome,
             nomeArte: a.nomeArte,
             ruolo: a.ruolo,
-            compenso: a.compenso
+            compenso: a.compenso,
+            matricolaEnpals: a.matricolaEnpals
         })),
         xml: xmlContent,
         isModifica: agibilitaData.isModifica,
@@ -516,7 +986,6 @@ function saveAgibilitaToDatabase(xmlContent) {
     agibilitaDB.push(agibilita);
     localStorage.setItem('agibilitaDB', JSON.stringify(agibilitaDB));
 
-    // Update artists' agibilità
     selectedArtists.forEach(artist => {
         const artistIndex = artistsDB.findIndex(a => a.cf === artist.cf);
         if (artistIndex !== -1) {
@@ -529,252 +998,19 @@ function saveAgibilitaToDatabase(xmlContent) {
                 compenso: `€${artist.compenso.toFixed(2)}`,
                 note: artist.ruolo
             });
+            
+            if (!artistsDB[artistIndex].matricolaEnpals && artist.matricolaEnpals) {
+                artistsDB[artistIndex].matricolaEnpals = artist.matricolaEnpals;
+            }
         }
     });
     localStorage.setItem('artistsDB', JSON.stringify(artistsDB));
 }
 
-// Download XML
-function downloadXML(xmlContent) {
-    const blob = new Blob([xmlContent], { type: 'text/xml' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `agibilita_${new Date().toISOString().slice(0,10)}.xml`;
-    a.click();
-    URL.revokeObjectURL(url);
-}
-
-// Generate PDF
-function generatePDF() {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-
-    const startDate = document.getElementById('dataInizio').value;
-    const endDate = document.getElementById('dataFine').value;
-    const dataRichiesta = new Date().toLocaleDateString('it-IT');
-    const oraStampa = new Date().toLocaleTimeString('it-IT');
-    const protocollo = `INPS.9100.${formatDate(new Date())}.${Math.floor(Math.random() * 1000000).toString().padStart(7, '0')}`;
-    const numeroAgibilita = Math.floor(Math.random() * 10000000).toString();
-
-    // Add INPS logo placeholder (in production, use actual logo)
-    doc.setFillColor(0, 84, 159);
-    doc.rect(20, 10, 30, 15, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(16);
-    doc.text('INPS', 35, 20, { align: 'center' });
-    doc.setTextColor(0, 0, 0);
-
-    // Header info - right side
-    doc.setFontSize(10);
-    doc.text('SEDE DI: VICENZA', 150, 15);
-
-    // Certificate title
-    doc.setFontSize(11);
-    doc.text(`CERTIFICATO DI AGIBILITA' N. ${numeroAgibilita}`, 20, 35);
-    doc.text(`PROTOCOLLO: ${protocollo}`, 120, 35);
-
-    // Gray box for period
-    doc.setFillColor(240, 240, 240);
-    doc.rect(15, 40, 180, 20, 'F');
-    doc.setFontSize(10);
-    doc.text(`Periodo di validità: dal ${formatDate(startDate)} al ${formatDate(endDate)}`, 20, 50);
-    doc.text(`Data richiesta di consolidamento: ${dataRichiesta}`, 20, 56);
-
-    // Company section
-    doc.setFontSize(11);
-    doc.setFont(undefined, 'bold');
-    doc.text('IMPRESA', 20, 70);
-    doc.setFont(undefined, 'normal');
-    doc.setFontSize(10);
-    doc.text('Codice Fiscale: 04433920248', 20, 78);
-    doc.text('Denominazione: OKL SRL', 100, 78);
-
-    // Legal representative
-    doc.setFont(undefined, 'bold');
-    doc.text('LEGALE RAPPRESENTANTE', 20, 88);
-    doc.setFont(undefined, 'normal');
-    doc.text('Codice Fiscale: TMSCST88S22I531L', 20, 96);
-    doc.text('Cognome / Nome: TOMASI CRISTIANO', 100, 96);
-
-    // Contributive position
-    doc.setFont(undefined, 'bold');
-    doc.text('POSIZIONE CONTRIBUTIVA', 20, 106);
-    doc.setFont(undefined, 'normal');
-    doc.text('Denominazione: OKL SRL', 20, 114);
-    doc.text('Matricola: 9112806447', 140, 114);
-    doc.text('Via e num.: MONTE PASUBIO, 222/1', 20, 121);
-    doc.text('CAP: 36010', 140, 121);
-    doc.text('Comune: ZANE\'', 20, 128);
-    doc.text('Prov: VI', 140, 128);
-
-    // Footer of first section
-    doc.line(15, 135, 195, 135);
-    doc.setFontSize(9);
-    doc.text(`Data Stampa: ${dataRichiesta} ore: ${oraStampa}`, 20, 142);
-    doc.text(`Data richiesta: ${dataRichiesta}`, 120, 142);
-
-    // Director signature
-    doc.text('Il Direttore di Sede', 160, 155);
-    doc.text('GRAZIANO NUMA', 160, 162);
-    doc.setFontSize(8);
-    doc.text('Firma autografa omessa ai sensi dell\'art. 3, comma 2 del D. Lgs. n. 39/1993', 105, 175, { align: 'center' });
-
-    // Legend
-    doc.setFont(undefined, 'bold');
-    doc.text('LEGENDA : Codici Tipo Agibilità', 20, 190);
-    doc.setFont(undefined, 'normal');
-    doc.text('O - prestazione ordinaria, retribuita e soggetta a obblighi contributivi', 20, 197);
-    doc.text('E - lavoratore straniero che versa la contribuzione nel paese di origine', 20, 204);
-    doc.text('(es. mod. E101)', 25, 210);
-    doc.text('G - prestazione non retribuita priva di obblighi contributivi (es.', 20, 217);
-    doc.text('spettacoli di beneficenza)', 25, 223);
-
-    // New page for workers list
-    doc.addPage();
-
-    // Header for page 2
-    doc.setFillColor(0, 84, 159);
-    doc.rect(20, 10, 30, 15, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(16);
-    doc.text('INPS', 35, 20, { align: 'center' });
-    doc.setTextColor(0, 0, 0);
-
-    doc.setFontSize(10);
-    doc.text('SEDE DI: VICENZA', 150, 15);
-    doc.text(`CERTIFICATO DI AGIBILITA' N. ${numeroAgibilita}`, 20, 35);
-    doc.text(`Periodo di validità: dal ${formatDate(startDate)} al ${formatDate(endDate)}`, 20, 45);
-
-    // Workers table title
-    doc.setFontSize(11);
-    doc.setFont(undefined, 'bold');
-    doc.text('Elenco Lavoratori', 20, 60);
-    doc.setFont(undefined, 'normal');
-
-    // Table header
-    doc.setFontSize(8);
-    const tableTop = 70;
-    doc.line(15, tableTop, 195, tableTop);
-
-    // Table columns
-    const columns = [
-        { text: 'Codice fiscale', x: 16 },
-        { text: 'Matricola\nEnpals', x: 45 },
-        { text: 'Cognome e nome', x: 65 },
-        { text: 'Qual.', x: 105 },
-        { text: 'Num.\nGG.', x: 115 },
-        { text: 'Periodo occupazione\ndal        al', x: 125 },
-        { text: 'Retribuzione', x: 155 },
-        { text: 'Tipo\nRetrib.', x: 175 },
-        { text: 'Legale\nRapp.', x: 185 },
-        { text: 'Tipo\nAgib.', x: 193 }
-    ];
-
-    columns.forEach(col => {
-        const lines = col.text.split('\n');
-        lines.forEach((line, i) => {
-            doc.text(line, col.x, tableTop + 6 + (i * 4));
-        });
-    });
-
-    doc.line(15, tableTop + 14, 195, tableTop + 14);
-
-    // Workers data
-    let yPos = tableTop + 22;
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
-
-    selectedArtists.forEach((artist, index) => {
-        const qualificaMap = {
-            'DJ': '032',
-            'Vocalist': '101',
-            'Ballerino/a': '102',
-            'Tecnico': '103'
-        };
-
-        const dailyCompensation = (artist.compenso / days).toFixed(0);
-        const matricolaEnpals = Math.floor(Math.random() * 10000000).toString();
-
-        // Add location info below table
-        const localeInfo = `${document.getElementById('descrizioneLocale').value}`;
-        const indirizzoInfo = `${document.getElementById('indirizzo').value} ${document.getElementById('cap').value}`;
-
-        // Row data
-        doc.text(artist.cf, 16, yPos);
-        doc.text(matricolaEnpals, 45, yPos);
-        doc.text(`${artist.cognome} ${artist.nome}`.toUpperCase(), 65, yPos);
-        doc.text(qualificaMap[artist.ruolo] || '032', 107, yPos);
-        doc.text(days.toString(), 117, yPos);
-        doc.text(`${formatDate(startDate)} - ${formatDate(endDate)}`, 125, yPos);
-        doc.text(dailyCompensation, 160, yPos);
-        doc.text('G', 177, yPos);
-        doc.text('N', 187, yPos);
-        doc.text('O', 195, yPos);
-
-        // Location info on next line
-        yPos += 6;
-        doc.text(localeInfo.toUpperCase(), 16, yPos);
-        doc.text(indirizzoInfo.toUpperCase(), 100, yPos);
-
-        yPos += 8;
-
-        if (yPos > 270 && index < selectedArtists.length - 1) {
-            doc.addPage();
-            yPos = 40;
-        }
-    });
-
-    return doc;
-}
-
-// Format date for PDF
-function formatDate(dateStr) {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('it-IT', { 
-        day: '2-digit', 
-        month: '2-digit', 
-        year: 'numeric' 
-    });
-}
-
-// Download PDF
-function downloadPDF() {
-    const pdf = generatePDF();
-    pdf.save(`agibilita_${new Date().toISOString().slice(0,10)}.pdf`);
-}
-
-// Download and save (updated to include PDF)
-function downloadAndSave() {
-    const xmlContent = generateXML();
-
-    // Download XML
-    downloadXML(xmlContent);
-
-    // Download PDF
-    setTimeout(() => {
-        downloadPDF();
-    }, 500);
-
-    // Save to database
-    saveAgibilitaToDatabase(xmlContent);
-
-    document.getElementById('btnConfirm').style.display = 'none';
-    document.getElementById('btnNewAgibilita').style.display = 'inline-block';
-
-    const successMsg = document.createElement('div');
-    successMsg.className = 'alert alert-success';
-    successMsg.textContent = 'XML e PDF scaricati, agibilità salvata con successo!';
-    document.getElementById('tabInvio').insertBefore(successMsg, document.getElementById('tabInvio').firstChild);
-}
-
-// Confirm and proceed
 function confirmAndProceed() {
     downloadAndSave();
 }
 
-// New agibilità
 function newAgibilita() {
     clearAllForms();
     agibilitaData.isModifica = false;
@@ -790,12 +1026,12 @@ function newAgibilita() {
     showSection('tipoSection');
 }
 
-// Save draft
 function saveDraft() {
     alert('Funzionalità bozza in sviluppo');
 }
 
-// Show existing agibilità
+// GESTIONE AGIBILITÀ ESISTENTI
+
 function showExistingAgibilita() {
     const listDiv = document.getElementById('agibilitaList');
     listDiv.innerHTML = '';
@@ -830,7 +1066,6 @@ function showExistingAgibilita() {
     });
 }
 
-// Filter agibilità
 function filterAgibilita() {
     const searchTerm = document.getElementById('searchAgibilita').value.toLowerCase();
     const items = document.querySelectorAll('.agibilita-item');
@@ -841,7 +1076,6 @@ function filterAgibilita() {
     });
 }
 
-// Edit agibilità
 function editAgibilita(codice) {
     const agibilita = agibilitaDB.find(a => a.codice === codice);
     if (!agibilita) return;
@@ -870,11 +1104,10 @@ function editAgibilita(codice) {
     document.getElementById('provincia').value = agibilita.locale.provincia;
 
     updateArtistsList();
-    hideEditSearch();
+    document.getElementById('editListSection').style.display = 'none';
     showSection('step1');
 }
 
-// Duplicate agibilità
 function duplicateAgibilita(codice) {
     const agibilita = agibilitaDB.find(a => a.codice === codice);
     if (!agibilita) return;
@@ -905,11 +1138,10 @@ function duplicateAgibilita(codice) {
     document.getElementById('provincia').value = agibilita.locale.provincia;
 
     updateArtistsList();
-    hideEditSearch();
+    document.getElementById('editListSection').style.display = 'none';
     showSection('step1');
 }
 
-// Cancel agibilità
 function cancelAgibilita(codice) {
     if (confirm(`Sei sicuro di voler annullare l'agibilità ${codice}?`)) {
         const index = agibilitaDB.findIndex(a => a.codice === codice);
@@ -931,7 +1163,8 @@ function cancelAgibilita(codice) {
     }
 }
 
-// Close modal on click outside
+// EVENT LISTENERS GLOBALI
+
 window.onclick = function(event) {
     const modal = document.getElementById('addArtistModal');
 
@@ -939,7 +1172,6 @@ window.onclick = function(event) {
         closeModal();
     }
 
-    // Close venue dropdown
     if (!event.target.matches('#descrizioneLocale')) {
         document.getElementById('venueDropdown').style.display = 'none';
     }

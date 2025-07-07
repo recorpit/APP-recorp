@@ -406,23 +406,6 @@
             }
         }
 
-        // Validate age
-        function validateAge() {
-            const birthDate = new Date(document.getElementById('dataNascita').value);
-            const today = new Date();
-            const age = Math.floor((today - birthDate) / (365.25 * 24 * 60 * 60 * 1000));
-            
-            if (age < 18) {
-                document.getElementById('dataNascita').classList.add('error');
-                document.getElementById('ageError').style.display = 'block';
-                return age; // Return age for immediate check
-            } else {
-                document.getElementById('dataNascita').classList.remove('error');
-                document.getElementById('ageError').style.display = 'none';
-                return true;
-            }
-        }
-
         // Validate CF (basic check)
         function validateCF() {
             const cf = document.getElementById('cf').value.toUpperCase();
@@ -503,14 +486,30 @@
             // Save to localStorage
             localStorage.setItem('artistsDB', JSON.stringify(artistsDB));
 
-            // Show success message
-            document.getElementById('successMessage').style.display = 'block';
-            document.getElementById('registrationForm').style.display = 'none';
-            
-            // Redirect after 2 seconds
-            setTimeout(() => {
-                window.location.href = './index.html';
-            }, 2000);
+            // NEW: Check if coming from agibilità
+            if (sessionStorage.getItem('returnToAgibilita')) {
+                sessionStorage.removeItem('returnToAgibilita');
+                sessionStorage.setItem('newArtistId', artistData.id);
+                
+                // Show different message
+                document.getElementById('successMessage').innerHTML = 
+                    '✅ Artista registrato! Torno alla creazione agibilità...';
+                document.getElementById('successMessage').style.display = 'block';
+                document.getElementById('registrationForm').style.display = 'none';
+                
+                // Redirect to agibilità instead of homepage
+                setTimeout(() => {
+                    window.location.href = './agibilita/index.html';
+                }, 1500);
+            } else {
+                // Normal behavior (go to homepage)
+                document.getElementById('successMessage').style.display = 'block';
+                document.getElementById('registrationForm').style.display = 'none';
+                
+                setTimeout(() => {
+                    window.location.href = './index.html';
+                }, 2000);
+            }
         }
 
         // Auto uppercase for some fields
