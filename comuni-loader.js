@@ -105,7 +105,15 @@ window.GIDatabase.getComuniByProvincia = function(siglaProvincia) {
         // Usa il campo corretto basato sulla struttura del file
         const provincia = comune.sigla_provincia || comune.provincia || comune.siglaProvincia;
         return provincia === siglaProvincia;
-    });
+    }).map(comune => ({
+        // Normalizza i dati per avere una struttura consistente
+        codice: comune.codice_istat || comune.codiceIstat || comune.codice,
+        nome: comune.denominazione_ita || comune.denominazione || comune.nome,
+        provincia: comune.sigla_provincia || comune.provincia || comune.siglaProvincia,
+        cap: comune.cap || '',
+        lat: comune.lat || '',
+        lon: comune.lon || ''
+    }));
 };
 
 window.GIDatabase.getCapByComune = function(codiceIstat) {
