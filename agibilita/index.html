@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestione Agibilità - RECORP ALL-IN-ONE</title>
+    <link rel="stylesheet" href="../assets/style.css">
+    <style>
+        /* Stili specifici per agibilità */
+        .step-section {
+            display: none;
+        }
+        
+        .step-section.active {
+            display: block;
+        }
+        
+        .breadcrumb {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            padding: 1rem;
+            background: var(--light);
+            border-radius: 8px;
+        }
+        
+        .breadcrumb-item {
+            color: #6b7280;
+            text-decoration: none;
+        }
+        
+        .breadcrumb-item.active {
+            color: var(--primary);
+            font-weight: 600;
+        }
+        
+        .breadcrumb-separator {
+            color: #6b7280;
+        }
+        
+        /* Cards di selezione tipo */
+        .type-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+        
+        .type-card {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .type-card:hover {
+            border-color: var(--primary);
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+        
+        .type-card-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+        
+        .type-card h3 {
+            margin-bottom: 0.5rem;
+            color: var(--dark);
+        }
+        
+        .type-card p {
+            color: #6b7280;
+        }
+        
+        /* Artist list */
+        .artist-list {
+            background: var(--light);
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        
+        .artist-item {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .artist-info {
+            flex: 1;
+        }
+        
+        .artist-role-compensation {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+        
+        .btn-remove {
+            background: var(--danger);
+            color: white;
+            border: none;
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.875rem;
+        }
+        
+        .btn-remove:hover {
+            background: #dc2626;
+        }
+        
+        /* Search modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            padding: 20px;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 2rem;
+            position: relative;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #6b7280;
+        }
+        
+        .search-results {
+            margin-top: 1rem;
+        }
+        
+        .search-result {
+            padding: 0.75rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .search-result:hover {
+            background: var(--light);
+            border-color: var(--primary);
+        }
+        
+        /* Summary box */
+        .summary-box {
+            background: #e0e7ff;
+            border: 1px solid #c7d2fe;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        
+        .summary-box h4 {
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+        }
+        
+        /* Tab system */
+        .tabs {
+            display: flex;
+            gap: 1rem;
+            border-bottom: 2px solid #e5e7eb;
+            margin-bottom: 1.5rem;
+        }
+        
+        .tab {
+            padding: 0.75rem 1.5rem;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #6b7280;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+        }
+        
+        .tab.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* XML preview */
+        .xml-preview {
+            background: #1f2937;
+            color: #f3f4f6;
+            padding: 1rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+            line-height: 1.5;
+        }
+        
+        /* Agibilità list */
+        .agibilita-item {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .agibilita-item:hover {
+            border-color: var(--primary);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
+        }
+        
+        .agibilita-info {
+            margin-bottom: 1rem;
+        }
+        
+        .agibilita-code {
+            font-weight: 600;
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+        }
+        
+        .agibilita-dates, .agibilita-location, .agibilita-artists {
+            color: #6b7280;
+            font-size: 0.9rem;
+            margin-bottom: 0.25rem;
+        }
+        
+        .agibilita-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .btn-sm {
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+        }
+        
+        /* Date info */
+        .date-info {
+            background: #f3f4f6;
+            border-radius: 6px;
+            padding: 0.75rem;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            color: #6b7280;
+        }
+        
+        /* Autocomplete dropdown */
+        .autocomplete-dropdown {
+            position: absolute;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 100;
+            width: 100%;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .autocomplete-item {
+            padding: 0.5rem;
+            cursor: pointer;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        
+        .autocomplete-item:hover {
+            background: var(--light);
+        }
+        
+        .autocomplete-item:last-child {
+            border-bottom: none;
+        }
+        
+        /* Alert messages */
+        .alert {
+            padding: 1rem;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+        }
+        
+        .alert-success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #34d399;
+        }
+        
+        .alert-error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #f87171;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <!-- Header -->
+        <div class="header">
+            <h1>Gestione Agibilità</h1>
+            <p>Sistema integrato per la creazione e gestione delle agibilità ex-ENPALS</p>
+        </div>
+
+        <!-- Breadcrumb -->
+        <div class="breadcrumb">
+            <a href="../index.html" class="breadcrumb-item">Dashboard</a>
+            <span class="breadcrumb-separator">›</span>
+            <span class="breadcrumb-item active">Gestione Agibilità</span>
+        </div>
+
+        <!-- Tipo Agibilità Section -->
+        <div id="tipoSection" class="step-section active">
+            <h2>Seleziona Tipo di Operazione</h2>
+            <div class="type-cards">
+                <div class="type-card" onclick="startNewAgibilita()">
+                    <div class="type-card-icon">📄</div>
+                    <h3>Nuova Agibilità</h3>
+                    <p>Crea una nuova pratica di agibilità</p>
+                </div>
+                <div class="type-card" onclick="showEditAgibilita()">
+                    <div class="type-card-icon">📝</div>
+                    <h3>Modifica Agibilità</h3>
+                    <p>Modifica o gestisci agibilità esistenti</p>
+                </div>
+            </div>
+            
+            <!-- Lista agibilità per modifica -->
+            <div id="editListSection" style="display: none;">
+                <h3>Agibilità Recenti</h3>
+                <div class="form-group">
+                    <input type="text" class="form-control" id="searchAgibilita" placeholder="Cerca per codice o artista..." oninput="filterAgibilita()">
+                </div>
+                <div id="agibilitaList"></div>
+            </div>
+        </div>
+
+        <!-- Step 1: Artisti -->
+        <div id="step1" class="step-section">
+            <h2>Step 1: Selezione Artisti</h2>
+            
+            <button class="btn btn-primary" onclick="showAddArtistModal()">+ Aggiungi Artista</button>
+            
+            <div class="artist-list" id="artistList">
+                <p style="text-align: center; color: #6b7280;">Nessun artista selezionato</p>
+            </div>
+            
+            <div class="summary-box" id="summaryBox" style="display: none;">
+                <h4>Riepilogo</h4>
+                <p>Totale artisti: <span id="totalArtists">0</span></p>
+                <p>Compenso totale: €<span id="totalCompensation">0.00</span></p>
+            </div>
+            
+            <div class="btn-group" style="margin-top: 2rem;">
+                <button class="btn btn-secondary" onclick="showSection('tipoSection')">Indietro</button>
+                <button class="btn btn-primary" id="btnNext1" onclick="goToStep2()" style="display: none;">Avanti</button>
+            </div>
+        </div>
+
+        <!-- Step 2: Data e Luogo -->
+        <div id="step2" class="step-section">
+            <h2>Step 2: Data e Luogo</h2>
+            
+            <div class="form-section">
+                <h3>📅 Date dell'Evento</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Data Inizio *</label>
+                        <input type="date" class="form-control" id="dataInizio" required onchange="validateDates()">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Data Fine *</label>
+                        <input type="date" class="form-control" id="dataFine" required onchange="validateDates()">
+                    </div>
+                </div>
+                <div class="date-info" id="dateInfo" style="display: none;"></div>
+            </div>
+            
+            <div class="form-section">
+                <h3>📍 Luogo dell'Evento</h3>
+                <div class="form-group">
+                    <label class="form-label">Descrizione Locale *</label>
+                    <div style="position: relative;">
+                        <input type="text" class="form-control" id="descrizioneLocale" required 
+                               oninput="searchVenue()" placeholder="Es: Teatro Olimpico">
+                        <div id="venueDropdown" class="autocomplete-dropdown" style="display: none;"></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Indirizzo *</label>
+                    <input type="text" class="form-control" id="indirizzo" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Città *</label>
+                        <input type="text" class="form-control" id="citta" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">CAP *</label>
+                        <input type="text" class="form-control" id="cap" pattern="[0-9]{5}" maxlength="5" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Provincia *</label>
+                        <input type="text" class="form-control" id="provincia" maxlength="2" required style="text-transform: uppercase;">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Note (opzionale)</label>
+                    <textarea class="form-control" id="noteLocale" rows="3"></textarea>
+                </div>
+            </div>
+            
+            <div class="btn-group">
+                <button class="btn btn-secondary" onclick="showSection('step1')">Indietro</button>
+                <button class="btn btn-primary" onclick="goToStep3()">Avanti</button>
+            </div>
+        </div>
+
+        <!-- Step 3: Riepilogo e Invio -->
+        <div id="step3" class="step-section">
+            <h2>Step 3: Riepilogo e Invio</h2>
+            
+            <div class="tabs">
+                <button class="tab active" onclick="showTab('riepilogo')">Riepilogo</button>
+                <button class="tab" onclick="showTab('anteprima')">Anteprima XML</button>
+                <button class="tab" onclick="showTab('invio')">Invio</button>
+            </div>
+            
+            <!-- Tab Riepilogo -->
+            <div id="tabRiepilogo" class="tab-content active">
+                <div class="summary-box">
+                    <h4>🎭 Artisti</h4>
+                    <div id="summaryArtists"></div>
+                </div>
+                
+                <div class="summary-box">
+                    <h4>📅 Date</h4>
+                    <div id="summaryDates"></div>
+                </div>
+                
+                <div class="summary-box">
+                    <h4>📍 Luogo</h4>
+                    <div id="summaryLocation"></div>
+                </div>
+            </div>
+            
+            <!-- Tab Anteprima XML -->
+            <div id="tabAnteprima" class="tab-content">
+                <div class="xml-preview" id="xmlPreview"></div>
+            </div>
+            
+            <!-- Tab Invio -->
+            <div id="tabInvio" class="tab-content">
+                <div class="form-section">
+                    <h3>Opzioni di Invio</h3>
+                    <div class="btn-group" style="flex-direction: column; gap: 1rem;">
+                        <button class="btn btn-primary" onclick="downloadAndSave()">
+                            📥 Scarica XML e PDF + Salva
+                        </button>
+                        <button class="btn btn-info" onclick="downloadPDF()">
+                            📄 Scarica solo PDF
+                        </button>
+                        <button class="btn btn-secondary" onclick="window.open('https://www.inps.it', '_blank')">
+                            🌐 Vai al Portale INPS
+                        </button>
+                        <button class="btn btn-secondary" onclick="saveDraft()">
+                            💾 Salva Bozza
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="btn-group" style="margin-top: 2rem;">
+                <button class="btn btn-secondary" onclick="showSection('step2')">Indietro</button>
+                <button class="btn btn-primary" id="btnConfirm" onclick="confirmAndProceed()">Conferma e Scarica XML</button>
+                <button class="btn btn-success" id="btnNewAgibilita" style="display: none;" onclick="newAgibilita()">
+                    Scarica XML e Nuova Agibilità
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Aggiungi Artista -->
+    <div class="modal" id="addArtistModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Cerca e Aggiungi Artista</h2>
+                <button class="close-modal" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="form-group">
+                <input type="text" class="form-control" id="artistSearch" 
+                       placeholder="Cerca per nome, cognome o codice fiscale..." 
+                       oninput="searchArtists()">
+            </div>
+            <div class="search-results" id="searchResults"></div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="agibilita.js"></script>
+</body>
+</html>
