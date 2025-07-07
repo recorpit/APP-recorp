@@ -627,20 +627,56 @@
                 return;
             }
 
-            const comuni = window.GIDatabase.getComuniByProvincia(selectedProvincia);
+            // Cerca i comuni nel database con più varianti di campo
+            const allComuni = window.GIDatabase.getData().comuni || [];
             
-            if (comuni.length === 0) {
-                cittaSelect.innerHTML = '<option value="">Nessuna città trovata</option>';
+            const comuniProvincia = allComuni.filter(comune => {
+                const provincia = comune.siglaProvincialeSedeMunicipio || 
+                                comune.provincia || 
+                                comune.siglaProvincia ||
+                                comune.SIGLA_PROVINCIA ||
+                                comune.codiceProvincia;
+                
+                return provincia === selectedProvincia;
+            });
+
+            console.log(`🔍 Debug per provincia ${selectedProvincia}:`, {
+                totalComuni: allComuni.length,
+                comuniTrovati: comuniProvincia.length,
+                primoComune: allComuni[0] // Per vedere la struttura
+            });
+
+            if (comuniProvincia.length === 0) {
+                cittaSelect.innerHTML = '<option value="">Nessuna città trovata per questa provincia</option>';
+                
+                // Debug: mostra la struttura del primo comune
+                if (allComuni.length > 0) {
+                    console.log('🔍 Struttura primo comune:', Object.keys(allComuni[0]));
+                    console.log('🔍 Valori campo provincia del primo comune:', {
+                        siglaProvincialeSedeMunicipio: allComuni[0].siglaProvincialeSedeMunicipio,
+                        provincia: allComuni[0].provincia,
+                        siglaProvincia: allComuni[0].siglaProvincia,
+                        SIGLA_PROVINCIA: allComuni[0].SIGLA_PROVINCIA,
+                        codiceProvincia: allComuni[0].codiceProvincia
+                    });
+                }
                 return;
             }
 
-            const sortedComuni = comuni.sort((a, b) => a.nome.localeCompare(b.nome));
+            // Mappa i comuni nel formato standard
+            const comuniMappati = comuniProvincia.map(comune => ({
+                nome: comune.denominazione || comune.nome || comune.DENOMINAZIONE,
+                codice: comune.codiceCatastale || comune.codice || comune.CODICE_CATASTALE,
+                provincia: selectedProvincia,
+                cap: '' // Sarà risolto dopo
+            }));
+
+            const sortedComuni = comuniMappati.sort((a, b) => a.nome.localeCompare(b.nome));
 
             sortedComuni.forEach(comune => {
                 const option = document.createElement('option');
                 option.value = comune.nome;
                 option.dataset.codice = comune.codice;
-                option.dataset.cap = comune.cap;
                 option.textContent = comune.nome;
                 cittaSelect.appendChild(option);
             });
