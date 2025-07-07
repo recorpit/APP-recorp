@@ -144,46 +144,50 @@ function setupEventListeners() {
                 e.target.classList.remove('invalid');
                 e.target.classList.add('valid');
                 
-                // Estrai e compila automaticamente la data di nascita
-                const extractedDate = extractDateFromCF(e.target.value);
-                if (extractedDate) {
-                    const dataNascitaField = document.getElementById('dataNascita');
-                    dataNascitaField.value = extractedDate;
-                    dataNascitaField.dispatchEvent(new Event('change'));
+                // Estrai e compila automaticamente i dati dal CF
+                const extractedData = extractDataFromCF(e.target.value);
+                if (extractedData) {
+                    // Compila data di nascita
+                    if (extractedData.dataNascita) {
+                        const dataNascitaField = document.getElementById('dataNascita');
+                        dataNascitaField.value = extractedData.dataNascita;
+                        dataNascitaField.dispatchEvent(new Event('change'));
+                        
+                        // Rimuovi eventuali alert di mancata corrispondenza
+                        const existingAlert = dataNascitaField.parentElement.querySelector('.cf-mismatch-alert');
+                        if (existingAlert) existingAlert.remove();
+                    }
                     
-                    // Rimuovi eventuali alert di mancata corrispondenza
-                    const existingAlert = dataNascitaField.parentElement.querySelector('.cf-mismatch-alert');
-                    if (existingAlert) existingAlert.remove();
+                    // Compila sesso
+                    if (extractedData.sesso) {
+                        document.getElementById('sesso').value = extractedData.sesso;
+                    }
                     
-                    // Mostra anche il sesso estratto dal CF
-                    const gender = extractGenderFromCF(e.target.value);
-                    const genderText = gender === 'M' ? '(Maschio)' : '(Femmina)';
+                    // Compila luogo di nascita se trovato
+                    if (extractedData.luogoNascita) {
+                        document.getElementById('luogoNascita').value = extractedData.luogoNascita;
+                    }
                     
-                    // Rimuovi eventuale span esistente
-                    const existingGender = e.target.parentElement.querySelector('.gender-display');
-                    if (existingGender) existingGender.remove();
+                    // Compila provincia di nascita se trovata
+                    if (extractedData.provinciaNascita) {
+                        document.getElementById('provinciaNascita').value = extractedData.provinciaNascita;
+                    }
                     
-                    // Aggiungi span con il sesso
-                    const genderSpan = document.createElement('span');
-                    genderSpan.className = 'gender-display';
-                    genderSpan.style.marginLeft = '10px';
-                    genderSpan.style.color = 'var(--text-muted)';
-                    genderSpan.style.fontSize = '0.875rem';
-                    genderSpan.textContent = genderText;
-                    e.target.parentElement.appendChild(genderSpan);
+                    // Mostra info estratte
+                    showExtractedInfo(extractedData);
                 }
             } else {
                 e.target.classList.remove('valid');
                 e.target.classList.add('invalid');
-                // Rimuovi span del sesso se presente
-                const existingGender = e.target.parentElement.querySelector('.gender-display');
-                if (existingGender) existingGender.remove();
+                // Rimuovi span delle info se presente
+                const existingInfo = e.target.parentElement.querySelector('.cf-info-display');
+                if (existingInfo) existingInfo.remove();
             }
         } else {
             e.target.classList.remove('valid', 'invalid');
-            // Rimuovi span del sesso se presente
-            const existingGender = e.target.parentElement.querySelector('.gender-display');
-            if (existingGender) existingGender.remove();
+            // Rimuovi span delle info se presente
+            const existingInfo = e.target.parentElement.querySelector('.cf-info-display');
+            if (existingInfo) existingInfo.remove();
         }
     });
     
@@ -196,6 +200,64 @@ function setupEventListeners() {
     document.getElementById('email').addEventListener('blur', function(e) {
         if (e.target.value) {
             if (validateEmail(e.target.value)) {
+                e.target.classList.remove('invalid');
+                e.target.classList.add('valid');
+            } else {
+                e.target.classList.remove('valid');
+                e.target.classList.add('invalid');
+            }
+        } else {
+            e.target.classList.remove('valid', 'invalid');
+        }
+    });
+    
+    // Event listener per mostrare/nascondere campo partita IVA
+    document.getElementById('hasPartitaIva').addEventListener('change', function(e) {
+        const partitaIvaGroup = document.getElementById('partitaIvaGroup');
+        const partitaIvaField = document.getElementById('partitaIva');
+        
+        if (e.target.value === 'si') {
+            partitaIvaGroup.style.display = 'block';
+            partitaIvaField.required = true;
+        } else {
+            partitaIvaGroup.style.display = 'none';
+            partitaIvaField.required = false;
+            partitaIvaField.value = '';
+        }
+    });
+    
+    // Validazione partita IVA
+    document.getElementById('partitaIva').addEventListener('input', function(e) {
+        // Accetta solo numeri
+        e.target.value = e.target.value.replace(/[^0-9]/g, '');
+        
+        // Validazione visiva
+        if (e.target.value.length === 11) {
+            if (validatePartitaIva(e.target.value)) {
+                e.target.classList.remove('invalid');
+                e.target.classList.add('valid');
+            } else {
+                e.target.classList.remove('valid');
+                e.target.classList.add('invalid');
+            }
+        } else {
+            e.target.classList.remove('valid', 'invalid');
+        }
+    });
+    
+    // Auto-uppercase per provincia nascita
+    document.getElementById('provinciaNascita').addEventListener('input', function(e) {
+        e.target.value = e.target.value.toUpperCase().substring(0, 2);
+    });
+    
+    // Validazione IBAN
+    document.getElementById('iban').addEventListener('input', function(e) {
+        // Converte in maiuscolo e rimuove spazi
+        e.target.value = e.target.value.toUpperCase().replace(/\s/g, '');
+        
+        // Validazione visiva
+        if (e.target.value.length >= 15) { // IBAN minimo
+            if (validateIBAN(e.target.value)) {
                 e.target.classList.remove('invalid');
                 e.target.classList.add('valid');
             } else {
@@ -363,6 +425,9 @@ function handleFormSubmit(e) {
         codiceFiscale: formData.get('codiceFiscale').toUpperCase(),
         matricolaENPALS: formData.get('matricolaENPALS')?.toUpperCase() || '',
         dataNascita: dataNascita,
+        sesso: formData.get('sesso') || '',
+        luogoNascita: formData.get('luogoNascita') || '',
+        provinciaNascita: formData.get('provinciaNascita')?.toUpperCase() || '',
         eta: calculateAge(dataNascita),
         nazionalita: formData.get('nazionalita'),
         telefono: formData.get('telefono'),
@@ -372,8 +437,10 @@ function handleFormSubmit(e) {
         citta: document.querySelector('#citta option:checked')?.textContent || '',
         cap: formData.get('cap'),
         codiceIstatCitta: formData.get('citta'), // Salva anche il codice ISTAT
+        hasPartitaIva: formData.get('hasPartitaIva'),
+        partitaIva: formData.get('hasPartitaIva') === 'si' ? formData.get('partitaIva') : '',
+        iban: formData.get('iban').toUpperCase().replace(/\s/g, ''),
         mansione: formData.get('mansione'),
-        compensoGiornaliero: parseFloat(formData.get('compensoGiornaliero')) || 0,
         note: formData.get('note'),
         dataRegistrazione: new Date().toISOString()
     };
@@ -412,6 +479,18 @@ function handleFormSubmit(e) {
         return;
     }
     
+    // Verifica IBAN
+    if (!validateIBAN(artistData.iban)) {
+        showError('IBAN non valido');
+        return;
+    }
+    
+    // Verifica partita IVA se presente
+    if (artistData.hasPartitaIva === 'si' && !validatePartitaIva(artistData.partitaIva)) {
+        showError('Partita IVA non valida');
+        return;
+    }
+    
     // Salva nel database locale
     saveArtist(artistData);
 }
@@ -430,6 +509,99 @@ function extractGenderFromCF(cf) {
     
     const dayCode = parseInt(cf.substring(9, 11));
     return dayCode > 40 ? 'F' : 'M';
+}
+
+// Estrae tutti i dati possibili dal codice fiscale
+function extractDataFromCF(cf) {
+    if (!cf || cf.length !== 16) return null;
+    
+    const data = {};
+    
+    // Estrai data di nascita
+    data.dataNascita = extractDateFromCF(cf);
+    
+    // Estrai sesso
+    data.sesso = extractGenderFromCF(cf);
+    
+    // Estrai codice catastale del comune
+    const codiceCatastale = cf.substring(11, 15);
+    
+    // Cerca il comune di nascita (richiede un database dei codici catastali)
+    const comuneInfo = findComuneByCodCatastale(codiceCatastale);
+    if (comuneInfo) {
+        data.luogoNascita = comuneInfo.nome;
+        data.provinciaNascita = comuneInfo.provincia;
+    }
+    
+    return data;
+}
+
+// Cerca comune per codice catastale
+function findComuneByCodCatastale(codice) {
+    // Verifica se abbiamo i dati dei comuni
+    const comuni = window.GIDatabase?.getData()?.comuni || [];
+    
+    // Cerca il comune con il codice catastale corrispondente
+    const comune = comuni.find(c => 
+        c.codice_catastale === codice || 
+        c.codiceCatastale === codice ||
+        c.codice_belfiore === codice ||
+        c.codiceBelfiore === codice
+    );
+    
+    if (comune) {
+        return {
+            nome: comune.denominazione_ita || comune.denominazione || comune.nome,
+            provincia: comune.sigla_provincia || comune.provincia || comune.siglaProvincia
+        };
+    }
+    
+    // Se non trovato nei comuni italiani, potrebbe essere uno stato estero
+    // Codici degli stati esteri iniziano con Z
+    if (codice.startsWith('Z')) {
+        // Qui potresti aggiungere una mappatura degli stati esteri
+        return null; // Per ora restituiamo null
+    }
+    
+    return null;
+}
+
+// Mostra le informazioni estratte dal CF
+function showExtractedInfo(data) {
+    // Rimuovi eventuale span esistente
+    const cfField = document.getElementById('codiceFiscale');
+    const existingInfo = cfField.parentElement.querySelector('.cf-info-display');
+    if (existingInfo) existingInfo.remove();
+    
+    // Crea testo informativo
+    let infoText = 'Dati estratti: ';
+    const infoParts = [];
+    
+    if (data.sesso) {
+        infoParts.push(data.sesso === 'M' ? 'Maschio' : 'Femmina');
+    }
+    
+    if (data.luogoNascita) {
+        let luogoText = data.luogoNascita;
+        if (data.provinciaNascita) {
+            luogoText += ` (${data.provinciaNascita})`;
+        }
+        infoParts.push(`nato a ${luogoText}`);
+    }
+    
+    if (infoParts.length > 0) {
+        infoText += infoParts.join(', ');
+        
+        // Aggiungi span con le info
+        const infoSpan = document.createElement('span');
+        infoSpan.className = 'cf-info-display';
+        infoSpan.style.display = 'block';
+        infoSpan.style.marginTop = '5px';
+        infoSpan.style.color = 'var(--text-muted)';
+        infoSpan.style.fontSize = '0.875rem';
+        infoSpan.textContent = infoText;
+        cfField.parentElement.appendChild(infoSpan);
+    }
 }
 
 // Estrae la data di nascita dal codice fiscale
@@ -500,6 +672,85 @@ function validatePhone(phone) {
     // Verifica formato italiano (opzionale +39, poi 10 cifre)
     const pattern = /^(\+39)?[0-9]{10}$/;
     return pattern.test(cleanPhone);
+}
+
+// Validazione IBAN
+function validateIBAN(iban) {
+    // Rimuovi spazi e converti in maiuscolo
+    iban = iban.replace(/\s/g, '').toUpperCase();
+    
+    // Verifica lunghezza per paese (IT = 27 caratteri)
+    const ibanLengths = {
+        'AD': 24, 'AE': 23, 'AT': 20, 'AZ': 28, 'BA': 20, 'BE': 16,
+        'BG': 22, 'BH': 22, 'BR': 29, 'CH': 21, 'CR': 21, 'CY': 28,
+        'CZ': 24, 'DE': 22, 'DK': 18, 'DO': 28, 'EE': 20, 'ES': 24,
+        'FI': 18, 'FO': 18, 'FR': 27, 'GB': 22, 'GI': 23, 'GL': 18,
+        'GR': 27, 'GT': 28, 'HR': 21, 'HU': 28, 'IE': 22, 'IL': 23,
+        'IS': 26, 'IT': 27, 'JO': 30, 'KW': 30, 'KZ': 20, 'LB': 28,
+        'LI': 21, 'LT': 20, 'LU': 20, 'LV': 21, 'MC': 27, 'MD': 24,
+        'ME': 22, 'MK': 19, 'MR': 27, 'MT': 31, 'MU': 30, 'NL': 18,
+        'NO': 15, 'PK': 24, 'PL': 28, 'PS': 29, 'PT': 25, 'QA': 29,
+        'RO': 24, 'RS': 22, 'SA': 24, 'SE': 24, 'SI': 19, 'SK': 24,
+        'SM': 27, 'TN': 24, 'TR': 26
+    };
+    
+    // Verifica formato base
+    if (!/^[A-Z]{2}[0-9]{2}[A-Z0-9]+$/.test(iban)) {
+        return false;
+    }
+    
+    // Estrai codice paese
+    const countryCode = iban.substring(0, 2);
+    
+    // Verifica lunghezza per paese
+    if (ibanLengths[countryCode] && iban.length !== ibanLengths[countryCode]) {
+        return false;
+    }
+    
+    // Algoritmo di validazione IBAN
+    // Sposta i primi 4 caratteri alla fine
+    const rearranged = iban.substring(4) + iban.substring(0, 4);
+    
+    // Converti lettere in numeri (A=10, B=11, ..., Z=35)
+    let numericIBAN = '';
+    for (let i = 0; i < rearranged.length; i++) {
+        const char = rearranged.charAt(i);
+        if (isNaN(char)) {
+            numericIBAN += (char.charCodeAt(0) - 55).toString();
+        } else {
+            numericIBAN += char;
+        }
+    }
+    
+    // Calcola modulo 97
+    let remainder = numericIBAN.substring(0, 2);
+    for (let i = 2; i < numericIBAN.length; i++) {
+        remainder = (parseInt(remainder) % 97) + numericIBAN.charAt(i);
+    }
+    
+    return parseInt(remainder) % 97 === 1;
+}
+
+// Validazione Partita IVA
+function validatePartitaIva(piva) {
+    if (!piva || piva.length !== 11) return false;
+    
+    // Verifica che sia composta solo da numeri
+    if (!/^\d{11}$/.test(piva)) return false;
+    
+    // Algoritmo di validazione partita IVA italiana
+    let sum = 0;
+    for (let i = 0; i < 11; i++) {
+        const digit = parseInt(piva.charAt(i));
+        if (i % 2 === 0) {
+            sum += digit;
+        } else {
+            const doubled = digit * 2;
+            sum += doubled > 9 ? doubled - 9 : doubled;
+        }
+    }
+    
+    return sum % 10 === 0;
 }
 
 function calculateAge(birthDate) {
