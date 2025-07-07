@@ -5,124 +5,291 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RECORP ALL-IN-ONE - Sistema Gestionale</title>
     <link rel="stylesheet" href="./assets/style.css">
+    <style>
+        /* Stili specifici per la dropdown di suggerimenti */
+        .suggestions-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: var(--dark-card);
+            border: 1px solid var(--dark-border);
+            border-radius: 0 0 10px 10px;
+            box-shadow: var(--shadow-lg);
+            max-height: 300px;
+            overflow-y: auto;
+            display: none;
+            z-index: 100;
+        }
+        
+        .suggestion-item {
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            transition: background 0.2s ease;
+            border-bottom: 1px solid var(--dark-border);
+        }
+        
+        .suggestion-item:hover {
+            background: var(--dark-bg);
+        }
+        
+        .suggestion-item:last-child {
+            border-bottom: none;
+        }
+        
+        .suggestion-info {
+            font-size: 0.85rem;
+            color: var(--gray-500);
+            margin-top: 0.25rem;
+        }
+        
+        .no-suggestions {
+            padding: 1rem;
+            text-align: center;
+            color: var(--gray-500);
+            font-style: italic;
+        }
+        
+        /* Fix per il body quando c'è la navbar */
+        body {
+            padding: 0;
+            display: block;
+            min-height: 100vh;
+        }
+        
+        /* Container principale con padding per navbar */
+        .page-container {
+            padding-top: 80px;
+            min-height: 100vh;
+            background: var(--dark-surface);
+        }
+        
+        /* Stats cards con gradient */
+        .stat-card {
+            background: linear-gradient(135deg, var(--dark-card), var(--dark-bg));
+        }
+        
+        /* Tab styles */
+        .tab {
+            padding: 0.75rem 1.5rem;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--gray-500);
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+        }
+        
+        .tab:hover {
+            color: var(--gray-300);
+        }
+        
+        .tab.active {
+            color: var(--accent-gold) !important;
+            border-bottom-color: var(--accent-gold) !important;
+        }
+        
+        /* Database manager specific styles */
+        .btn-sm {
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+        }
+        
+        .form-section {
+            background: var(--dark-card);
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--dark-border);
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        
+        /* Table styles for dark theme */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th {
+            background: var(--dark-bg) !important;
+            color: var(--gray-300);
+            padding: 0.75rem !important;
+            text-align: left;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 0.5px;
+        }
+        
+        td {
+            padding: 0.75rem !important;
+            border-bottom: 1px solid var(--dark-border);
+            color: var(--gray-200);
+        }
+        
+        tr:hover {
+            background: var(--dark-bg);
+        }
+        
+        /* File input styling */
+        input[type="file"] {
+            padding: 0.5rem;
+            background: var(--dark-bg);
+            border: 2px dashed var(--dark-border);
+            border-radius: 8px;
+            width: 100%;
+            cursor: pointer;
+            color: var(--gray-300);
+        }
+        
+        input[type="file"]:hover {
+            border-color: var(--accent-gold);
+        }
+    </style>
 </head>
 <body>
-    <div class="main-container">
-        <!-- Header -->
-        <div class="header">
-            <h1>RECORP ALL-IN-ONE</h1>
-            <p>Sistema integrato per la gestione artisti e agibilità</p>
-        </div>
-
-        <!-- Ricerca e Registrazione -->
-        <div class="search-section">
-            <div class="search-container">
-                <div style="position: relative; flex: 1;">
-                    <input type="text" class="search-input" id="searchInput" 
-                           placeholder="Cerca artista per nome o codice fiscale..."
-                           oninput="showSuggestions()" 
-                           onblur="setTimeout(hideSuggestions, 200)"
-                           autocomplete="off">
-                    <div id="suggestions" class="suggestions-dropdown"></div>
-                </div>
-                <button class="btn-search" onclick="searchArtist()">
-                    🔍 Cerca
-                </button>
-            </div>
-            <div style="text-align: center; margin-top: 1rem;">
-                <a href="./registrazione-artista.html" class="btn btn-success">
-                    ➕ Registra Nuovo Artista
-                </a>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="navbar-content">
+            <a href="./index.html" class="logo">
+                <img src="./assets/logo.png" alt="RECORP Logo">
+                <span class="logo-text">RECORP ALL-IN-ONE</span>
+            </a>
+            <div class="nav-links">
+                <a href="./index.html" class="active">Dashboard</a>
+                <a href="./database.html">Database</a>
+                <a href="./registrazione-artista.html">Nuova Registrazione</a>
+                <a href="./agibilita/index.html">Agibilità</a>
+                <a href="./documenti.html">Documenti</a>
             </div>
         </div>
+    </nav>
 
-        <!-- Azioni principali -->
-        <div class="actions-grid">
-            <div class="action-card" onclick="goToAgibilita()">
-                <div class="action-icon">
-                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                        <polyline points="14 2 14 8 20 8"></polyline>
-                        <line x1="16" y1="13" x2="8" y2="13"></line>
-                        <line x1="16" y1="17" x2="8" y2="17"></line>
-                        <polyline points="10 9 9 9 8 9"></polyline>
-                    </svg>
-                </div>
-                <h3>Creazione Agibilità</h3>
-                <p>Crea nuove agibilità o modifica esistenti</p>
+    <div class="page-container">
+        <div class="container">
+            <!-- Header -->
+            <div class="header">
+                <h1>RECORP ALL-IN-ONE</h1>
+                <p>Sistema integrato per la gestione artisti e agibilità</p>
             </div>
-            
-            <div class="action-card" onclick="showComingSoon()">
-                <div class="action-icon">
-                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
-                    </svg>
-                </div>
-                <h3>Comunicazione a Chiamata</h3>
-                <p>Gestisci il lavoro intermittente</p>
-            </div>
-            
-            <div class="action-card" onclick="showComingSoon()">
-                <div class="action-icon">
-                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="12" y1="1" x2="12" y2="23"></line>
-                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-                    </svg>
-                </div>
-                <h3>Gestione Fatturazione</h3>
-                <p>Fatture e documenti fiscali</p>
-            </div>
-            
-            <div class="action-card" onclick="showComingSoon()">
-                <div class="action-icon">
-                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
-                        <line x1="1" y1="10" x2="23" y2="10"></line>
-                    </svg>
-                </div>
-                <h3>Gestione Pagamenti</h3>
-                <p>Traccia pagamenti e scadenze</p>
-            </div>
-        </div>
 
-        <!-- Statistiche -->
-        <div class="stats-section">
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-value" id="totalArtists">0</div>
-                    <div class="stat-label">Artisti Registrati</div>
+            <!-- Ricerca e Registrazione -->
+            <div class="search-section">
+                <div class="search-container">
+                    <div style="position: relative; flex: 1;">
+                        <input type="text" class="search-input" id="searchInput" 
+                               placeholder="Cerca artista per nome o codice fiscale..."
+                               oninput="showSuggestions()" 
+                               onblur="setTimeout(hideSuggestions, 200)"
+                               autocomplete="off">
+                        <div id="suggestions" class="suggestions-dropdown"></div>
+                    </div>
+                    <button class="btn btn-primary" onclick="searchArtist()">
+                        🔍 Cerca
+                    </button>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="monthlyAgibilita">0</div>
-                    <div class="stat-label">Agibilità Questo Mese</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="totalCompensation">€0</div>
-                    <div class="stat-label">Totale Compensi</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="completionRate">0%</div>
-                    <div class="stat-label">Pratiche Completate</div>
+                <div style="text-align: center; margin-top: 1rem;">
+                    <a href="./registrazione-artista.html" class="btn btn-success">
+                        ➕ Registra Nuovo Artista
+                    </a>
                 </div>
             </div>
-        </div>
 
-        <!-- Footer -->
-        <div class="footer">
-            <p>RECORP ALL-IN-ONE © 2025 - Sistema Gestionale Integrato</p>
+            <!-- Azioni principali -->
+            <div class="actions-grid">
+                <div class="action-card" onclick="startNewAgibilita()">
+                    <div class="action-icon">
+                        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                            <polyline points="10 9 9 9 8 9"></polyline>
+                        </svg>
+                    </div>
+                    <h3>Creazione Agibilità</h3>
+                    <p>Crea nuove agibilità o modifica esistenti</p>
+                </div>
+                
+                <div class="action-card" onclick="showComingSoon()">
+                    <div class="action-icon">
+                        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+                        </svg>
+                    </div>
+                    <h3>Comunicazione a Chiamata</h3>
+                    <p>Gestisci il lavoro intermittente</p>
+                </div>
+                
+                <div class="action-card" onclick="showComingSoon()">
+                    <div class="action-icon">
+                        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="1" x2="12" y2="23"></line>
+                            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                        </svg>
+                    </div>
+                    <h3>Gestione Fatturazione</h3>
+                    <p>Fatture e documenti fiscali</p>
+                </div>
+                
+                <div class="action-card" onclick="showComingSoon()">
+                    <div class="action-icon">
+                        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+                            <line x1="1" y1="10" x2="23" y2="10"></line>
+                        </svg>
+                    </div>
+                    <h3>Gestione Pagamenti</h3>
+                    <p>Traccia pagamenti e scadenze</p>
+                </div>
+            </div>
+
+            <!-- Statistiche -->
+            <div class="stats-section">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalArtists">0</div>
+                        <div class="stat-label">Artisti Registrati</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="monthlyAgibilita">0</div>
+                        <div class="stat-label">Agibilità Questo Mese</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalCompensation">€0</div>
+                        <div class="stat-label">Totale Compensi</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="completionRate">0%</div>
+                        <div class="stat-label">Pratiche Completate</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="footer">
+                <p>RECORP ALL-IN-ONE © 2025 - Sistema Gestionale Integrato</p>
+            </div>
         </div>
     </div>
 
     <!-- Database Management Button -->
-    <div style="position: fixed; bottom: 20px; right: 20px;">
-        <button class="btn btn-secondary btn-sm" onclick="toggleDatabaseManager()" style="opacity: 0.7;">
+    <div style="position: fixed; bottom: 20px; right: 20px; z-index: 100;">
+        <button class="btn btn-secondary btn-sm" onclick="toggleDatabaseManager()" style="opacity: 0.8;">
             ⚙️ Gestione DB
         </button>
     </div>
 
     <!-- Chat AI Button -->
-    <div style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 1000;">
-        <button class="btn btn-primary" onclick="openChatAI()" style="box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4); padding: 0.75rem 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+    <div style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 100;">
+        <button class="btn btn-primary" onclick="openChatAI()" style="box-shadow: 0 4px 15px rgba(251, 191, 36, 0.4); padding: 0.75rem 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
             <span style="font-size: 1.2rem;">🤖</span>
             <span>Assistente AI</span>
         </button>
@@ -149,10 +316,10 @@
                 <button class="close-modal" onclick="closeDatabaseManager()">&times;</button>
             </div>
             
-            <div class="tabs" style="display: flex; gap: 1rem; border-bottom: 2px solid #e5e7eb; margin-bottom: 1.5rem;">
-                <button class="tab active" onclick="showDBTab('artisti')" style="padding: 0.75rem 1.5rem; background: none; border: none; cursor: pointer; color: #6b7280; font-weight: 500; transition: all 0.3s ease; border-bottom: 2px solid transparent; margin-bottom: -2px;">Artisti</button>
-                <button class="tab" onclick="showDBTab('locali')" style="padding: 0.75rem 1.5rem; background: none; border: none; cursor: pointer; color: #6b7280; font-weight: 500; transition: all 0.3s ease; border-bottom: 2px solid transparent; margin-bottom: -2px;">Locali</button>
-                <button class="tab" onclick="showDBTab('export')" style="padding: 0.75rem 1.5rem; background: none; border: none; cursor: pointer; color: #6b7280; font-weight: 500; transition: all 0.3s ease; border-bottom: 2px solid transparent; margin-bottom: -2px;">Export/Import</button>
+            <div class="tabs" style="display: flex; gap: 1rem; border-bottom: 2px solid var(--dark-border); margin-bottom: 1.5rem;">
+                <button class="tab active" onclick="showDBTab('artisti')">Artisti</button>
+                <button class="tab" onclick="showDBTab('locali')">Locali</button>
+                <button class="tab" onclick="showDBTab('export')">Export/Import</button>
             </div>
             
             <!-- Tab Artisti -->
@@ -162,18 +329,18 @@
                            placeholder="Cerca artista..." oninput="filterDBArtists()">
                 </div>
                 <div style="max-height: 400px; overflow-y: auto;">
-                    <table style="width: 100%; border-collapse: collapse;">
+                    <table>
                         <thead>
-                            <tr style="background: #f3f4f6;">
-                                <th style="padding: 0.5rem; text-align: left;">Nome</th>
-                                <th style="padding: 0.5rem; text-align: left;">CF</th>
-                                <th style="padding: 0.5rem; text-align: left;">Mansione</th>
-                                <th style="padding: 0.5rem; text-align: center;">Azioni</th>
+                            <tr>
+                                <th>Nome</th>
+                                <th>CF</th>
+                                <th>Mansione</th>
+                                <th style="text-align: center;">Azioni</th>
                             </tr>
                         </thead>
                         <tbody id="dbArtistsList"></tbody>
                     </table>
-                    <p id="noArtistsMsg" style="text-align: center; color: #6b7280; margin-top: 2rem; display: none;">Nessun artista nel database</p>
+                    <p id="noArtistsMsg" style="text-align: center; color: var(--gray-500); margin-top: 2rem; display: none;">Nessun artista nel database</p>
                 </div>
             </div>
             
@@ -184,26 +351,26 @@
                            placeholder="Cerca locale..." oninput="filterDBVenues()">
                 </div>
                 <div style="max-height: 400px; overflow-y: auto;">
-                    <table style="width: 100%; border-collapse: collapse;">
+                    <table>
                         <thead>
-                            <tr style="background: #f3f4f6;">
-                                <th style="padding: 0.5rem; text-align: left;">Nome</th>
-                                <th style="padding: 0.5rem; text-align: left;">Città</th>
-                                <th style="padding: 0.5rem; text-align: left;">Indirizzo</th>
-                                <th style="padding: 0.5rem; text-align: center;">Azioni</th>
+                            <tr>
+                                <th>Nome</th>
+                                <th>Città</th>
+                                <th>Indirizzo</th>
+                                <th style="text-align: center;">Azioni</th>
                             </tr>
                         </thead>
                         <tbody id="dbVenuesList"></tbody>
                     </table>
-                    <p id="noVenuesMsg" style="text-align: center; color: #6b7280; margin-top: 2rem; display: none;">Nessun locale nel database</p>
+                    <p id="noVenuesMsg" style="text-align: center; color: var(--gray-500); margin-top: 2rem; display: none;">Nessun locale nel database</p>
                 </div>
             </div>
             
             <!-- Tab Export/Import -->
             <div id="dbTabExport" class="tab-content" style="display: none;">
-                <div class="form-section" style="background: #f3f4f6; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
-                    <h3 style="margin-bottom: 1rem;">Export Database</h3>
-                    <div class="btn-group" style="display: flex; gap: 1rem;">
+                <div class="form-section">
+                    <h3 style="margin-bottom: 1rem; color: var(--gray-200);">Export Database</h3>
+                    <div class="btn-group">
                         <button class="btn btn-primary" onclick="exportDatabase('artisti')">
                             📥 Export Artisti
                         </button>
@@ -215,10 +382,10 @@
                         </button>
                     </div>
                 </div>
-                <div class="form-section" style="background: #f3f4f6; padding: 1.5rem; border-radius: 8px;">
-                    <h3 style="margin-bottom: 1rem;">Import Database</h3>
+                <div class="form-section">
+                    <h3 style="margin-bottom: 1rem; color: var(--gray-200);">Import Database</h3>
                     <input type="file" id="importFile" accept=".json" onchange="importDatabase(event)">
-                    <p style="margin-top: 0.5rem; color: #6b7280; font-size: 0.9rem;">
+                    <p style="margin-top: 0.5rem; color: var(--gray-500); font-size: 0.9rem;">
                         Seleziona un file JSON esportato precedentemente
                     </p>
                 </div>
@@ -271,6 +438,11 @@
         // Call on page load
         document.addEventListener('DOMContentLoaded', updateStatistics);
 
+        // Funzione per nuova agibilità
+        function startNewAgibilita() {
+            window.location.href = './agibilita/index.html';
+        }
+
         // Funzione di ricerca
         function searchArtist() {
             const searchTerm = document.getElementById('searchInput').value.toLowerCase();
@@ -283,8 +455,8 @@
             const results = artistsDB.filter(artist => 
                 artist.nome.toLowerCase().includes(searchTerm) ||
                 artist.cognome.toLowerCase().includes(searchTerm) ||
-                artist.nomeArte.toLowerCase().includes(searchTerm) ||
-                artist.cf.toLowerCase().includes(searchTerm)
+                (artist.nomeArte && artist.nomeArte.toLowerCase().includes(searchTerm)) ||
+                artist.codiceFiscale.toLowerCase().includes(searchTerm)
             );
 
             displaySearchResults(results, searchTerm);
@@ -301,41 +473,46 @@
                 resultsContainer.innerHTML = `
                     <div class="result-card">
                         <p>Nessun artista trovato per "${searchTerm}"</p>
-                        <button class="btn-primary-small" style="margin-top: 1rem" onclick="addNewArtist()">
+                        <button class="btn btn-primary" style="margin-top: 1rem" onclick="addNewArtist()">
                             + Aggiungi Nuovo Artista
                         </button>
                     </div>
                 `;
             } else {
                 results.forEach(artist => {
-                    const agibilitaHtml = artist.agibilita && artist.agibilita.length > 0 
+                    // Find agibilità for this artist
+                    const artistAgibilita = agibilitaDB.filter(a => 
+                        a.artisti && a.artisti.some(art => art.id === artist.id)
+                    );
+                    
+                    const agibilitaHtml = artistAgibilita.length > 0 
                         ? `
                             <div class="agibilita-list">
                                 <h4>Agibilità Recenti:</h4>
-                                ${artist.agibilita.map(a => `
+                                ${artistAgibilita.slice(-3).map(a => `
                                     <div class="agibilita-item">
-                                        <span>${a.data} | ${a.locale}</span>
-                                        <span>${a.compenso}</span>
+                                        <span>${new Date(a.dataInizio).toLocaleDateString('it-IT')} | ${a.descrizioneLocale}</span>
+                                        <span>€${a.artisti.find(art => art.id === artist.id)?.compenso || 0}</span>
                                     </div>
                                 `).join('')}
                             </div>
                         `
-                        : '<p style="color: #6b7280; margin-top: 1rem; font-size: 0.9rem;">Nessuna agibilità registrata</p>';
+                        : '<p style="color: var(--gray-500); margin-top: 1rem; font-size: 0.9rem;">Nessuna agibilità registrata</p>';
 
                     resultsContainer.innerHTML += `
                         <div class="result-card">
                             <div class="result-header">
                                 <div class="result-info">
                                     <h3>${artist.nome} ${artist.cognome}${artist.nomeArte ? ' - ' + artist.nomeArte : ''}</h3>
-                                    <p>CF: ${artist.cf} | Tel: ${artist.telefono}</p>
-                                    <p style="font-size: 0.85rem; color: #8b5cf6;">${artist.mansione}</p>
+                                    <p>CF: ${artist.codiceFiscale} | Tel: ${artist.telefono || 'N/D'}</p>
+                                    <p style="font-size: 0.85rem; color: var(--accent-purple);">${artist.mansione}</p>
                                 </div>
                                 <div class="result-actions">
-                                    <button class="btn-primary-small" onclick="createAgibilitaForArtist(${artist.id})">
+                                    <button class="btn btn-primary btn-sm" onclick="createAgibilitaForArtist('${artist.id}')">
                                         Nuova Agibilità
                                     </button>
-                                    <button class="btn-secondary-small" onclick="createComunicazione(${artist.id})">
-                                        Nuova Comunicazione
+                                    <button class="btn btn-secondary btn-sm" onclick="createComunicazione('${artist.id}')">
+                                        Comunicazione
                                     </button>
                                 </div>
                             </div>
@@ -354,11 +531,6 @@
             document.getElementById('searchInput').value = '';
         }
 
-        // Naviga verso agibilità
-        function goToAgibilita() {
-            window.location.href = './agibilita/index.html';
-        }
-
         // Funzioni placeholder
         function showComingSoon() {
             alert('Funzionalità in arrivo! 🚀');
@@ -369,7 +541,8 @@
         }
 
         function createAgibilitaForArtist(artistId) {
-            // In produzione passerebbe l'ID artista alla pagina agibilità
+            // Store artist ID for agibilità page
+            sessionStorage.setItem('selectedArtistId', artistId);
             window.location.href = './agibilita/index.html';
         }
 
@@ -398,7 +571,7 @@
                 artist.nome.toLowerCase().includes(searchTerm) ||
                 artist.cognome.toLowerCase().includes(searchTerm) ||
                 (artist.nomeArte && artist.nomeArte.toLowerCase().includes(searchTerm)) ||
-                artist.cf.toLowerCase().includes(searchTerm)
+                artist.codiceFiscale.toLowerCase().includes(searchTerm)
             );
             
             if (matches.length === 0) {
@@ -412,9 +585,9 @@
                 const highlightedName = highlightMatch(displayName, searchTerm);
                 
                 return `
-                    <div class="suggestion-item" onclick="selectArtist(${artist.id})">
+                    <div class="suggestion-item" onclick="selectArtist('${artist.id}')">
                         <div>${highlightedName}</div>
-                        <div class="suggestion-info">${artist.mansione} | CF: ${artist.cf}</div>
+                        <div class="suggestion-info">${artist.mansione} | CF: ${artist.codiceFiscale}</div>
                     </div>
                 `;
             }).join('');
@@ -425,7 +598,7 @@
         // Highlight matching text
         function highlightMatch(text, searchTerm) {
             const regex = new RegExp(`(${searchTerm})`, 'gi');
-            return text.replace(regex, '<strong>$1</strong>');
+            return text.replace(regex, '<strong style="color: var(--accent-gold);">$1</strong>');
         }
         
         // Hide suggestions
@@ -478,12 +651,8 @@
             // Update tabs
             document.querySelectorAll('#databaseManagerModal .tab').forEach(tab => {
                 tab.classList.remove('active');
-                tab.style.color = '#6b7280';
-                tab.style.borderBottomColor = 'transparent';
             });
             event.target.classList.add('active');
-            event.target.style.color = 'var(--primary)';
-            event.target.style.borderBottomColor = 'var(--primary)';
             
             // Update content
             document.querySelectorAll('#databaseManagerModal .tab-content').forEach(content => {
@@ -503,11 +672,11 @@
                 noMsg.style.display = 'none';
                 tbody.innerHTML = artistsDB.map(artist => `
                     <tr>
-                        <td style="padding: 0.5rem;">${artist.nome} ${artist.cognome}${artist.nomeArte ? ' - ' + artist.nomeArte : ''}</td>
-                        <td style="padding: 0.5rem;">${artist.cf}</td>
-                        <td style="padding: 0.5rem;">${artist.mansione}</td>
-                        <td style="padding: 0.5rem; text-align: center;">
-                            <button class="btn btn-danger btn-sm" onclick="removeArtistFromDB(${artist.id})">
+                        <td>${artist.nome} ${artist.cognome}${artist.nomeArte ? ' - ' + artist.nomeArte : ''}</td>
+                        <td>${artist.codiceFiscale}</td>
+                        <td>${artist.mansione}</td>
+                        <td style="text-align: center;">
+                            <button class="btn btn-danger btn-sm" onclick="removeArtistFromDB('${artist.id}')">
                                 🗑️ Rimuovi
                             </button>
                         </td>
@@ -527,11 +696,11 @@
                 noMsg.style.display = 'none';
                 tbody.innerHTML = venuesDB.map(venue => `
                     <tr>
-                        <td style="padding: 0.5rem;">${venue.nome}</td>
-                        <td style="padding: 0.5rem;">${venue.citta}</td>
-                        <td style="padding: 0.5rem;">${venue.indirizzo}</td>
-                        <td style="padding: 0.5rem; text-align: center;">
-                            <button class="btn btn-danger btn-sm" onclick="removeVenueFromDB(${venue.id})">
+                        <td>${venue.nome}</td>
+                        <td>${venue.citta}</td>
+                        <td>${venue.indirizzo}</td>
+                        <td style="text-align: center;">
+                            <button class="btn btn-danger btn-sm" onclick="removeVenueFromDB('${venue.id}')">
                                 🗑️ Rimuovi
                             </button>
                         </td>
