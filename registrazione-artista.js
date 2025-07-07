@@ -1,4 +1,119 @@
-/**
+// Cerca comune per codice catastale/Belfiore
+function findComuneByCodCatastale(codice) {
+    console.log('🔍 Ricerca comune con codice Belfiore:', codice);
+    
+    // Usa la nuova funzione del comuni-loader
+    const comuneInfo = window.GIDatabase.getComuneByCodiceBelfiore(codice);
+    
+    if (comuneInfo) {
+        console.log('✅ Comune trovato:', comuneInfo);
+        return comuneInfo;
+    }
+    
+    // Se non trovato, potrebbe essere uno stato estero
+    // Codici degli stati esteri iniziano con Z
+    if (codice.startsWith('Z')) {
+        console.log('🌍 Codice stato estero rilevato');
+        // Lista stati esteri più comuni
+        const statiEsteri = {
+            'Z100': 'ALBANIA',
+            'Z101': 'ANDORRA', 
+            'Z102': 'AUSTRIA',
+            'Z103': 'BELGIO',
+            'Z104': 'BULGARIA',
+            'Z107': 'DANIMARCA',
+            'Z110': 'FINLANDIA',
+            'Z111': 'FRANCIA',
+            'Z112': 'GERMANIA',
+            'Z113': 'REGNO UNITO',
+            'Z114': 'GRECIA',
+            'Z115': 'IRLANDA',
+            'Z116': 'ISLANDA',
+            'Z118': 'LUSSEMBURGO',
+            'Z119': 'MALTA',
+            'Z120': 'MONACO',
+            'Z121': 'NORVEGIA',
+            'Z122': 'PAESI BASSI',
+            'Z123': 'POLONIA',
+            'Z124': 'PORTOGALLO',
+            'Z125': 'ROMANIA',
+            'Z126': 'SAN MARINO',
+            'Z127': 'SPAGNA',
+            'Z128': 'SVEZIA',
+            'Z129': 'SVIZZERA',
+            'Z130': 'UCRAINA',
+            'Z131': 'UNGHERIA',
+            'Z132': 'RUSSIA',
+            'Z133': 'TURCHIA',
+            'Z134': 'REP. CECA',
+            'Z135': 'SLOVACCHIA',
+            'Z138': 'CITTÀ DEL VATICANO',
+            'Z139': 'SLOVENIA',
+            'Z140': 'CROAZIA',
+            'Z148': 'BOSNIA-ERZEGOVINA',
+            'Z149': 'MACEDONIA',
+            'Z153': 'ESTONIA',
+            'Z154': 'LETTONIA',
+            'Z155': 'LITUANIA',
+            'Z201': 'ALGERIA',
+            'Z210': 'EGITTO',
+            'Z217': 'ETIOPIA',
+            'Z226': 'LIBIA',
+            'Z229': 'MAROCCO',
+            'Z243': 'NIGERIA',
+            'Z252': 'SUDAFRICA',
+            'Z256': 'TUNISIA',
+            'Z301': 'AFGHANISTAN',
+            'Z302': 'ARABIA SAUDITA',
+            'Z311': 'CINA',
+            'Z312': 'CIPRO',
+            'Z314': 'COREA DEL SUD',
+            'Z315': 'EMIRATI ARABI UNITI',
+            'Z316': 'FILIPPINE',
+            'Z319': 'GIAPPONE',
+            'Z323': 'INDIA',
+            'Z324': 'INDONESIA',
+            'Z325': 'IRAN',
+            'Z326': 'IRAQ',
+            'Z327': 'ISRAELE',
+            'Z330': 'KUWAIT',
+            'Z332': 'LIBANO',
+            'Z336': 'MALAYSIA',
+            'Z342': 'PAKISTAN',
+            'Z345': 'SINGAPORE',
+            'Z346': 'SIRIA',
+            'Z348': 'TAIWAN',
+            'Z349': 'THAILANDIA',
+            'Z352': 'VIETNAM',
+            'Z401': 'ARGENTINA',
+            'Z403': 'BRASILE',
+            'Z404': 'CANADA',
+            'Z405': 'CILE',
+            'Z406': 'COLOMBIA',
+            'Z409': 'CUBA',
+            'Z411': 'ECUADOR',
+            'Z415': 'GUATEMALA',
+            'Z422': 'MESSICO',
+            'Z427': 'PARAGUAY',
+            'Z428': 'PERÙ',
+            'Z436': 'STATI UNITI',
+            'Z440': 'URUGUAY',
+            'Z441': 'VENEZUELA',
+            'Z501': 'AUSTRALIA',
+            'Z515': 'NUOVA ZELANDA'
+        };
+        
+        if (statiEsteri[codice]) {
+            return {
+                nome: statiEsteri[codice],
+                provincia: 'EE' // EE = Estero
+            };
+        }
+    }
+    
+    console.log('❌ Comune non trovato per codice:', codice);
+    return null;
+}/**
  * registrazione-artista.js
  * 
  * Script per la gestione della registrazione artisti nel sistema RECORP ALL-IN-ONE.
@@ -44,7 +159,25 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Focus sul codice fiscale all'avvio
         document.getElementById('codiceFiscale').focus();
-    }, 1500);
+        // Validazione IBAN
+    document.getElementById('iban').addEventListener('input', function(e) {
+        // Converte in maiuscolo e rimuove spazi
+        e.target.value = e.target.value.toUpperCase().replace(/\s/g, '');
+        
+        // Validazione visiva
+        if (e.target.value.length >= 15) { // IBAN minimo
+            if (validateIBAN(e.target.value)) {
+                e.target.classList.remove('invalid');
+                e.target.classList.add('valid');
+            } else {
+                e.target.classList.remove('valid');
+                e.target.classList.add('invalid');
+            }
+        } else {
+            e.target.classList.remove('valid', 'invalid');
+        }
+    });
+}, 1500);
 });
 
 // Funzioni per menu a tendina cascata
@@ -194,6 +327,40 @@ function setupEventListeners() {
     // Auto-uppercase per matricola ENPALS
     document.getElementById('matricolaENPALS').addEventListener('input', function(e) {
         e.target.value = e.target.value.toUpperCase();
+    });
+    
+    // Event listener per mostrare/nascondere campo partita IVA
+    document.getElementById('hasPartitaIva').addEventListener('change', function(e) {
+        const partitaIvaGroup = document.getElementById('partitaIvaGroup');
+        const partitaIvaField = document.getElementById('partitaIva');
+        
+        if (e.target.value === 'si') {
+            partitaIvaGroup.style.display = 'block';
+            partitaIvaField.required = true;
+        } else {
+            partitaIvaGroup.style.display = 'none';
+            partitaIvaField.required = false;
+            partitaIvaField.value = '';
+        }
+    });
+    
+    // Validazione partita IVA
+    document.getElementById('partitaIva').addEventListener('input', function(e) {
+        // Accetta solo numeri
+        e.target.value = e.target.value.replace(/[^0-9]/g, '');
+        
+        // Validazione visiva
+        if (e.target.value.length === 11) {
+            if (validatePartitaIva(e.target.value)) {
+                e.target.classList.remove('invalid');
+                e.target.classList.add('valid');
+            } else {
+                e.target.classList.remove('valid');
+                e.target.classList.add('invalid');
+            }
+        } else {
+            e.target.classList.remove('valid', 'invalid');
+        }
     });
     
     // Validazione real-time email
@@ -538,18 +705,29 @@ function extractDataFromCF(cf) {
 
 // Cerca comune per codice catastale
 function findComuneByCodCatastale(codice) {
+    console.log('🔍 Ricerca comune con codice catastale:', codice);
+    
     // Verifica se abbiamo i dati dei comuni
     const comuni = window.GIDatabase?.getData()?.comuni || [];
+    console.log('📊 Totale comuni nel database:', comuni.length);
+    
+    // Debug: mostra i campi disponibili nel primo comune
+    if (comuni.length > 0) {
+        console.log('🔍 Campi disponibili nel primo comune:', Object.keys(comuni[0]));
+    }
     
     // Cerca il comune con il codice catastale corrispondente
-    const comune = comuni.find(c => 
-        c.codice_catastale === codice || 
-        c.codiceCatastale === codice ||
-        c.codice_belfiore === codice ||
-        c.codiceBelfiore === codice
-    );
+    const comune = comuni.find(c => {
+        return c.codice_catastale === codice || 
+               c.codiceCatastale === codice ||
+               c.codice_belfiore === codice ||
+               c.codiceBelfiore === codice ||
+               c.belfiore === codice ||
+               c.cod_catastale === codice;
+    });
     
     if (comune) {
+        console.log('✅ Comune trovato:', comune);
         return {
             nome: comune.denominazione_ita || comune.denominazione || comune.nome,
             provincia: comune.sigla_provincia || comune.provincia || comune.siglaProvincia
@@ -559,10 +737,140 @@ function findComuneByCodCatastale(codice) {
     // Se non trovato nei comuni italiani, potrebbe essere uno stato estero
     // Codici degli stati esteri iniziano con Z
     if (codice.startsWith('Z')) {
-        // Qui potresti aggiungere una mappatura degli stati esteri
-        return null; // Per ora restituiamo null
+        console.log('🌍 Codice stato estero rilevato');
+        // Lista stati esteri più comuni
+        const statiEsteri = {
+            'Z100': 'ALBANIA',
+            'Z101': 'ANDORRA',
+            'Z102': 'AUSTRIA',
+            'Z103': 'BELGIO',
+            'Z104': 'BULGARIA',
+            'Z107': 'DANIMARCA',
+            'Z110': 'FINLANDIA',
+            'Z111': 'FRANCIA',
+            'Z112': 'GERMANIA',
+            'Z113': 'REGNO UNITO',
+            'Z114': 'GRECIA',
+            'Z115': 'IRLANDA',
+            'Z116': 'ISLANDA',
+            'Z118': 'LUSSEMBURGO',
+            'Z119': 'MALTA',
+            'Z120': 'MONACO',
+            'Z121': 'NORVEGIA',
+            'Z122': 'PAESI BASSI',
+            'Z123': 'POLONIA',
+            'Z124': 'PORTOGALLO',
+            'Z125': 'ROMANIA',
+            'Z126': 'SAN MARINO',
+            'Z127': 'SPAGNA',
+            'Z128': 'SVEZIA',
+            'Z129': 'SVIZZERA',
+            'Z130': 'UCRAINA',
+            'Z131': 'UNGHERIA',
+            'Z132': 'RUSSIA',
+            'Z133': 'TURCHIA',
+            'Z134': 'REP. CECA',
+            'Z135': 'SLOVACCHIA',
+            'Z138': 'CITTÀ DEL VATICANO',
+            'Z139': 'SLOVENIA',
+            'Z140': 'CROAZIA',
+            'Z148': 'BOSNIA-ERZEGOVINA',
+            'Z149': 'MACEDONIA',
+            'Z153': 'ESTONIA',
+            'Z154': 'LETTONIA',
+            'Z155': 'LITUANIA',
+            'Z156': 'SERBIA',
+            'Z157': 'MONTENEGRO',
+            'Z158': 'KOSOVO',
+            'Z201': 'ALGERIA',
+            'Z202': 'ANGOLA',
+            'Z210': 'EGITTO',
+            'Z217': 'ETIOPIA',
+            'Z226': 'LIBIA',
+            'Z229': 'MAROCCO',
+            'Z243': 'NIGERIA',
+            'Z248': 'SEYCHELLES',
+            'Z251': 'SOMALIA',
+            'Z252': 'SUDAFRICA',
+            'Z256': 'TUNISIA',
+            'Z301': 'AFGHANISTAN',
+            'Z302': 'ARABIA SAUDITA',
+            'Z304': 'BAHREIN',
+            'Z305': 'BANGLADESH',
+            'Z306': 'BHUTAN',
+            'Z309': 'BRUNEI',
+            'Z310': 'CAMBOGIA',
+            'Z311': 'CINA',
+            'Z312': 'CIPRO',
+            'Z313': 'COREA DEL NORD',
+            'Z314': 'COREA DEL SUD',
+            'Z315': 'EMIRATI ARABI UNITI',
+            'Z316': 'FILIPPINE',
+            'Z318': 'GEORGIA',
+            'Z319': 'GIAPPONE',
+            'Z320': 'GIORDANIA',
+            'Z322': 'HONG KONG',
+            'Z323': 'INDIA',
+            'Z324': 'INDONESIA',
+            'Z325': 'IRAN',
+            'Z326': 'IRAQ',
+            'Z327': 'ISRAELE',
+            'Z330': 'KUWAIT',
+            'Z331': 'LAOS',
+            'Z332': 'LIBANO',
+            'Z335': 'MALDIVE',
+            'Z336': 'MALAYSIA',
+            'Z338': 'MONGOLIA',
+            'Z339': 'MYANMAR',
+            'Z340': 'NEPAL',
+            'Z341': 'OMAN',
+            'Z342': 'PAKISTAN',
+            'Z343': 'PALESTINA',
+            'Z344': 'QATAR',
+            'Z345': 'SINGAPORE',
+            'Z346': 'SIRIA',
+            'Z347': 'SRI LANKA',
+            'Z348': 'TAIWAN',
+            'Z349': 'THAILANDIA',
+            'Z351': 'UZBEKISTAN',
+            'Z352': 'VIETNAM',
+            'Z353': 'YEMEN',
+            'Z401': 'ARGENTINA',
+            'Z402': 'BOLIVIA',
+            'Z403': 'BRASILE',
+            'Z404': 'CANADA',
+            'Z405': 'CILE',
+            'Z406': 'COLOMBIA',
+            'Z409': 'CUBA',
+            'Z410': 'DOMINICA',
+            'Z411': 'ECUADOR',
+            'Z413': 'GIAMAICA',
+            'Z415': 'GUATEMALA',
+            'Z419': 'HAITI',
+            'Z421': 'HONDURAS',
+            'Z422': 'MESSICO',
+            'Z426': 'PANAMA',
+            'Z427': 'PARAGUAY',
+            'Z428': 'PERÙ',
+            'Z430': 'PORTO RICO',
+            'Z431': 'REP. DOMINICANA',
+            'Z434': 'SALVADOR',
+            'Z436': 'STATI UNITI',
+            'Z440': 'URUGUAY',
+            'Z441': 'VENEZUELA',
+            'Z501': 'AUSTRALIA',
+            'Z515': 'NUOVA ZELANDA'
+        };
+        
+        if (statiEsteri[codice]) {
+            return {
+                nome: statiEsteri[codice],
+                provincia: 'EE' // EE = Estero
+            };
+        }
     }
     
+    console.log('❌ Comune non trovato per codice:', codice);
     return null;
 }
 
@@ -581,12 +889,18 @@ function showExtractedInfo(data) {
         infoParts.push(data.sesso === 'M' ? 'Maschio' : 'Femmina');
     }
     
+    if (data.dataNascita) {
+        const date = new Date(data.dataNascita);
+        const dateStr = date.toLocaleDateString('it-IT');
+        infoParts.push(`nato il ${dateStr}`);
+    }
+    
     if (data.luogoNascita) {
         let luogoText = data.luogoNascita;
         if (data.provinciaNascita) {
             luogoText += ` (${data.provinciaNascita})`;
         }
-        infoParts.push(`nato a ${luogoText}`);
+        infoParts.push(`a ${luogoText}`);
     }
     
     if (infoParts.length > 0) {
