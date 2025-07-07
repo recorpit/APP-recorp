@@ -130,7 +130,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function setupLocationAutocomplete() {
     // Carica le province nel dropdown
-    loadProvinces();
+    if (window.GIDatabase && window.GIDatabase.isLoaded()) {
+        loadProvinces();
+    } else {
+        // Retry dopo un po' se il database non è ancora pronto
+        setTimeout(() => {
+            if (window.GIDatabase && window.GIDatabase.isLoaded()) {
+                loadProvinces();
+            } else {
+                console.warn('Database GI non pronto, uso fallback');
+                loadFallbackProvinces();
+            }
+        }, 1000);
+    }
 }
 
 // Carica tutte le province disponibili
