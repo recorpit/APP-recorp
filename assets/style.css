@@ -19,6 +19,7 @@
     --success: #10b981;
     --danger: #ef4444;
     --info: #3b82f6;
+    --warning: #f59e0b;
     
     /* Shadows */
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
@@ -187,6 +188,37 @@ a:hover {
 .header p {
     font-size: 1.125rem;
     color: var(--text-secondary);
+}
+
+/* ==================== BREADCRUMB ==================== */
+.breadcrumb {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    padding: 1rem;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.breadcrumb-item {
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.3s ease;
+}
+
+.breadcrumb-item:hover {
+    color: var(--primary);
+}
+
+.breadcrumb-item.active {
+    color: var(--accent-purple);
+    font-weight: 600;
+}
+
+.breadcrumb-separator {
+    color: var(--text-muted);
 }
 
 /* ==================== SEARCH SECTION ==================== */
@@ -509,6 +541,21 @@ a:hover {
     margin-top: 1rem;
 }
 
+.search-result {
+    padding: 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: var(--bg-secondary);
+}
+
+.search-result:hover {
+    background: var(--bg-primary);
+    border-color: var(--primary);
+}
+
 .result-card {
     background: var(--bg-primary);
     border: 1px solid var(--border-color);
@@ -561,26 +608,11 @@ a:hover {
     color: var(--text-primary);
 }
 
-.agibilita-item {
-    display: flex;
-    justify-content: space-between;
-    padding: 0.5rem;
-    background: var(--bg-primary);
-    border-radius: 4px;
-    margin-bottom: 0.25rem;
-    font-size: 0.85rem;
-}
-
-.agibilita-item:hover {
-    background: var(--bg-secondary);
-}
-
 /* ==================== FORM STYLES ==================== */
 .form-group {
     margin-bottom: 1.5rem;
 }
 
-/* Form labels */
 .form-label {
     display: block;
     margin-bottom: 0.5rem;
@@ -633,6 +665,13 @@ textarea.form-control:focus {
 .form-section-title {
     margin-bottom: 1rem;
     color: var(--text-primary);
+}
+
+/* Form row for two columns */
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
 }
 
 /* ==================== TAB SYSTEM ==================== */
@@ -852,13 +891,6 @@ input[type="file"]:hover {
     margin-top: 1.5rem;
 }
 
-/* Form row for two columns */
-.form-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1.5rem;
-}
-
 /* Highlight important field */
 .highlight-group {
     background: linear-gradient(135deg, rgba(139, 92, 246, 0.05), rgba(99, 102, 241, 0.05));
@@ -944,6 +976,12 @@ input[type="file"]:hover {
     background: #fef3c7;
     color: #92400e;
     border: 1px solid #fbbf24;
+}
+
+.alert-info {
+    background: #dbeafe;
+    color: #1e40af;
+    border: 1px solid #60a5fa;
 }
 
 .cf-mismatch-alert {
@@ -1086,6 +1124,292 @@ textarea.form-control::placeholder {
 .p-3 { padding: 0.75rem; }
 .p-4 { padding: 1rem; }
 
+/* ==================== AGIBILITÀ SPECIFIC STYLES ==================== */
+/* Step sections */
+.step-section {
+    display: none;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.step-section.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Type cards */
+.type-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+    margin: 2rem 0;
+}
+
+.type-card {
+    background: var(--bg-card);
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    padding: 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: var(--shadow-sm);
+}
+
+.type-card:hover {
+    border-color: var(--primary);
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-lg);
+}
+
+.type-card-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+.type-card h3 {
+    margin-bottom: 0.5rem;
+    color: var(--text-primary);
+}
+
+.type-card p {
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+/* Artist items */
+.artist-list {
+    background: var(--bg-primary);
+    border-radius: 8px;
+    padding: 1rem;
+    margin: 1rem 0;
+    min-height: 150px;
+}
+
+.artist-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.3s ease;
+}
+
+.artist-item:hover {
+    border-color: var(--primary);
+    box-shadow: var(--shadow-sm);
+}
+
+.artist-info {
+    flex: 1;
+}
+
+.artist-info strong {
+    color: var(--text-primary);
+    font-size: 1.1rem;
+}
+
+.artist-info small {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+.artist-role-compensation {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.compensation-input {
+    width: 150px;
+}
+
+/* Tipo rapporto badges */
+.tipo-rapporto-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-top: 0.25rem;
+}
+
+.tipo-rapporto-badge.tipo-partitaiva {
+    background: #e0e7ff;
+    color: #4338ca;
+}
+
+.tipo-rapporto-badge.tipo-occasionale {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.tipo-rapporto-badge.tipo-chiamata {
+    background: #fef3c7;
+    color: #d97706;
+}
+
+.tipo-rapporto-badge.tipo-fulltime {
+    background: #e5e7eb;
+    color: #374151;
+}
+
+/* Summary box */
+.summary-box {
+    background: #e0e7ff;
+    border: 1px solid #c7d2fe;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+}
+
+.summary-box h4 {
+    color: var(--primary);
+    margin-bottom: 1rem;
+}
+
+.summary-box p {
+    margin-bottom: 0.5rem;
+    color: var(--text-primary);
+}
+
+/* XML Preview */
+.xml-preview {
+    background: #1f2937;
+    color: #f3f4f6;
+    padding: 1.5rem;
+    border-radius: 8px;
+    overflow-x: auto;
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.xml-code {
+    white-space: pre-wrap;
+    font-family: 'Courier New', monospace;
+    font-size: 0.875rem;
+    line-height: 1.5;
+}
+
+.xml-tag {
+    color: #e06c75;
+}
+
+.xml-cdata {
+    color: #98c379;
+}
+
+.error-message {
+    color: var(--danger);
+    font-weight: 600;
+}
+
+/* Agibilita list items (Specific for listing existing agibilità) */
+.agibilita-info {
+    margin-bottom: 1rem;
+}
+
+.agibilita-code {
+    font-weight: 600;
+    color: var(--primary);
+    margin-bottom: 0.5rem;
+}
+
+.agibilita-dates,
+.agibilita-location,
+.agibilita-artists {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-bottom: 0.25rem;
+}
+
+.agibilita-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+/* Autocomplete dropdown */
+.autocomplete-dropdown {
+    position: absolute;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    max-height: 300px;
+    overflow-y: auto;
+    z-index: 1000;
+    width: 100%;
+    box-shadow: var(--shadow-lg);
+    margin-top: 4px;
+}
+
+.autocomplete-item {
+    padding: 12px 16px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--bg-primary);
+    transition: all 0.2s ease;
+}
+
+.autocomplete-item:hover {
+    background: var(--bg-primary);
+    border-left: 3px solid var(--primary);
+    padding-left: 13px;
+}
+
+.autocomplete-item:last-child {
+    border-bottom: none;
+}
+
+.autocomplete-item strong {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.autocomplete-item small {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+/* Location helper text */
+.location-helper-text {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    margin-top: 0.25rem;
+}
+
+/* Date info */
+.date-info {
+    background: #f3f4f6;
+    border-radius: 6px;
+    padding: 0.75rem;
+    margin-top: 1rem;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+}
+
+/* No data messages specific to agibilità */
+.no-artists-message,
+.no-results,
+.no-data-message {
+    text-align: center;
+    color: var(--text-muted);
+    font-style: italic;
+    padding: 2rem;
+}
+
 /* ==================== RESPONSIVE ==================== */
 @media (max-width: 768px) {
     .container, .main-container, .registration-container {
@@ -1205,221 +1529,12 @@ textarea.form-control::placeholder {
         padding: 0.5rem 1rem;
         font-size: 0.875rem;
     }
-}
-
-@media (max-width: 480px) {
-    .stats-grid {
+    
+    /* Agibilità specific responsive */
+    .type-cards {
         grid-template-columns: 1fr;
     }
     
-    .btn {
-        padding: 0.5rem 1rem;
-        font-size: 0.875rem;
-    }
-    
-    .section-title {
-        font-size: 1.25rem;
-    }
-    
-    .page-title {
-        font-size: 1.75rem;
-    }
-}
-/* ==================== AGIBILITÀ SPECIFIC STYLES ==================== */
-/* Step sections */
-.step-section {
-    display: none;
-    animation: fadeIn 0.3s ease-in-out;
-}
-
-.step-section.active {
-    display: block;
-}
-
-/* Type cards */
-.type-cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 2rem;
-    margin: 2rem 0;
-}
-
-.type-card {
-    background: var(--bg-card);
-    border: 2px solid var(--border-color);
-    border-radius: 12px;
-    padding: 2rem;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: var(--shadow-sm);
-}
-
-.type-card:hover {
-    border-color: var(--primary);
-    transform: translateY(-5px);
-    box-shadow: var(--shadow-lg);
-}
-
-.type-card-icon {
-    font-size: 3rem;
-    margin-bottom: 1rem;
-}
-
-/* Artist items */
-.artist-list {
-    background: var(--bg-primary);
-    border-radius: 8px;
-    padding: 1rem;
-    margin: 1rem 0;
-    min-height: 150px;
-}
-
-.artist-item {
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 1rem;
-    margin-bottom: 0.5rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    transition: all 0.3s ease;
-}
-
-.artist-item:hover {
-    border-color: var(--primary);
-    box-shadow: var(--shadow-sm);
-}
-
-.artist-info {
-    flex: 1;
-}
-
-.artist-role-compensation {
-    display: flex;
-    gap: 1rem;
-    align-items: center;
-}
-
-.compensation-input {
-    width: 150px;
-}
-
-/* Tipo rapporto badges */
-.tipo-rapporto-badge {
-    display: inline-block;
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    margin-top: 0.25rem;
-}
-
-.tipo-rapporto-badge.tipo-partitaiva {
-    background: #e0e7ff;
-    color: #4338ca;
-}
-
-.tipo-rapporto-badge.tipo-occasionale {
-    background: #dbeafe;
-    color: #1d4ed8;
-}
-
-.tipo-rapporto-badge.tipo-chiamata {
-    background: #fef3c7;
-    color: #d97706;
-}
-
-.tipo-rapporto-badge.tipo-fulltime {
-    background: #e5e7eb;
-    color: #374151;
-}
-
-/* XML Preview */
-.xml-preview {
-    background: #1f2937;
-    color: #f3f4f6;
-    padding: 1.5rem;
-    border-radius: 8px;
-    overflow-x: auto;
-    max-height: 500px;
-    overflow-y: auto;
-}
-
-.xml-code {
-    white-space: pre-wrap;
-    font-family: 'Courier New', monospace;
-    font-size: 0.875rem;
-    line-height: 1.5;
-}
-
-.xml-tag {
-    color: #e06c75;
-}
-
-.xml-cdata {
-    color: #98c379;
-}
-
-/* Agibilita list items */
-.agibilita-item {
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 1.5rem;
-    margin-bottom: 1rem;
-    transition: all 0.3s ease;
-}
-
-.agibilita-code {
-    font-weight: 600;
-    color: var(--primary);
-    margin-bottom: 0.5rem;
-}
-
-.agibilita-dates,
-.agibilita-location,
-.agibilita-artists {
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-    margin-bottom: 0.25rem;
-}
-
-.agibilita-actions {
-    display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-}
-
-/* Location helper text */
-.location-helper-text {
-    font-size: 0.875rem;
-    color: var(--text-muted);
-    margin-top: 0.25rem;
-}
-
-/* Date info */
-.date-info {
-    background: #f3f4f6;
-    border-radius: 6px;
-    padding: 0.75rem;
-    margin-top: 1rem;
-    font-size: 0.9rem;
-    color: var(--text-secondary);
-    border: 1px solid var(--border-color);
-}
-
-/* No data messages specific to agibilità */
-.no-artists-message {
-    text-align: center;
-    color: var(--text-muted);
-    font-style: italic;
-    padding: 2rem;
-}
-
-/* Responsive adjustments for agibilità */
-@media (max-width: 768px) {
     .artist-item {
         flex-direction: column;
         gap: 1rem;
@@ -1441,5 +1556,40 @@ textarea.form-control::placeholder {
     
     .agibilita-actions .btn {
         width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .btn {
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+    }
+    
+    .section-title {
+        font-size: 1.25rem;
+    }
+    
+    .page-title {
+        font-size: 1.75rem;
+    }
+    
+    .header h1 {
+        font-size: 1.75rem;
+    }
+    
+    .header p {
+        font-size: 1rem;
+    }
+    
+    .form-section {
+        padding: 1rem;
+    }
+    
+    .summary-box {
+        padding: 1rem;
     }
 }
