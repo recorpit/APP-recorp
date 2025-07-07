@@ -291,12 +291,12 @@ function getComuniByProvincia(codiceProvincia) {
     }
     
     return comuniDatabase.comuni
-        .filter(comune => (comune.siglaProvincialeSedeMunicipio || comune.provincia) === codiceProvincia)
+        .filter(comune => (comune.sigla_provincia || comune.provincia) === codiceProvincia)
         .map(comune => ({
-            nome: comune.denominazione || comune.nome,
-            codice: comune.codiceCatastale || comune.codice,
-            provincia: comune.siglaProvincialeSedeMunicipio || comune.provincia,
-            cap: getCAPForComune(comune.codiceCatastale || comune.codice)
+            nome: comune.denominazione_ita || comune.denominazione || comune.nome,
+            codice: comune.codice_istat || comune.codiceCatastale || comune.codice,
+            provincia: codiceProvincia,
+            cap: '' // Sarà risolto dal file gi_comuni_cap
         }));
 }
 
