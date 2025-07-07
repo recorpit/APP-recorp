@@ -34,8 +34,8 @@ const GI_DATABASE_CONFIG = {
         comuniValidita: getBasePath() + 'gi_comuni_validita.json',
         province: getBasePath() + 'gi_province.json'
     },
-    // Cache nel localStorage per performance
-    useCache: true,
+    // Cache nel localStorage per performance (DISABILITATA temporaneamente)
+    useCache: false, // era: true
     cacheExpiry: 24 * 60 * 60 * 1000 // 24 ore
 };
 
