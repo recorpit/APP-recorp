@@ -1,4 +1,15 @@
-// agibilita.js - Sistema Gestione Agibilità RECORP con Database GI
+// Autocomplete CAP quando si digita la città
+        function autoFillFromCityGI() {
+            const citta = document.getElementById('citta').value;
+            const provincia = document.getElementById('provincia').value;
+            
+            if (!citta || citta.length < 3) return;
+            
+            if (!window.GIDatabase || !window.GIDatabase.isLoaded()) return;
+            
+            // Cerca il comune esatto
+            const comuni = window.GIDatabase.getComuniByProvincia(provincia);
+            const comune = comuni.find(c =>// agibilita.js - Sistema Gestione Agibilità RECORP con Database GI
 
 // Variabili globali
 let selectedArtists = [];
@@ -115,47 +126,348 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// SETUP AUTOCOMPLETE LOCALITÀ CON DATABASE GI
+// SETUP LOCALITÀ CON MENU A TENDINA
 
 function setupLocationAutocomplete() {
-    const cittaInput = document.getElementById('citta');
-    const capInput = document.getElementById('cap');
-    const provinciaInput = document.getElementById('provincia');
-    
-    if (!cittaInput || !capInput || !provinciaInput) {
-        console.warn('⚠️ Campi località non trovati');
+    // Carica le province nel dropdown
+    loadProvinces();
+}
+
+// Carica tutte le province disponibili
+function loadProvinces() {
+    if (!window.GIDatabase || !window.GIDatabase.isLoaded()) {
+        console.warn('Database GI non ancora caricato');
         return;
     }
+
+    const provinciaSelect = document.getElementById('provincia');
+    if (!provinciaSelect) return;
+
+    // Prima prova con il file province dedicato
+    const provinceData = window.GIDatabase.getData().province;
     
-    // Autocomplete città
-    cittaInput.addEventListener('input', function() {
-        showCityAutocompleteGI(this.value);
-    });
-    
-    // Autocomplete CAP
-    capInput.addEventListener('input', function() {
-        if (this.value.length === 5) {
-            autoFillFromCAPGI(this.value);
-        } else if (this.value.length === 0) {
-            resetLocationValidation();
-        }
-    });
-    
-    // Validazione provincia
-    provinciaInput.addEventListener('change', function() {
-        validateProvinciaAndCAPGI();
-    });
-    
-    // Event listeners per chiudere dropdown
-    document.addEventListener('click', function(event) {
-        if (!event.target.closest('#citta') && !event.target.closest('#cityAutocompleteDropdown')) {
-            hideCityAutocomplete();
-        }
+    if (provinceData && Array.isArray(provinceData)) {
+        // Usa il file gi_province.json
+        const sortedProvinces = provinceData.sort((a, b) => {
+            const siglaA = a.sigla || a.codice || a.siglaProvincia;
+            const siglaB = b.sigla || b.codice || b.siglaProvincia;
+            return siglaA.localeCompare(siglaB);
+        });
+
+        provinciaSelect.innerHTML = '<option value="">Seleziona provincia...</option>';
+        sortedProvinces.forEach(provincia => {
+            const sigla = provincia.sigla || provincia.codice || provincia.siglaProvincia;
+            const nome = provincia.denominazione || provincia.nome || provincia.denominazioneProvincia;
+            
+            if (sigla) {
+                const option = document.createElement('option');
+                option.value = sigla;
+                option.textContent = `${sigla}${nome ? ' - ' + nome : ''}`;
+                provinciaSelect.appendChild(option);
+            }
+        });
+
+        console.log(`✅ Caricate ${sortedProvinces.length} province dal file dedicato`);
+    } else {
+        // Fallback: estrai le province dai comuni
+        const allComuni = window.GIDatabase.getData().comuni || [];
+        const provinces = new Set();
         
-        if (!event.target.closest('#cap') && !event.target.closest('#capMultipleDropdown')) {
-            hideMultipleDropdowns();
-        }
+        allComuni.forEach(comune => {
+            const provincia = comune.siglaProvincialeSedeMunicipio || comune.provincia || comune.siglaProvincia;
+            if (provincia) {
+                provinces.add(provincia);
+            }
+        });
+
+        // Ordina le province alfabeticamente
+        const sortedProvinces = Array.from(provinces).sort();
+
+        // Popola il dropdown
+        provinciaSelect.innerHTML = '<option value="">Seleziona provincia...</option>';
+        sortedProvinces.forEach(provincia => {
+            const option = document.createElement('option');
+            option.value = provincia;
+            option.textContent = `${provincia} - ${getProvinciaNameByCode(provincia)}`;
+            provinciaSelect.appendChild(option);
+        });
+
+        console.log(`✅ Caricate ${sortedProvinces.length} province estratte dai comuni`);
+    }
+
+    // Debug: mostra la struttura dei dati
+    console.log('🔍 Debug struttura database:', {
+        province: provinceData ? 'Trovato' : 'Non trovato',
+        comuni: window.GIDatabase.getData().comuni ? window.GIDatabase.getData().comuni.length + ' comuni' : 'Non trovato',
+        primoComune: window.GIDatabase.getData().comuni?.[0],
+        primaProvincia: provinceData?.[0]
     });
+}
+
+// Carica le città per la provincia selezionata
+function loadCitiesForProvince() {
+    const provinciaSelect = document.getElementById('provincia');
+    const cittaSelect = document.getElementById('citta');
+    const capSelect = document.getElementById('cap');
+    
+    const selectedProvincia = provinciaSelect.value;
+    
+    // Reset campi successivi
+    cittaSelect.innerHTML = '<option value="">Seleziona città...</option>';
+    cittaSelect.disabled = !selectedProvincia;
+    
+    capSelect.innerHTML = '<option value="">Prima seleziona città</option>';
+    capSelect.disabled = true;
+
+    if (!selectedProvincia) return;
+
+    if (!window.GIDatabase || !window.GIDatabase.isLoaded()) {
+        cittaSelect.innerHTML = '<option value="">Database non disponibile</option>';
+        return;
+    }
+
+    // Ottieni tutti i comuni della provincia
+    const comuni = window.GIDatabase.getComuniByProvincia(selectedProvincia);
+    
+    if (comuni.length === 0) {
+        cittaSelect.innerHTML = '<option value="">Nessuna città trovata</option>';
+        return;
+    }
+
+    // Ordina i comuni alfabeticamente
+    const sortedComuni = comuni.sort((a, b) => a.nome.localeCompare(b.nome));
+
+    // Popola il dropdown città
+    sortedComuni.forEach(comune => {
+        const option = document.createElement('option');
+        option.value = comune.nome;
+        option.dataset.codice = comune.codice;
+        option.dataset.cap = comune.cap;
+        option.textContent = comune.nome;
+        cittaSelect.appendChild(option);
+    });
+
+    cittaSelect.disabled = false;
+    console.log(`✅ Caricate ${sortedComuni.length} città per ${selectedProvincia}`);
+}
+
+// Carica i CAP per la città selezionata
+function loadCAPsForCity() {
+    const cittaSelect = document.getElementById('citta');
+    const capSelect = document.getElementById('cap');
+    
+    const selectedCitta = cittaSelect.value;
+    const selectedOption = cittaSelect.options[cittaSelect.selectedIndex];
+    
+    // Reset CAP
+    capSelect.innerHTML = '<option value="">Seleziona CAP...</option>';
+    capSelect.disabled = !selectedCitta;
+
+    if (!selectedCitta) return;
+
+    if (!window.GIDatabase || !window.GIDatabase.isLoaded()) {
+        capSelect.innerHTML = '<option value="">Database non disponibile</option>';
+        return;
+    }
+
+    // Ottieni il codice comune dalla option selezionata
+    const codiceComune = selectedOption.dataset.codice;
+    if (!codiceComune) return;
+
+    // Cerca tutti i CAP per questo comune
+    const capsForComune = window.GIDatabase.getData().comuniCap?.filter(
+        cap => cap.comune === codiceComune
+    ) || [];
+
+    if (capsForComune.length === 0) {
+        capSelect.innerHTML = '<option value="">Nessun CAP trovato</option>';
+        return;
+    }
+
+    if (capsForComune.length === 1) {
+        // Un solo CAP, selezionalo automaticamente
+        const cap = capsForComune[0].cap;
+        capSelect.innerHTML = `<option value="${cap}" selected>${cap}</option>`;
+        
+        // Salva il codice ISTAT
+        document.getElementById('citta').dataset.codiceIstat = codiceComune;
+        
+        // Valida automaticamente
+        validateLocationDataGI();
+    } else {
+        // Più CAP, mostra tutti
+        capsForComune.forEach(capData => {
+            const option = document.createElement('option');
+            option.value = capData.cap;
+            option.textContent = capData.cap;
+            capSelect.appendChild(option);
+        });
+    }
+
+    capSelect.disabled = false;
+    
+    // Salva il codice ISTAT quando si seleziona la città
+    document.getElementById('citta').dataset.codiceIstat = codiceComune;
+    
+    console.log(`✅ Caricati ${capsForComune.length} CAP per ${selectedCitta}`);
+}
+
+// Valida dati località (versione semplificata per dropdown)
+function validateLocationDataGI() {
+    const provincia = document.getElementById('provincia').value;
+    const citta = document.getElementById('citta').value;
+    const cap = document.getElementById('cap').value;
+    
+    if (!provincia || !citta || !cap) return;
+    
+    // Se arriviamo qui dai dropdown, i dati sono sempre validi
+    setFieldValidation('provincia', true);
+    setFieldValidation('citta', true);
+    setFieldValidation('cap', true);
+    
+    showValidationMessage('✅ Dati località validati', 'success');
+}
+
+// Fallback: carica province manualmente se il database non funziona
+function loadFallbackProvinces() {
+    const provinciaSelect = document.getElementById('provincia');
+    if (!provinciaSelect) return;
+
+    // Province italiane principali
+    const provinceItaliane = [
+        { sigla: 'AG', nome: 'AGRIGENTO' },
+        { sigla: 'AL', nome: 'ALESSANDRIA' },
+        { sigla: 'AN', nome: 'ANCONA' },
+        { sigla: 'AR', nome: 'AREZZO' },
+        { sigla: 'AP', nome: 'ASCOLI PICENO' },
+        { sigla: 'AT', nome: 'ASTI' },
+        { sigla: 'AV', nome: 'AVELLINO' },
+        { sigla: 'BA', nome: 'BARI' },
+        { sigla: 'BT', nome: 'BARLETTA-ANDRIA-TRANI' },
+        { sigla: 'BL', nome: 'BELLUNO' },
+        { sigla: 'BN', nome: 'BENEVENTO' },
+        { sigla: 'BG', nome: 'BERGAMO' },
+        { sigla: 'BI', nome: 'BIELLA' },
+        { sigla: 'BO', nome: 'BOLOGNA' },
+        { sigla: 'BZ', nome: 'BOLZANO' },
+        { sigla: 'BS', nome: 'BRESCIA' },
+        { sigla: 'BR', nome: 'BRINDISI' },
+        { sigla: 'CA', nome: 'CAGLIARI' },
+        { sigla: 'CL', nome: 'CALTANISSETTA' },
+        { sigla: 'CB', nome: 'CAMPOBASSO' },
+        { sigla: 'CE', nome: 'CASERTA' },
+        { sigla: 'CT', nome: 'CATANIA' },
+        { sigla: 'CZ', nome: 'CATANZARO' },
+        { sigla: 'CH', nome: 'CHIETI' },
+        { sigla: 'CO', nome: 'COMO' },
+        { sigla: 'CS', nome: 'COSENZA' },
+        { sigla: 'CR', nome: 'CREMONA' },
+        { sigla: 'KR', nome: 'CROTONE' },
+        { sigla: 'CN', nome: 'CUNEO' },
+        { sigla: 'EN', nome: 'ENNA' },
+        { sigla: 'FM', nome: 'FERMO' },
+        { sigla: 'FE', nome: 'FERRARA' },
+        { sigla: 'FI', nome: 'FIRENZE' },
+        { sigla: 'FG', nome: 'FOGGIA' },
+        { sigla: 'FC', nome: 'FORLÌ-CESENA' },
+        { sigla: 'FR', nome: 'FROSINONE' },
+        { sigla: 'GE', nome: 'GENOVA' },
+        { sigla: 'GO', nome: 'GORIZIA' },
+        { sigla: 'GR', nome: 'GROSSETO' },
+        { sigla: 'IM', nome: 'IMPERIA' },
+        { sigla: 'IS', nome: 'ISERNIA' },
+        { sigla: 'AQ', nome: 'L\'AQUILA' },
+        { sigla: 'SP', nome: 'LA SPEZIA' },
+        { sigla: 'LT', nome: 'LATINA' },
+        { sigla: 'LE', nome: 'LECCE' },
+        { sigla: 'LC', nome: 'LECCO' },
+        { sigla: 'LI', nome: 'LIVORNO' },
+        { sigla: 'LO', nome: 'LODI' },
+        { sigla: 'LU', nome: 'LUCCA' },
+        { sigla: 'MC', nome: 'MACERATA' },
+        { sigla: 'MN', nome: 'MANTOVA' },
+        { sigla: 'MS', nome: 'MASSA-CARRARA' },
+        { sigla: 'MT', nome: 'MATERA' },
+        { sigla: 'ME', nome: 'MESSINA' },
+        { sigla: 'MI', nome: 'MILANO' },
+        { sigla: 'MO', nome: 'MODENA' },
+        { sigla: 'MB', nome: 'MONZA E DELLA BRIANZA' },
+        { sigla: 'NA', nome: 'NAPOLI' },
+        { sigla: 'NO', nome: 'NOVARA' },
+        { sigla: 'NU', nome: 'NUORO' },
+        { sigla: 'OR', nome: 'ORISTANO' },
+        { sigla: 'PD', nome: 'PADOVA' },
+        { sigla: 'PA', nome: 'PALERMO' },
+        { sigla: 'PR', nome: 'PARMA' },
+        { sigla: 'PV', nome: 'PAVIA' },
+        { sigla: 'PG', nome: 'PERUGIA' },
+        { sigla: 'PU', nome: 'PESARO E URBINO' },
+        { sigla: 'PE', nome: 'PESCARA' },
+        { sigla: 'PC', nome: 'PIACENZA' },
+        { sigla: 'PI', nome: 'PISA' },
+        { sigla: 'PT', nome: 'PISTOIA' },
+        { sigla: 'PN', nome: 'PORDENONE' },
+        { sigla: 'PZ', nome: 'POTENZA' },
+        { sigla: 'PO', nome: 'PRATO' },
+        { sigla: 'RG', nome: 'RAGUSA' },
+        { sigla: 'RA', nome: 'RAVENNA' },
+        { sigla: 'RC', nome: 'REGGIO CALABRIA' },
+        { sigla: 'RE', nome: 'REGGIO EMILIA' },
+        { sigla: 'RI', nome: 'RIETI' },
+        { sigla: 'RN', nome: 'RIMINI' },
+        { sigla: 'RM', nome: 'ROMA' },
+        { sigla: 'RO', nome: 'ROVIGO' },
+        { sigla: 'SA', nome: 'SALERNO' },
+        { sigla: 'SS', nome: 'SASSARI' },
+        { sigla: 'SV', nome: 'SAVONA' },
+        { sigla: 'SI', nome: 'SIENA' },
+        { sigla: 'SR', nome: 'SIRACUSA' },
+        { sigla: 'SO', nome: 'SONDRIO' },
+        { sigla: 'SU', nome: 'SUD SARDEGNA' },
+        { sigla: 'TA', nome: 'TARANTO' },
+        { sigla: 'TE', nome: 'TERAMO' },
+        { sigla: 'TR', nome: 'TERNI' },
+        { sigla: 'TO', nome: 'TORINO' },
+        { sigla: 'TP', nome: 'TRAPANI' },
+        { sigla: 'TN', nome: 'TRENTO' },
+        { sigla: 'TV', nome: 'TREVISO' },
+        { sigla: 'TS', nome: 'TRIESTE' },
+        { sigla: 'UD', nome: 'UDINE' },
+        { sigla: 'VA', nome: 'VARESE' },
+        { sigla: 'VE', nome: 'VENEZIA' },
+        { sigla: 'VB', nome: 'VERBANO-CUSIO-OSSOLA' },
+        { sigla: 'VC', nome: 'VERCELLI' },
+        { sigla: 'VR', nome: 'VERONA' },
+        { sigla: 'VI', nome: 'VICENZA' },
+        { sigla: 'VV', nome: 'VIBO VALENTIA' },
+        { sigla: 'VT', nome: 'VITERBO' }
+    ];
+
+    provinciaSelect.innerHTML = '<option value="">Seleziona provincia...</option>';
+    provinceItaliane.forEach(provincia => {
+        const option = document.createElement('option');
+        option.value = provincia.sigla;
+        option.textContent = `${provincia.sigla} - ${provincia.nome}`;
+        provinciaSelect.appendChild(option);
+    });
+
+    console.log(`✅ Caricate ${provinceItaliane.length} province da fallback`);
+}
+    const cittaSelect = document.getElementById('citta');
+    
+    // Prova prima dal dataset
+    const codiceIstat = cittaSelect.dataset.codiceIstat;
+    if (codiceIstat) {
+        return codiceIstat;
+    }
+    
+    // Fallback: ottieni dalla option selezionata
+    const selectedOption = cittaSelect.options[cittaSelect.selectedIndex];
+    if (selectedOption && selectedOption.dataset.codice) {
+        return selectedOption.dataset.codice;
+    }
+    
+    return 'L736'; // Default: Venezia
 }
 
 // Mostra autocomplete città con database GI
