@@ -638,16 +638,11 @@
                 return;
             }
 
-            // Cerca i comuni nel database con più varianti di campo
+            // Cerca i comuni nel database con la struttura corretta
             const allComuni = window.GIDatabase.getData().comuni || [];
             
             const comuniProvincia = allComuni.filter(comune => {
-                const provincia = comune.siglaProvincialeSedeMunicipio || 
-                                comune.provincia || 
-                                comune.siglaProvincia ||
-                                comune.SIGLA_PROVINCIA ||
-                                comune.codiceProvincia;
-                
+                const provincia = comune.sigla_provincia; // Campo corretto dal JSON
                 return provincia === selectedProvincia;
             });
 
@@ -663,23 +658,22 @@
                 // Debug: mostra la struttura del primo comune
                 if (allComuni.length > 0) {
                     console.log('🔍 Struttura primo comune:', Object.keys(allComuni[0]));
-                    console.log('🔍 Valori campo provincia del primo comune:', {
-                        siglaProvincialeSedeMunicipio: allComuni[0].siglaProvincialeSedeMunicipio,
-                        provincia: allComuni[0].provincia,
-                        siglaProvincia: allComuni[0].siglaProvincia,
-                        SIGLA_PROVINCIA: allComuni[0].SIGLA_PROVINCIA,
-                        codiceProvincia: allComuni[0].codiceProvincia
-                    });
+                    console.log('🔍 Valori provincia primi 3 comuni:', 
+                        allComuni.slice(0, 3).map(c => ({ 
+                            nome: c.denominazione_ita, 
+                            provincia: c.sigla_provincia 
+                        }))
+                    );
                 }
                 return;
             }
 
             // Mappa i comuni nel formato standard
             const comuniMappati = comuniProvincia.map(comune => ({
-                nome: comune.denominazione || comune.nome || comune.DENOMINAZIONE,
-                codice: comune.codiceCatastale || comune.codice || comune.CODICE_CATASTALE,
+                nome: comune.denominazione_ita || comune.denominazione_ita_altra,
+                codice: comune.codice_istat || comune.codice_belfiore,
                 provincia: selectedProvincia,
-                cap: '' // Sarà risolto dopo
+                cap: '' // Sarà risolto dopo con gi_comuni_cap
             }));
 
             const sortedComuni = comuniMappati.sort((a, b) => a.nome.localeCompare(b.nome));
