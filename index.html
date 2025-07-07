@@ -5,154 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RECORP ALL-IN-ONE - Sistema Gestionale</title>
     <link rel="stylesheet" href="./assets/style.css">
-    <style>
-        /* Stili specifici per la dropdown di suggerimenti */
-        .suggestions-dropdown {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
-            background: var(--dark-card);
-            border: 1px solid var(--dark-border);
-            border-radius: 0 0 10px 10px;
-            box-shadow: var(--shadow-lg);
-            max-height: 300px;
-            overflow-y: auto;
-            display: none;
-            z-index: 100;
-        }
-        
-        .suggestion-item {
-            padding: 0.75rem 1rem;
-            cursor: pointer;
-            transition: background 0.2s ease;
-            border-bottom: 1px solid var(--dark-border);
-        }
-        
-        .suggestion-item:hover {
-            background: var(--dark-bg);
-        }
-        
-        .suggestion-item:last-child {
-            border-bottom: none;
-        }
-        
-        .suggestion-info {
-            font-size: 0.85rem;
-            color: var(--gray-500);
-            margin-top: 0.25rem;
-        }
-        
-        .no-suggestions {
-            padding: 1rem;
-            text-align: center;
-            color: var(--gray-500);
-            font-style: italic;
-        }
-        
-        /* Fix per il body quando c'è la navbar */
-        body {
-            padding: 0;
-            display: block;
-            min-height: 100vh;
-        }
-        
-        /* Container principale con padding per navbar */
-        .page-container {
-            padding-top: 80px;
-            min-height: 100vh;
-            background: var(--dark-surface);
-        }
-        
-        /* Stats cards con gradient */
-        .stat-card {
-            background: linear-gradient(135deg, var(--dark-card), var(--dark-bg));
-        }
-        
-        /* Tab styles */
-        .tab {
-            padding: 0.75rem 1.5rem;
-            background: none;
-            border: none;
-            cursor: pointer;
-            color: var(--gray-500);
-            font-weight: 500;
-            transition: all 0.3s ease;
-            border-bottom: 2px solid transparent;
-            margin-bottom: -2px;
-        }
-        
-        .tab:hover {
-            color: var(--gray-300);
-        }
-        
-        .tab.active {
-            color: var(--accent-gold) !important;
-            border-bottom-color: var(--accent-gold) !important;
-        }
-        
-        /* Database manager specific styles */
-        .btn-sm {
-            padding: 0.5rem 1rem;
-            font-size: 0.875rem;
-        }
-        
-        .form-section {
-            background: var(--dark-card);
-            padding: 1.5rem;
-            border-radius: 8px;
-            margin-bottom: 1.5rem;
-            border: 1px solid var(--dark-border);
-        }
-        
-        .btn-group {
-            display: flex;
-            gap: 1rem;
-            flex-wrap: wrap;
-        }
-        
-        /* Table styles for dark theme */
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        
-        th {
-            background: var(--dark-bg) !important;
-            color: var(--gray-300);
-            padding: 0.75rem !important;
-            text-align: left;
-            font-weight: 600;
-            text-transform: uppercase;
-            font-size: 0.85rem;
-            letter-spacing: 0.5px;
-        }
-        
-        td {
-            padding: 0.75rem !important;
-            border-bottom: 1px solid var(--dark-border);
-            color: var(--gray-200);
-        }
-        
-        tr:hover {
-            background: var(--dark-bg);
-        }
-        
-        /* File input styling */
-        input[type="file"] {
-            padding: 0.5rem;
-            background: var(--dark-bg);
-            border: 2px dashed var(--dark-border);
-            border-radius: 8px;
-            width: 100%;
-            cursor: pointer;
-            color: var(--gray-300);
-        }
-        
-        input[type="file"]:hover {
-            border-color: var(--accent-gold);
-        }
-    </style>
 </head>
 <body>
     <!-- Navbar -->
@@ -164,10 +16,8 @@
             </a>
             <div class="nav-links">
                 <a href="./index.html" class="active">Dashboard</a>
-                <a href="./database.html">Database</a>
                 <a href="./registrazione-artista.html">Nuova Registrazione</a>
                 <a href="./agibilita/index.html">Agibilità</a>
-                <a href="./documenti.html">Documenti</a>
             </div>
         </div>
     </nav>
@@ -183,7 +33,7 @@
             <!-- Ricerca e Registrazione -->
             <div class="search-section">
                 <div class="search-container">
-                    <div style="position: relative; flex: 1;">
+                    <div class="search-input-wrapper">
                         <input type="text" class="search-input" id="searchInput" 
                                placeholder="Cerca artista per nome o codice fiscale..."
                                oninput="showSuggestions()" 
@@ -195,7 +45,7 @@
                         🔍 Cerca
                     </button>
                 </div>
-                <div style="text-align: center; margin-top: 1rem;">
+                <div class="search-register-link">
                     <a href="./registrazione-artista.html" class="btn btn-success">
                         ➕ Registra Nuovo Artista
                     </a>
@@ -281,16 +131,16 @@
     </div>
 
     <!-- Database Management Button -->
-    <div style="position: fixed; bottom: 20px; right: 20px; z-index: 100;">
-        <button class="btn btn-secondary btn-sm" onclick="toggleDatabaseManager()" style="opacity: 0.8;">
+    <div class="db-manager-button">
+        <button class="btn btn-secondary btn-sm" onclick="toggleDatabaseManager()">
             ⚙️ Gestione DB
         </button>
     </div>
 
     <!-- Chat AI Button -->
-    <div style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 100;">
-        <button class="btn btn-primary" onclick="openChatAI()" style="box-shadow: 0 4px 15px rgba(251, 191, 36, 0.4); padding: 0.75rem 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
-            <span style="font-size: 1.2rem;">🤖</span>
+    <div class="chat-ai-button">
+        <button class="btn btn-primary btn-chat-ai" onclick="openChatAI()">
+            <span class="chat-ai-icon">🤖</span>
             <span>Assistente AI</span>
         </button>
     </div>
@@ -310,66 +160,66 @@
 
     <!-- Database Manager Modal -->
     <div class="modal" id="databaseManagerModal">
-        <div class="modal-content" style="max-width: 900px;">
+        <div class="modal-content modal-content-wide">
             <div class="modal-header">
                 <h2>Gestione Database</h2>
                 <button class="close-modal" onclick="closeDatabaseManager()">&times;</button>
             </div>
             
-            <div class="tabs" style="display: flex; gap: 1rem; border-bottom: 2px solid var(--dark-border); margin-bottom: 1.5rem;">
+            <div class="tabs">
                 <button class="tab active" onclick="showDBTab('artisti')">Artisti</button>
                 <button class="tab" onclick="showDBTab('locali')">Locali</button>
                 <button class="tab" onclick="showDBTab('export')">Export/Import</button>
             </div>
             
             <!-- Tab Artisti -->
-            <div id="dbTabArtisti" class="tab-content" style="display: block;">
+            <div id="dbTabArtisti" class="tab-content active">
                 <div class="form-group">
                     <input type="text" class="form-control" id="dbSearchArtist" 
                            placeholder="Cerca artista..." oninput="filterDBArtists()">
                 </div>
-                <div style="max-height: 400px; overflow-y: auto;">
+                <div class="db-table-container">
                     <table>
                         <thead>
                             <tr>
                                 <th>Nome</th>
                                 <th>CF</th>
                                 <th>Mansione</th>
-                                <th style="text-align: center;">Azioni</th>
+                                <th class="text-center">Azioni</th>
                             </tr>
                         </thead>
                         <tbody id="dbArtistsList"></tbody>
                     </table>
-                    <p id="noArtistsMsg" style="text-align: center; color: var(--gray-500); margin-top: 2rem; display: none;">Nessun artista nel database</p>
+                    <p id="noArtistsMsg" class="no-data-msg">Nessun artista nel database</p>
                 </div>
             </div>
             
             <!-- Tab Locali -->
-            <div id="dbTabLocali" class="tab-content" style="display: none;">
+            <div id="dbTabLocali" class="tab-content">
                 <div class="form-group">
                     <input type="text" class="form-control" id="dbSearchVenue" 
                            placeholder="Cerca locale..." oninput="filterDBVenues()">
                 </div>
-                <div style="max-height: 400px; overflow-y: auto;">
+                <div class="db-table-container">
                     <table>
                         <thead>
                             <tr>
                                 <th>Nome</th>
                                 <th>Città</th>
                                 <th>Indirizzo</th>
-                                <th style="text-align: center;">Azioni</th>
+                                <th class="text-center">Azioni</th>
                             </tr>
                         </thead>
                         <tbody id="dbVenuesList"></tbody>
                     </table>
-                    <p id="noVenuesMsg" style="text-align: center; color: var(--gray-500); margin-top: 2rem; display: none;">Nessun locale nel database</p>
+                    <p id="noVenuesMsg" class="no-data-msg">Nessun locale nel database</p>
                 </div>
             </div>
             
             <!-- Tab Export/Import -->
-            <div id="dbTabExport" class="tab-content" style="display: none;">
+            <div id="dbTabExport" class="tab-content">
                 <div class="form-section">
-                    <h3 style="margin-bottom: 1rem; color: var(--gray-200);">Export Database</h3>
+                    <h3 class="form-section-title">Export Database</h3>
                     <div class="btn-group">
                         <button class="btn btn-primary" onclick="exportDatabase('artisti')">
                             📥 Export Artisti
@@ -383,9 +233,9 @@
                     </div>
                 </div>
                 <div class="form-section">
-                    <h3 style="margin-bottom: 1rem; color: var(--gray-200);">Import Database</h3>
+                    <h3 class="form-section-title">Import Database</h3>
                     <input type="file" id="importFile" accept=".json" onchange="importDatabase(event)">
-                    <p style="margin-top: 0.5rem; color: var(--gray-500); font-size: 0.9rem;">
+                    <p class="import-help-text">
                         Seleziona un file JSON esportato precedentemente
                     </p>
                 </div>
@@ -497,7 +347,7 @@
                                 `).join('')}
                             </div>
                         `
-                        : '<p style="color: var(--gray-500); margin-top: 1rem; font-size: 0.9rem;">Nessuna agibilità registrata</p>';
+                        : '<p class="no-agibilita-msg">Nessuna agibilità registrata</p>';
 
                     resultsContainer.innerHTML += `
                         <div class="result-card">
@@ -505,7 +355,7 @@
                                 <div class="result-info">
                                     <h3>${artist.nome} ${artist.cognome}${artist.nomeArte ? ' - ' + artist.nomeArte : ''}</h3>
                                     <p>CF: ${artist.codiceFiscale} | Tel: ${artist.telefono || 'N/D'}</p>
-                                    <p style="font-size: 0.85rem; color: var(--accent-purple);">${artist.mansione}</p>
+                                    <p class="artist-role">${artist.mansione}</p>
                                 </div>
                                 <div class="result-actions">
                                     <button class="btn btn-primary btn-sm" onclick="createAgibilitaForArtist('${artist.id}')">
@@ -598,7 +448,7 @@
         // Highlight matching text
         function highlightMatch(text, searchTerm) {
             const regex = new RegExp(`(${searchTerm})`, 'gi');
-            return text.replace(regex, '<strong style="color: var(--accent-gold);">$1</strong>');
+            return text.replace(regex, '<strong class="highlight-match">$1</strong>');
         }
         
         // Hide suggestions
@@ -675,7 +525,7 @@
                         <td>${artist.nome} ${artist.cognome}${artist.nomeArte ? ' - ' + artist.nomeArte : ''}</td>
                         <td>${artist.codiceFiscale}</td>
                         <td>${artist.mansione}</td>
-                        <td style="text-align: center;">
+                        <td class="text-center">
                             <button class="btn btn-danger btn-sm" onclick="removeArtistFromDB('${artist.id}')">
                                 🗑️ Rimuovi
                             </button>
@@ -699,7 +549,7 @@
                         <td>${venue.nome}</td>
                         <td>${venue.citta}</td>
                         <td>${venue.indirizzo}</td>
-                        <td style="text-align: center;">
+                        <td class="text-center">
                             <button class="btn btn-danger btn-sm" onclick="removeVenueFromDB('${venue.id}')">
                                 🗑️ Rimuovi
                             </button>
