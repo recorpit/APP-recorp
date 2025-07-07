@@ -46,6 +46,21 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 100);
     }
 
+    // NEW: Check if coming from registration
+    const newArtistId = sessionStorage.getItem('newArtistId');
+    if (newArtistId) {
+        sessionStorage.removeItem('newArtistId');
+        const newArtist = artistsDB.find(a => a.id == newArtistId);
+        if (newArtist) {
+            // Start new agibilità and show modal with new artist
+            startNewAgibilita();
+            setTimeout(() => {
+                showAddArtistModal();
+                addArtistToList(parseInt(newArtistId));
+            }, 500);
+        }
+    }
+
     // Check if coming from chat
     const quickAgibilita = sessionStorage.getItem('quickAgibilita');
     if (quickAgibilita) {
@@ -171,7 +186,14 @@ function searchArtists() {
 
     const resultsDiv = document.getElementById('searchResults');
     if (results.length === 0) {
-        resultsDiv.innerHTML = '<p>Nessun artista trovato</p>';
+        resultsDiv.innerHTML = `
+            <p>Nessun artista trovato</p>
+            <div style="text-align: center; margin-top: 1rem;">
+                <button class="btn btn-primary" onclick="goToRegistration()">
+                    ➕ Registra Nuovo Artista
+                </button>
+            </div>
+        `;
     } else {
         resultsDiv.innerHTML = results.map(artist => `
             <div class="search-result" onclick="addArtistToList(${artist.id})">
@@ -180,6 +202,14 @@ function searchArtists() {
             </div>
         `).join('');
     }
+}
+
+// NEW: Go to registration
+function goToRegistration() {
+    // Save state to return after registration
+    sessionStorage.setItem('returnToAgibilita', 'true');
+    // Go to registration
+    window.location.href = '../registrazione-artista.html';
 }
 
 // Add artist to list
