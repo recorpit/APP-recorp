@@ -450,11 +450,9 @@ function loadCAP(codiceIstat) {
         const comuniCapData = window.GIDatabase?.getData()?.comuniCap || [];
         
         // Cerca i CAP per questo comune usando codice_istat
-        const capList = comuniCapData
-            .filter(item => item.codice_istat === codiceIstat)
-            .map(item => item.cap)
-            .filter((cap, index, self) => cap && self.indexOf(cap) === index)
-            .sort();
+const capList = comuniCapData
+    .filter(item => item.codice_istat === codiceIstat)
+    .map(item => item.cap)
         
         console.log(`🔍 CAP trovati per codice ${codiceIstat}:`, capList);
         
