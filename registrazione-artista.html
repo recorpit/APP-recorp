@@ -506,30 +506,96 @@
             const provinciaSelect = document.getElementById('provincia');
             if (!provinciaSelect) return;
 
-            // Ottieni tutte le province dal database
-            const allComuni = window.GIDatabase.getData().comuni || [];
-            const provinces = new Set();
+            // Prima prova con il file province dedicato
+            const provinceData = window.GIDatabase.getData().province;
             
-            allComuni.forEach(comune => {
-                const provincia = comune.siglaProvincialeSedeMunicipio || comune.provincia;
-                if (provincia) {
-                    provinces.add(provincia);
-                }
-            });
+            if (provinceData && Array.isArray(provinceData)) {
+                // Usa il file gi_province.json
+                const sortedProvinces = provinceData.sort((a, b) => {
+                    const siglaA = a.sigla || a.codice || a.siglaProvincia;
+                    const siglaB = b.sigla || b.codice || b.siglaProvincia;
+                    return siglaA.localeCompare(siglaB);
+                });
 
-            // Ordina le province alfabeticamente
-            const sortedProvinces = Array.from(provinces).sort();
+                provinciaSelect.innerHTML = '<option value="">Seleziona provincia...</option>';
+                sortedProvinces.forEach(provincia => {
+                    const sigla = provincia.sigla || provincia.codice || provincia.siglaProvincia;
+                    const nome = provincia.denominazione || provincia.nome || provincia.denominazioneProvincia;
+                    
+                    if (sigla) {
+                        const option = document.createElement('option');
+                        option.value = sigla;
+                        option.textContent = `${sigla}${nome ? ' - ' + nome : ''}`;
+                        provinciaSelect.appendChild(option);
+                    }
+                });
 
-            // Popola il dropdown
+                console.log(`✅ Caricate ${sortedProvinces.length} province dal file dedicato`);
+            } else {
+                // Fallback: estrai le province dai comuni
+                const allComuni = window.GIDatabase.getData().comuni || [];
+                const provinces = new Set();
+                
+                allComuni.forEach(comune => {
+                    const provincia = comune.siglaProvincialeSedeMunicipio || comune.provincia || comune.siglaProvincia;
+                    if (provincia) {
+                        provinces.add(provincia);
+                    }
+                });
+
+                const sortedProvinces = Array.from(provinces).sort();
+
+                provinciaSelect.innerHTML = '<option value="">Seleziona provincia...</option>';
+                sortedProvinces.forEach(provincia => {
+                    const option = document.createElement('option');
+                    option.value = provincia;
+                    option.textContent = `${provincia} - ${getProvinciaNameByCode(provincia)}`;
+                    provinciaSelect.appendChild(option);
+                });
+
+                console.log(`✅ Caricate ${sortedProvinces.length} province estratte dai comuni`);
+            }
+        }
+
+        // Fallback: carica province manualmente se il database non funziona
+        function loadFallbackProvinces() {
+            const provinciaSelect = document.getElementById('provincia');
+            if (!provinciaSelect) return;
+
+            // Province italiane principali (le prime più comuni)
+            const provinceItaliane = [
+                { sigla: 'VI', nome: 'VICENZA' },
+                { sigla: 'VE', nome: 'VENEZIA' },
+                { sigla: 'VR', nome: 'VERONA' },
+                { sigla: 'PD', nome: 'PADOVA' },
+                { sigla: 'TV', nome: 'TREVISO' },
+                { sigla: 'RO', nome: 'ROVIGO' },
+                { sigla: 'BL', nome: 'BELLUNO' },
+                { sigla: 'MI', nome: 'MILANO' },
+                { sigla: 'RM', nome: 'ROMA' },
+                { sigla: 'NA', nome: 'NAPOLI' },
+                { sigla: 'TO', nome: 'TORINO' },
+                { sigla: 'BA', nome: 'BARI' },
+                { sigla: 'FI', nome: 'FIRENZE' },
+                { sigla: 'BO', nome: 'BOLOGNA' },
+                { sigla: 'GE', nome: 'GENOVA' },
+                { sigla: 'PA', nome: 'PALERMO' },
+                { sigla: 'CT', nome: 'CATANIA' },
+                { sigla: 'AG', nome: 'AGRIGENTO' },
+                { sigla: 'AL', nome: 'ALESSANDRIA' },
+                { sigla: 'AN', nome: 'ANCONA' }
+                // ... aggiungi altre province se necessario
+            ];
+
             provinciaSelect.innerHTML = '<option value="">Seleziona provincia...</option>';
-            sortedProvinces.forEach(provincia => {
+            provinceItaliane.forEach(provincia => {
                 const option = document.createElement('option');
-                option.value = provincia;
-                option.textContent = `${provincia} - ${getProvinciaNameByCode(provincia)}`;
+                option.value = provincia.sigla;
+                option.textContent = `${provincia.sigla} - ${provincia.nome}`;
                 provinciaSelect.appendChild(option);
             });
 
-            console.log(`✅ Caricate ${sortedProvinces.length} province`);
+            console.log(`✅ Caricate ${provinceItaliane.length} province da fallback`);
         }
 
         // Carica le città per la provincia selezionata
