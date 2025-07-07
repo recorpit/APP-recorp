@@ -1,15 +1,4 @@
-// Autocomplete CAP quando si digita la città
-        function autoFillFromCityGI() {
-            const citta = document.getElementById('citta').value;
-            const provincia = document.getElementById('provincia').value;
-            
-            if (!citta || citta.length < 3) return;
-            
-            if (!window.GIDatabase || !window.GIDatabase.isLoaded()) return;
-            
-            // Cerca il comune esatto
-            const comuni = window.GIDatabase.getComuniByProvincia(provincia);
-            const comune = comuni.find(c =>// agibilita.js - Sistema Gestione Agibilità RECORP con Database GI
+// agibilita.js - Sistema Gestione Agibilità RECORP con Database GI
 
 // Variabili globali
 let selectedArtists = [];
@@ -91,7 +80,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         setTimeout(() => {
             data.artisti.forEach(artistData => {
-                const artist = artistsDB.find(a => a.cf === artistData.cf);
+                const artist = artistsDB.find(a => a.codiceFiscale === artistData.cf);
                 if (artist) {
                     selectedArtists.push({
                         ...artist,
@@ -159,22 +148,22 @@ function loadProvinces() {
     const provinceData = window.GIDatabase.getData().province;
     
     if (provinceData && Array.isArray(provinceData)) {
-        // Usa il file gi_province.json
+        // Usa il file gi_province.json con i campi corretti
         const sortedProvinces = provinceData.sort((a, b) => {
-            const siglaA = a.sigla || a.codice || a.siglaProvincia;
-            const siglaB = b.sigla || b.codice || b.siglaProvincia;
+            const siglaA = a.sigla_provincia || a.sigla || a.codice;
+            const siglaB = b.sigla_provincia || b.sigla || b.codice;
             return siglaA.localeCompare(siglaB);
         });
 
         provinciaSelect.innerHTML = '<option value="">Seleziona provincia...</option>';
         sortedProvinces.forEach(provincia => {
-            const sigla = provincia.sigla || provincia.codice || provincia.siglaProvincia;
-            const nome = provincia.denominazione || provincia.nome || provincia.denominazioneProvincia;
+            const sigla = provincia.sigla_provincia || provincia.sigla || provincia.codice;
+            const nome = provincia.denominazione_provincia || provincia.denominazione || provincia.nome;
             
             if (sigla) {
                 const option = document.createElement('option');
                 option.value = sigla;
-                option.textContent = `${sigla}${nome ? ' - ' + nome : ''}`;
+                option.textContent = `${sigla} - ${nome}`;
                 provinciaSelect.appendChild(option);
             }
         });
@@ -183,17 +172,17 @@ function loadProvinces() {
     } else {
         // Fallback: estrai le province dai comuni
         const allComuni = window.GIDatabase.getData().comuni || [];
-        const provinces = new Set();
+        const provinces = new Map();
         
         allComuni.forEach(comune => {
-            const provincia = comune.siglaProvincialeSedeMunicipio || comune.provincia || comune.siglaProvincia;
-            if (provincia) {
-                provinces.add(provincia);
+            const provincia = comune.sigla_provincia || comune.provincia || comune.siglaProvincia;
+            if (provincia && provincia.length === 2 && !provinces.has(provincia)) {
+                provinces.set(provincia, provincia);
             }
         });
 
         // Ordina le province alfabeticamente
-        const sortedProvinces = Array.from(provinces).sort();
+        const sortedProvinces = Array.from(provinces.keys()).sort();
 
         // Popola il dropdown
         provinciaSelect.innerHTML = '<option value="">Seleziona provincia...</option>';
@@ -206,14 +195,6 @@ function loadProvinces() {
 
         console.log(`✅ Caricate ${sortedProvinces.length} province estratte dai comuni`);
     }
-
-    // Debug: mostra la struttura dei dati
-    console.log('🔍 Debug struttura database:', {
-        province: provinceData ? 'Trovato' : 'Non trovato',
-        comuni: window.GIDatabase.getData().comuni ? window.GIDatabase.getData().comuni.length + ' comuni' : 'Non trovato',
-        primoComune: window.GIDatabase.getData().comuni?.[0],
-        primaProvincia: provinceData?.[0]
-    });
 }
 
 // Carica le città per la provincia selezionata
@@ -238,7 +219,7 @@ function loadCitiesForProvince() {
         return;
     }
 
-    // Ottieni tutti i comuni della provincia
+    // Ottieni tutti i comuni della provincia usando la funzione corretta
     const comuni = window.GIDatabase.getComuniByProvincia(selectedProvincia);
     
     if (comuni.length === 0) {
@@ -247,15 +228,22 @@ function loadCitiesForProvince() {
     }
 
     // Ordina i comuni alfabeticamente
-    const sortedComuni = comuni.sort((a, b) => a.nome.localeCompare(b.nome));
+    const sortedComuni = comuni.sort((a, b) => {
+        const nomeA = a.denominazione_ita || a.denominazione || a.nome || '';
+        const nomeB = b.denominazione_ita || b.denominazione || b.nome || '';
+        return nomeA.localeCompare(nomeB);
+    });
 
     // Popola il dropdown città
     sortedComuni.forEach(comune => {
         const option = document.createElement('option');
-        option.value = comune.nome;
-        option.dataset.codice = comune.codice;
-        option.dataset.cap = comune.cap;
-        option.textContent = comune.nome;
+        const nomeComune = comune.denominazione_ita || comune.denominazione || comune.nome;
+        const codiceIstat = comune.codice_istat || comune.codiceIstat || comune.codice;
+        
+        option.value = nomeComune;
+        option.dataset.codice = codiceIstat;
+        option.dataset.cap = comune.cap || '';
+        option.textContent = nomeComune;
         cittaSelect.appendChild(option);
     });
 
@@ -287,12 +275,19 @@ function loadCAPsForCity() {
     if (!codiceComune) return;
 
     // Cerca tutti i CAP per questo comune
-    const capsForComune = window.GIDatabase.getData().comuniCap?.filter(
-        cap => cap.comune === codiceComune
-    ) || [];
+    const comuniCapData = window.GIDatabase?.getData()?.comuniCap || [];
+    const capsForComune = comuniCapData.filter(
+        cap => cap.codice_istat === codiceComune
+    );
 
     if (capsForComune.length === 0) {
-        capSelect.innerHTML = '<option value="">Nessun CAP trovato</option>';
+        // Prova con il CAP dall'option dataset
+        const capFromDataset = selectedOption.dataset.cap;
+        if (capFromDataset) {
+            capSelect.innerHTML = `<option value="${capFromDataset}" selected>${capFromDataset}</option>`;
+        } else {
+            capSelect.innerHTML = '<option value="">Nessun CAP trovato</option>';
+        }
         return;
     }
 
@@ -465,6 +460,32 @@ function loadFallbackProvinces() {
 
     console.log(`✅ Caricate ${provinceItaliane.length} province da fallback`);
 }
+
+// Autocomplete CAP quando si digita la città
+function autoFillFromCityGI() {
+    const citta = document.getElementById('citta').value;
+    const provincia = document.getElementById('provincia').value;
+    
+    if (!citta || citta.length < 3) return;
+    
+    if (!window.GIDatabase || !window.GIDatabase.isLoaded()) return;
+    
+    // Cerca il comune esatto
+    const comuni = window.GIDatabase.getComuniByProvincia(provincia);
+    const comune = comuni.find(c => {
+        const nomeComune = c.denominazione_ita || c.denominazione || c.nome || '';
+        return nomeComune.toUpperCase() === citta.toUpperCase();
+    });
+    
+    if (comune && comune.cap) {
+        document.getElementById('cap').value = comune.cap;
+        document.getElementById('citta').dataset.codiceIstat = comune.codice_istat || comune.codiceIstat || comune.codice;
+        validateLocationDataGI();
+    }
+}
+
+// Ottieni codice ISTAT
+function getCodiceIstatFromCityGI() {
     const cittaSelect = document.getElementById('citta');
     
     // Prova prima dal dataset
@@ -477,6 +498,22 @@ function loadFallbackProvinces() {
     const selectedOption = cittaSelect.options[cittaSelect.selectedIndex];
     if (selectedOption && selectedOption.dataset.codice) {
         return selectedOption.dataset.codice;
+    }
+    
+    // Ultimo tentativo: cerca nel database
+    if (window.GIDatabase && window.GIDatabase.isLoaded()) {
+        const citta = cittaSelect.value;
+        const provincia = document.getElementById('provincia').value;
+        
+        const comuni = window.GIDatabase.getComuniByProvincia(provincia);
+        const comune = comuni.find(c => {
+            const nomeComune = c.denominazione_ita || c.denominazione || c.nome || '';
+            return nomeComune.toUpperCase() === citta.toUpperCase();
+        });
+        
+        if (comune) {
+            return comune.codice_istat || comune.codiceIstat || comune.codice;
+        }
     }
     
     return 'L736'; // Default: Venezia
@@ -624,28 +661,6 @@ function validateLocationDataGI() {
 
 function validateProvinciaAndCAPGI() {
     validateLocationDataGI();
-}
-
-// Ottieni codice ISTAT
-function getCodiceIstatFromCityGI() {
-    const cittaInput = document.getElementById('citta');
-    const codiceIstat = cittaInput.dataset.codiceIstat;
-    
-    if (codiceIstat) {
-        return codiceIstat;
-    }
-    
-    if (window.GIDatabase && window.GIDatabase.isLoaded()) {
-        const citta = cittaInput.value;
-        const provincia = document.getElementById('provincia').value;
-        
-        const comuni = window.GIDatabase.getComuniByProvincia(provincia);
-        const comune = comuni.find(c => c.nome.toUpperCase() === citta.toUpperCase());
-        
-        return comune ? comune.codice : 'L736';
-    }
-    
-    return 'L736';
 }
 
 // Ottieni nome provincia da codice
@@ -820,7 +835,7 @@ function searchArtists() {
     const results = artistsDB.filter(artist => 
         artist.nome.toLowerCase().includes(searchTerm) || 
         artist.cognome.toLowerCase().includes(searchTerm) ||
-        artist.cf.toLowerCase().includes(searchTerm) ||
+        artist.codiceFiscale.toLowerCase().includes(searchTerm) ||
         (artist.nomeArte && artist.nomeArte.toLowerCase().includes(searchTerm))
     );
 
@@ -838,7 +853,7 @@ function searchArtists() {
         resultsDiv.innerHTML = results.map(artist => `
             <div class="search-result" onclick="addArtistToList(${artist.id})">
                 <strong>${artist.nome} ${artist.cognome}${artist.nomeArte ? ' - ' + artist.nomeArte : ''}</strong><br>
-                <small>CF: ${artist.cf} | ${artist.mansione || 'Non specificata'}</small>
+                <small>CF: ${artist.codiceFiscale} | ${artist.mansione || 'Non specificata'}</small>
             </div>
         `).join('');
     }
@@ -853,7 +868,7 @@ function addArtistToList(artistId) {
     const artist = artistsDB.find(a => a.id === artistId);
     if (!artist) return;
 
-    const existingIndex = selectedArtists.findIndex(a => a.cf === artist.cf);
+    const existingIndex = selectedArtists.findIndex(a => a.codiceFiscale === artist.codiceFiscale);
     if (existingIndex !== -1) {
         alert('Questo artista è già stato aggiunto!');
         return;
@@ -863,7 +878,7 @@ function addArtistToList(artistId) {
         ...artist,
         ruolo: artist.mansione || '',
         compenso: 0,
-        matricolaEnpals: artist.matricolaEnpals || generateMatricolaEnpals()
+        matricolaEnpals: artist.matricolaENPALS || generateMatricolaEnpals()
     });
 
     updateArtistsList();
@@ -882,7 +897,7 @@ function updateArtistsList() {
             <div class="artist-item">
                 <div class="artist-info">
                     <strong>${artist.nome} ${artist.cognome}${artist.nomeArte ? ' - ' + artist.nomeArte : ''}</strong><br>
-                    <small>CF: ${artist.cf}</small>
+                    <small>CF: ${artist.codiceFiscale}</small>
                     ${artist.matricolaEnpals ? `<br><small>Matricola ENPALS: ${artist.matricolaEnpals}</small>` : ''}
                 </div>
                 <div class="artist-role-compensation">
@@ -1130,7 +1145,7 @@ function generateXML() {
                     </Periodi>
                     <Lavoratori>
                         <Lavoratore>
-                            <CodiceFiscale>${artist.cf}</CodiceFiscale>
+                            <CodiceFiscale>${artist.codiceFiscale}</CodiceFiscale>
                             <MatricolaEnpals>${artist.matricolaEnpals || generateMatricolaEnpals()}</MatricolaEnpals>
                             <Cognome>${artist.cognome.toUpperCase()}</Cognome>
                             <Nome>${artist.nome.toUpperCase()}</Nome>
@@ -1230,7 +1245,7 @@ function validateINPSXML(xmlString) {
     }
     
     selectedArtists.forEach(artist => {
-        if (!validaCodiceFiscale(artist.cf)) {
+        if (!validaCodiceFiscale(artist.codiceFiscale)) {
             errors.push(`Codice fiscale non valido per ${artist.nome} ${artist.cognome}`);
         }
     });
@@ -1294,7 +1309,7 @@ function saveAgibilitaToDatabase(xmlContent) {
             provincia: document.getElementById('provincia').value
         },
         artisti: selectedArtists.map(a => ({
-            cf: a.cf,
+            cf: a.codiceFiscale,
             nome: a.nome,
             cognome: a.cognome,
             nomeArte: a.nomeArte,
@@ -1311,7 +1326,7 @@ function saveAgibilitaToDatabase(xmlContent) {
     localStorage.setItem('agibilitaDB', JSON.stringify(agibilitaDB));
 
     selectedArtists.forEach(artist => {
-        const artistIndex = artistsDB.findIndex(a => a.cf === artist.cf);
+        const artistIndex = artistsDB.findIndex(a => a.codiceFiscale === artist.codiceFiscale);
         if (artistIndex !== -1) {
             if (!artistsDB[artistIndex].agibilita) {
                 artistsDB[artistIndex].agibilita = [];
@@ -1323,8 +1338,8 @@ function saveAgibilitaToDatabase(xmlContent) {
                 note: artist.ruolo
             });
             
-            if (!artistsDB[artistIndex].matricolaEnpals && artist.matricolaEnpals) {
-                artistsDB[artistIndex].matricolaEnpals = artist.matricolaEnpals;
+            if (!artistsDB[artistIndex].matricolaENPALS && artist.matricolaEnpals) {
+                artistsDB[artistIndex].matricolaENPALS = artist.matricolaEnpals;
             }
         }
     });
@@ -1409,7 +1424,7 @@ function editAgibilita(codice) {
 
     selectedArtists = [];
     agibilita.artisti.forEach(artData => {
-        const artist = artistsDB.find(a => a.cf === artData.cf);
+        const artist = artistsDB.find(a => a.codiceFiscale === artData.cf);
         if (artist) {
             selectedArtists.push({
                 ...artist,
@@ -1441,7 +1456,7 @@ function duplicateAgibilita(codice) {
 
     selectedArtists = [];
     agibilita.artisti.forEach(artData => {
-        const artist = artistsDB.find(a => a.cf === artData.cf);
+        const artist = artistsDB.find(a => a.codiceFiscale === artData.cf);
         if (artist) {
             selectedArtists.push({
                 ...artist,
