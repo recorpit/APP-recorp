@@ -64,6 +64,8 @@ function filterArtists() {
                 matchTipo = artist.hasPartitaIva === 'no' && artist.tipoRapporto === 'occasionale';
             } else if (filterTipo === 'chiamata') {
                 matchTipo = artist.hasPartitaIva === 'no' && artist.tipoRapporto === 'chiamata';
+            } else if (filterTipo === 'fulltime') {
+                matchTipo = artist.hasPartitaIva === 'no' && artist.tipoRapporto === 'fulltime';
             }
         }
         
@@ -105,6 +107,8 @@ function renderTable() {
             tipoBadge = '<span class="badge badge-occasionale">Occasionale</span>';
         } else if (artist.tipoRapporto === 'chiamata') {
             tipoBadge = '<span class="badge badge-chiamata">Chiamata</span>';
+        } else if (artist.tipoRapporto === 'fulltime') {
+            tipoBadge = '<span class="badge badge-fulltime">Full Time</span>';
         }
         
         return `
