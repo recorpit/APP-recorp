@@ -447,7 +447,7 @@ function loadCAP(codiceIstat) {
         }
         
         const comuneData = JSON.parse(selectedOption.getAttribute('data-comune'));
-        const comuniCapData = window.GIDatabase?.getData()?.comuniCap || [];
+        const capData = window.GIDatabase?.getData()?.cap || [];
         
         // Cerca i CAP per questo comune usando codice_istat
 const capList = comuniCapData
