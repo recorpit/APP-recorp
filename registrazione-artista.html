@@ -414,23 +414,26 @@
                 
                 if (provinceData && Array.isArray(provinceData) && provinceData.length > 20) {
                     // Usa il file gi_province.json se ha abbastanza elementi
-                    const sortedProvinces = provinceData.sort((a, b) => {
-                        const siglaA = a.sigla || a.codice || a.siglaProvincia || a.SIGLA;
-                        const siglaB = b.sigla || b.codice || b.siglaProvincia || b.SIGLA;
-                        return siglaA.localeCompare(siglaB);
-                    });
+                    const sortedProvinces = provinceData
+                        .filter(provincia => {
+                            const sigla = provincia.sigla || provincia.codice || provincia.siglaProvincia || provincia.SIGLA;
+                            return sigla && sigla.length === 2; // Solo province valide con sigla a 2 caratteri
+                        })
+                        .sort((a, b) => {
+                            const siglaA = a.sigla || a.codice || a.siglaProvincia || a.SIGLA;
+                            const siglaB = b.sigla || b.codice || b.siglaProvincia || b.SIGLA;
+                            return siglaA.localeCompare(siglaB);
+                        });
 
                     provinciaSelect.innerHTML = '<option value="">Seleziona provincia...</option>';
                     sortedProvinces.forEach(provincia => {
                         const sigla = provincia.sigla || provincia.codice || provincia.siglaProvincia || provincia.SIGLA;
                         const nome = provincia.denominazione || provincia.nome || provincia.denominazioneProvincia || provincia.DENOMINAZIONE;
                         
-                        if (sigla) {
-                            const option = document.createElement('option');
-                            option.value = sigla;
-                            option.textContent = `${sigla}${nome ? ' - ' + nome : ''}`;
-                            provinciaSelect.appendChild(option);
-                        }
+                        const option = document.createElement('option');
+                        option.value = sigla;
+                        option.textContent = `${sigla}${nome ? ' - ' + nome : ''}`;
+                        provinciaSelect.appendChild(option);
                     });
 
                     console.log(`✅ Caricate ${sortedProvinces.length} province dal file dedicato`);
@@ -449,7 +452,7 @@
                                         comune.provincia || 
                                         comune.siglaProvincia ||
                                         comune.SIGLA_PROVINCIA;
-                        if (provincia) {
+                        if (provincia && provincia.length === 2) {
                             provinces.add(provincia);
                         }
                     });
