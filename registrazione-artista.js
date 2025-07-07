@@ -329,18 +329,36 @@ function setupEventListeners() {
         e.target.value = e.target.value.toUpperCase();
     });
     
-    // Event listener per mostrare/nascondere campo partita IVA
+    // Event listener per mostrare/nascondere campo partita IVA e tipo rapporto
     document.getElementById('hasPartitaIva').addEventListener('change', function(e) {
         const partitaIvaGroup = document.getElementById('partitaIvaGroup');
         const partitaIvaField = document.getElementById('partitaIva');
+        const tipoRapportoGroup = document.getElementById('tipoRapportoGroup');
+        const tipoRapportoField = document.getElementById('tipoRapporto');
         
         if (e.target.value === 'si') {
+            // Ha partita IVA: mostra campo P.IVA, nascondi tipo rapporto
             partitaIvaGroup.style.display = 'block';
             partitaIvaField.required = true;
-        } else {
+            tipoRapportoGroup.style.display = 'none';
+            tipoRapportoField.required = false;
+            tipoRapportoField.value = ''; // Reset il valore
+        } else if (e.target.value === 'no') {
+            // Non ha partita IVA: nascondi P.IVA, mostra tipo rapporto
             partitaIvaGroup.style.display = 'none';
             partitaIvaField.required = false;
             partitaIvaField.value = '';
+            tipoRapportoGroup.style.display = 'block';
+            tipoRapportoField.required = true;
+            tipoRapportoField.value = 'occasionale'; // Default a prestazione occasionale
+        } else {
+            // Nessuna selezione: nascondi entrambi
+            partitaIvaGroup.style.display = 'none';
+            partitaIvaField.required = false;
+            partitaIvaField.value = '';
+            tipoRapportoGroup.style.display = 'none';
+            tipoRapportoField.required = false;
+            tipoRapportoField.value = '';
         }
     });
     
@@ -606,6 +624,7 @@ function handleFormSubmit(e) {
         codiceIstatCitta: formData.get('citta'), // Salva anche il codice ISTAT
         hasPartitaIva: formData.get('hasPartitaIva'),
         partitaIva: formData.get('hasPartitaIva') === 'si' ? formData.get('partitaIva') : '',
+        tipoRapporto: formData.get('hasPartitaIva') === 'no' ? formData.get('tipoRapporto') : '',
         iban: formData.get('iban').toUpperCase().replace(/\s/g, ''),
         mansione: formData.get('mansione'),
         note: formData.get('note'),
