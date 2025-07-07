@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RECORP ALL-IN-ONE - Sistema Gestionale</title>
+    <link rel="stylesheet" href="./assets/style.css">
+</head>
+<body>
+    <div class="main-container">
+        <!-- Header -->
+        <div class="header">
+            <h1>RECORP ALL-IN-ONE</h1>
+            <p>Sistema integrato per la gestione artisti e agibilità</p>
+        </div>
+
+        <!-- Ricerca e Registrazione -->
+        <div class="search-section">
+            <div class="search-container">
+                <div style="position: relative; flex: 1;">
+                    <input type="text" class="search-input" id="searchInput" 
+                           placeholder="Cerca artista per nome o codice fiscale..."
+                           oninput="showSuggestions()" 
+                           onblur="setTimeout(hideSuggestions, 200)"
+                           autocomplete="off">
+                    <div id="suggestions" class="suggestions-dropdown"></div>
+                </div>
+                <button class="btn-search" onclick="searchArtist()">
+                    🔍 Cerca
+                </button>
+            </div>
+            <div style="text-align: center; margin-top: 1rem;">
+                <a href="./registrazione-artista.html" class="btn btn-success">
+                    ➕ Registra Nuovo Artista
+                </a>
+            </div>
+        </div>
+
+        <!-- Azioni principali -->
+        <div class="actions-grid">
+            <div class="action-card" onclick="goToAgibilita()">
+                <div class="action-icon">
+                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                        <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                </div>
+                <h3>Creazione Agibilità</h3>
+                <p>Crea nuove agibilità o modifica esistenti</p>
+            </div>
+            
+            <div class="action-card" onclick="showComingSoon()">
+                <div class="action-icon">
+                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+                    </svg>
+                </div>
+                <h3>Comunicazione a Chiamata</h3>
+                <p>Gestisci il lavoro intermittente</p>
+            </div>
+            
+            <div class="action-card" onclick="showComingSoon()">
+                <div class="action-icon">
+                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="1" x2="12" y2="23"></line>
+                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                    </svg>
+                </div>
+                <h3>Gestione Fatturazione</h3>
+                <p>Fatture e documenti fiscali</p>
+            </div>
+            
+            <div class="action-card" onclick="showComingSoon()">
+                <div class="action-icon">
+                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+                        <line x1="1" y1="10" x2="23" y2="10"></line>
+                    </svg>
+                </div>
+                <h3>Gestione Pagamenti</h3>
+                <p>Traccia pagamenti e scadenze</p>
+            </div>
+        </div>
+
+        <!-- Statistiche -->
+        <div class="stats-section">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalArtists">0</div>
+                    <div class="stat-label">Artisti Registrati</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="monthlyAgibilita">0</div>
+                    <div class="stat-label">Agibilità Questo Mese</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="totalCompensation">€0</div>
+                    <div class="stat-label">Totale Compensi</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="completionRate">0%</div>
+                    <div class="stat-label">Pratiche Completate</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>RECORP ALL-IN-ONE © 2025 - Sistema Gestionale Integrato</p>
+        </div>
+    </div>
+
+    <!-- Database Management Button -->
+    <div style="position: fixed; bottom: 20px; right: 20px;">
+        <button class="btn btn-secondary btn-sm" onclick="toggleDatabaseManager()" style="opacity: 0.7;">
+            ⚙️ Gestione DB
+        </button>
+    </div>
+
+    <!-- Chat AI Button -->
+    <div style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 1000;">
+        <button class="btn btn-primary" onclick="openChatAI()" style="box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4); padding: 0.75rem 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+            <span style="font-size: 1.2rem;">🤖</span>
+            <span>Assistente AI</span>
+        </button>
+    </div>
+
+    <!-- Modal risultati ricerca -->
+    <div class="modal" id="searchModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Risultati Ricerca</h2>
+                <button class="close-modal" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="search-results" id="searchResults">
+                <!-- I risultati verranno inseriti qui -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Database Manager Modal -->
+    <div class="modal" id="databaseManagerModal">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h2>Gestione Database</h2>
+                <button class="close-modal" onclick="closeDatabaseManager()">&times;</button>
+            </div>
+            
+            <div class="tabs" style="display: flex; gap: 1rem; border-bottom: 2px solid #e5e7eb; margin-bottom: 1.5rem;">
+                <button class="tab active" onclick="showDBTab('artisti')" style="padding: 0.75rem 1.5rem; background: none; border: none; cursor: pointer; color: #6b7280; font-weight: 500; transition: all 0.3s ease; border-bottom: 2px solid transparent; margin-bottom: -2px;">Artisti</button>
+                <button class="tab" onclick="showDBTab('locali')" style="padding: 0.75rem 1.5rem; background: none; border: none; cursor: pointer; color: #6b7280; font-weight: 500; transition: all 0.3s ease; border-bottom: 2px solid transparent; margin-bottom: -2px;">Locali</button>
+                <button class="tab" onclick="showDBTab('export')" style="padding: 0.75rem 1.5rem; background: none; border: none; cursor: pointer; color: #6b7280; font-weight: 500; transition: all 0.3s ease; border-bottom: 2px solid transparent; margin-bottom: -2px;">Export/Import</button>
+            </div>
+            
+            <!-- Tab Artisti -->
+            <div id="dbTabArtisti" class="tab-content" style="display: block;">
+                <div class="form-group">
+                    <input type="text" class="form-control" id="dbSearchArtist" 
+                           placeholder="Cerca artista..." oninput="filterDBArtists()">
+                </div>
+                <div style="max-height: 400px; overflow-y: auto;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: #f3f4f6;">
+                                <th style="padding: 0.5rem; text-align: left;">Nome</th>
+                                <th style="padding: 0.5rem; text-align: left;">CF</th>
+                                <th style="padding: 0.5rem; text-align: left;">Mansione</th>
+                                <th style="padding: 0.5rem; text-align: center;">Azioni</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dbArtistsList"></tbody>
+                    </table>
+                    <p id="noArtistsMsg" style="text-align: center; color: #6b7280; margin-top: 2rem; display: none;">Nessun artista nel database</p>
+                </div>
+            </div>
+            
+            <!-- Tab Locali -->
+            <div id="dbTabLocali" class="tab-content" style="display: none;">
+                <div class="form-group">
+                    <input type="text" class="form-control" id="dbSearchVenue" 
+                           placeholder="Cerca locale..." oninput="filterDBVenues()">
+                </div>
+                <div style="max-height: 400px; overflow-y: auto;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: #f3f4f6;">
+                                <th style="padding: 0.5rem; text-align: left;">Nome</th>
+                                <th style="padding: 0.5rem; text-align: left;">Città</th>
+                                <th style="padding: 0.5rem; text-align: left;">Indirizzo</th>
+                                <th style="padding: 0.5rem; text-align: center;">Azioni</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dbVenuesList"></tbody>
+                    </table>
+                    <p id="noVenuesMsg" style="text-align: center; color: #6b7280; margin-top: 2rem; display: none;">Nessun locale nel database</p>
+                </div>
+            </div>
+            
+            <!-- Tab Export/Import -->
+            <div id="dbTabExport" class="tab-content" style="display: none;">
+                <div class="form-section" style="background: #f3f4f6; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                    <h3 style="margin-bottom: 1rem;">Export Database</h3>
+                    <div class="btn-group" style="display: flex; gap: 1rem;">
+                        <button class="btn btn-primary" onclick="exportDatabase('artisti')">
+                            📥 Export Artisti
+                        </button>
+                        <button class="btn btn-primary" onclick="exportDatabase('locali')">
+                            📥 Export Locali
+                        </button>
+                        <button class="btn btn-primary" onclick="exportDatabase('all')">
+                            📥 Export Completo
+                        </button>
+                    </div>
+                </div>
+                <div class="form-section" style="background: #f3f4f6; padding: 1.5rem; border-radius: 8px;">
+                    <h3 style="margin-bottom: 1rem;">Import Database</h3>
+                    <input type="file" id="importFile" accept=".json" onchange="importDatabase(event)">
+                    <p style="margin-top: 0.5rem; color: #6b7280; font-size: 0.9rem;">
+                        Seleziona un file JSON esportato precedentemente
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Database artisti e locali
+        let artistsDB = JSON.parse(localStorage.getItem('artistsDB')) || [];
+        let agibilitaDB = JSON.parse(localStorage.getItem('agibilitaDB')) || [];
+        let venuesDB = JSON.parse(localStorage.getItem('venuesDB')) || [];
+
+        // Update statistics on page load
+        function updateStatistics() {
+            // Total artists
+            document.getElementById('totalArtists').textContent = artistsDB.length;
+            
+            // Monthly agibilità
+            const currentMonth = new Date().getMonth();
+            const currentYear = new Date().getFullYear();
+            const monthlyCount = agibilitaDB.filter(a => {
+                const agibilitaDate = new Date(a.dataInizio);
+                return agibilitaDate.getMonth() === currentMonth && 
+                       agibilitaDate.getFullYear() === currentYear;
+            }).length;
+            document.getElementById('monthlyAgibilita').textContent = monthlyCount;
+            
+            // Total compensation
+            const totalComp = agibilitaDB.reduce((sum, a) => {
+                const agibilitaTotal = a.artisti ? 
+                    a.artisti.reduce((artSum, art) => artSum + (parseFloat(art.compenso) || 0), 0) : 0;
+                return sum + agibilitaTotal;
+            }, 0);
+            
+            // Format compensation
+            let compText = '€0';
+            if (totalComp >= 1000) {
+                compText = '€' + (totalComp / 1000).toFixed(1) + 'k';
+            } else if (totalComp > 0) {
+                compText = '€' + totalComp.toFixed(0);
+            }
+            document.getElementById('totalCompensation').textContent = compText;
+            
+            // Completion rate (assuming all saved agibilità are completed)
+            const completionRate = agibilitaDB.length > 0 ? 100 : 0;
+            document.getElementById('completionRate').textContent = completionRate + '%';
+        }
+
+        // Call on page load
+        document.addEventListener('DOMContentLoaded', updateStatistics);
+
+        // Funzione di ricerca
+        function searchArtist() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            
+            if (!searchTerm) {
+                alert('Inserisci un nome o codice fiscale per la ricerca');
+                return;
+            }
+
+            const results = artistsDB.filter(artist => 
+                artist.nome.toLowerCase().includes(searchTerm) ||
+                artist.cognome.toLowerCase().includes(searchTerm) ||
+                artist.nomeArte.toLowerCase().includes(searchTerm) ||
+                artist.cf.toLowerCase().includes(searchTerm)
+            );
+
+            displaySearchResults(results, searchTerm);
+        }
+
+        // Mostra risultati ricerca
+        function displaySearchResults(results, searchTerm) {
+            const modal = document.getElementById('searchModal');
+            const resultsContainer = document.getElementById('searchResults');
+            
+            resultsContainer.innerHTML = '';
+
+            if (results.length === 0) {
+                resultsContainer.innerHTML = `
+                    <div class="result-card">
+                        <p>Nessun artista trovato per "${searchTerm}"</p>
+                        <button class="btn-primary-small" style="margin-top: 1rem" onclick="addNewArtist()">
+                            + Aggiungi Nuovo Artista
+                        </button>
+                    </div>
+                `;
+            } else {
+                results.forEach(artist => {
+                    const agibilitaHtml = artist.agibilita && artist.agibilita.length > 0 
+                        ? `
+                            <div class="agibilita-list">
+                                <h4>Agibilità Recenti:</h4>
+                                ${artist.agibilita.map(a => `
+                                    <div class="agibilita-item">
+                                        <span>${a.data} | ${a.locale}</span>
+                                        <span>${a.compenso}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        `
+                        : '<p style="color: #6b7280; margin-top: 1rem; font-size: 0.9rem;">Nessuna agibilità registrata</p>';
+
+                    resultsContainer.innerHTML += `
+                        <div class="result-card">
+                            <div class="result-header">
+                                <div class="result-info">
+                                    <h3>${artist.nome} ${artist.cognome}${artist.nomeArte ? ' - ' + artist.nomeArte : ''}</h3>
+                                    <p>CF: ${artist.cf} | Tel: ${artist.telefono}</p>
+                                    <p style="font-size: 0.85rem; color: #8b5cf6;">${artist.mansione}</p>
+                                </div>
+                                <div class="result-actions">
+                                    <button class="btn-primary-small" onclick="createAgibilitaForArtist(${artist.id})">
+                                        Nuova Agibilità
+                                    </button>
+                                    <button class="btn-secondary-small" onclick="createComunicazione(${artist.id})">
+                                        Nuova Comunicazione
+                                    </button>
+                                </div>
+                            </div>
+                            ${agibilitaHtml}
+                        </div>
+                    `;
+                });
+            }
+
+            modal.style.display = 'block';
+        }
+
+        // Chiudi modal
+        function closeModal() {
+            document.getElementById('searchModal').style.display = 'none';
+            document.getElementById('searchInput').value = '';
+        }
+
+        // Naviga verso agibilità
+        function goToAgibilita() {
+            window.location.href = './agibilita/index.html';
+        }
+
+        // Funzioni placeholder
+        function showComingSoon() {
+            alert('Funzionalità in arrivo! 🚀');
+        }
+
+        function addNewArtist() {
+            window.location.href = './registrazione-artista.html';
+        }
+
+        function createAgibilitaForArtist(artistId) {
+            // In produzione passerebbe l'ID artista alla pagina agibilità
+            window.location.href = './agibilita/index.html';
+        }
+
+        function createComunicazione(artistId) {
+            alert('Funzione comunicazione a chiamata in sviluppo');
+        }
+
+        // Gestione Enter nella ricerca
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchArtist();
+            }
+        });
+
+        // Show suggestions while typing
+        function showSuggestions() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const suggestionsDiv = document.getElementById('suggestions');
+            
+            if (searchTerm.length < 2) {
+                suggestionsDiv.style.display = 'none';
+                return;
+            }
+            
+            const matches = artistsDB.filter(artist => 
+                artist.nome.toLowerCase().includes(searchTerm) ||
+                artist.cognome.toLowerCase().includes(searchTerm) ||
+                (artist.nomeArte && artist.nomeArte.toLowerCase().includes(searchTerm)) ||
+                artist.cf.toLowerCase().includes(searchTerm)
+            );
+            
+            if (matches.length === 0) {
+                suggestionsDiv.innerHTML = '<div class="no-suggestions">Nessun artista trovato</div>';
+                suggestionsDiv.style.display = 'block';
+                return;
+            }
+            
+            suggestionsDiv.innerHTML = matches.slice(0, 5).map(artist => {
+                const displayName = `${artist.nome} ${artist.cognome}${artist.nomeArte ? ' - ' + artist.nomeArte : ''}`;
+                const highlightedName = highlightMatch(displayName, searchTerm);
+                
+                return `
+                    <div class="suggestion-item" onclick="selectArtist(${artist.id})">
+                        <div>${highlightedName}</div>
+                        <div class="suggestion-info">${artist.mansione} | CF: ${artist.cf}</div>
+                    </div>
+                `;
+            }).join('');
+            
+            suggestionsDiv.style.display = 'block';
+        }
+        
+        // Highlight matching text
+        function highlightMatch(text, searchTerm) {
+            const regex = new RegExp(`(${searchTerm})`, 'gi');
+            return text.replace(regex, '<strong>$1</strong>');
+        }
+        
+        // Hide suggestions
+        function hideSuggestions() {
+            document.getElementById('suggestions').style.display = 'none';
+        }
+        
+        // Select artist from suggestions
+        function selectArtist(artistId) {
+            const artist = artistsDB.find(a => a.id === artistId);
+            if (artist) {
+                const results = [artist];
+                displaySearchResults(results, artist.nome);
+                hideSuggestions();
+                document.getElementById('searchInput').value = '';
+            }
+        }
+
+        // Chiudi modal cliccando fuori
+        window.onclick = function(event) {
+            const modal = document.getElementById('searchModal');
+            const dbModal = document.getElementById('databaseManagerModal');
+            
+            if (event.target == modal) {
+                closeModal();
+            }
+            
+            if (event.target == dbModal) {
+                closeDatabaseManager();
+            }
+        }
+
+        // Database Manager Functions
+        function toggleDatabaseManager() {
+            document.getElementById('databaseManagerModal').style.display = 'block';
+            loadDBArtists();
+            loadDBVenues();
+        }
+
+        // Open Chat AI
+        function openChatAI() {
+            window.location.href = './chat-agibilita.html';
+        }
+        
+        function closeDatabaseManager() {
+            document.getElementById('databaseManagerModal').style.display = 'none';
+        }
+        
+        function showDBTab(tabName) {
+            // Update tabs
+            document.querySelectorAll('#databaseManagerModal .tab').forEach(tab => {
+                tab.classList.remove('active');
+                tab.style.color = '#6b7280';
+                tab.style.borderBottomColor = 'transparent';
+            });
+            event.target.classList.add('active');
+            event.target.style.color = 'var(--primary)';
+            event.target.style.borderBottomColor = 'var(--primary)';
+            
+            // Update content
+            document.querySelectorAll('#databaseManagerModal .tab-content').forEach(content => {
+                content.style.display = 'none';
+            });
+            document.getElementById('dbTab' + tabName.charAt(0).toUpperCase() + tabName.slice(1)).style.display = 'block';
+        }
+        
+        function loadDBArtists() {
+            const tbody = document.getElementById('dbArtistsList');
+            const noMsg = document.getElementById('noArtistsMsg');
+            
+            if (artistsDB.length === 0) {
+                tbody.innerHTML = '';
+                noMsg.style.display = 'block';
+            } else {
+                noMsg.style.display = 'none';
+                tbody.innerHTML = artistsDB.map(artist => `
+                    <tr>
+                        <td style="padding: 0.5rem;">${artist.nome} ${artist.cognome}${artist.nomeArte ? ' - ' + artist.nomeArte : ''}</td>
+                        <td style="padding: 0.5rem;">${artist.cf}</td>
+                        <td style="padding: 0.5rem;">${artist.mansione}</td>
+                        <td style="padding: 0.5rem; text-align: center;">
+                            <button class="btn btn-danger btn-sm" onclick="removeArtistFromDB(${artist.id})">
+                                🗑️ Rimuovi
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+        }
+        
+        function loadDBVenues() {
+            const tbody = document.getElementById('dbVenuesList');
+            const noMsg = document.getElementById('noVenuesMsg');
+            
+            if (venuesDB.length === 0) {
+                tbody.innerHTML = '';
+                noMsg.style.display = 'block';
+            } else {
+                noMsg.style.display = 'none';
+                tbody.innerHTML = venuesDB.map(venue => `
+                    <tr>
+                        <td style="padding: 0.5rem;">${venue.nome}</td>
+                        <td style="padding: 0.5rem;">${venue.citta}</td>
+                        <td style="padding: 0.5rem;">${venue.indirizzo}</td>
+                        <td style="padding: 0.5rem; text-align: center;">
+                            <button class="btn btn-danger btn-sm" onclick="removeVenueFromDB(${venue.id})">
+                                🗑️ Rimuovi
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+        }
+        
+        function filterDBArtists() {
+            const searchTerm = document.getElementById('dbSearchArtist').value.toLowerCase();
+            const rows = document.querySelectorAll('#dbArtistsList tr');
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(searchTerm) ? '' : 'none';
+            });
+        }
+        
+        function filterDBVenues() {
+            const searchTerm = document.getElementById('dbSearchVenue').value.toLowerCase();
+            const rows = document.querySelectorAll('#dbVenuesList tr');
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(searchTerm) ? '' : 'none';
+            });
+        }
+        
+        function removeArtistFromDB(artistId) {
+            if (confirm('Sei sicuro di voler rimuovere questo artista dal database?')) {
+                artistsDB = artistsDB.filter(a => a.id !== artistId);
+                localStorage.setItem('artistsDB', JSON.stringify(artistsDB));
+                loadDBArtists();
+                updateStatistics();
+            }
+        }
+        
+        function removeVenueFromDB(venueId) {
+            if (confirm('Sei sicuro di voler rimuovere questo locale dal database?')) {
+                venuesDB = venuesDB.filter(v => v.id !== venueId);
+                localStorage.setItem('venuesDB', JSON.stringify(venuesDB));
+                loadDBVenues();
+            }
+        }
+        
+        function exportDatabase(type) {
+            let data = {};
+            let filename = '';
+            
+            switch(type) {
+                case 'artisti':
+                    data = { artisti: artistsDB };
+                    filename = 'recorp_artisti_export.json';
+                    break;
+                case 'locali':
+                    data = { locali: venuesDB };
+                    filename = 'recorp_locali_export.json';
+                    break;
+                case 'all':
+                    data = { 
+                        artisti: artistsDB, 
+                        locali: venuesDB, 
+                        agibilita: agibilitaDB 
+                    };
+                    filename = 'recorp_database_completo.json';
+                    break;
+            }
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        function importDatabase(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    
+                    if (data.artisti) {
+                        artistsDB = data.artisti;
+                        localStorage.setItem('artistsDB', JSON.stringify(artistsDB));
+                    }
+                    
+                    if (data.locali) {
+                        venuesDB = data.locali;
+                        localStorage.setItem('venuesDB', JSON.stringify(venuesDB));
+                    }
+                    
+                    if (data.agibilita) {
+                        agibilitaDB = data.agibilita;
+                        localStorage.setItem('agibilitaDB', JSON.stringify(agibilitaDB));
+                    }
+                    
+                    alert('Database importato con successo!');
+                    loadDBArtists();
+                    loadDBVenues();
+                    updateStatistics();
+                } catch (error) {
+                    alert('Errore durante l\'importazione del file');
+                }
+            };
+            reader.readAsText(file);
+        }
+    </script>
+</body>
+</html>
