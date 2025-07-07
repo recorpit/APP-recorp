@@ -5,429 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestione Agibilità - RECORP ALL-IN-ONE</title>
     <link rel="stylesheet" href="../assets/style.css">
-    <style>
-        /* Stili specifici per agibilità */
-        .step-section {
-            display: none;
-        }
-        
-        .step-section.active {
-            display: block;
-        }
-        
-        .breadcrumb {
-            display: flex;
-            gap: 1rem;
-            margin-bottom: 2rem;
-            padding: 1rem;
-            background: var(--light);
-            border-radius: 8px;
-        }
-        
-        .breadcrumb-item {
-            color: #6b7280;
-            text-decoration: none;
-        }
-        
-        .breadcrumb-item.active {
-            color: var(--primary);
-            font-weight: 600;
-        }
-        
-        .breadcrumb-separator {
-            color: #6b7280;
-        }
-        
-        /* Cards di selezione tipo */
-        .type-cards {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 2rem;
-            margin: 2rem 0;
-        }
-        
-        .type-card {
-            background: white;
-            border: 2px solid #e5e7eb;
-            border-radius: 12px;
-            padding: 2rem;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        
-        .type-card:hover {
-            border-color: var(--primary);
-            transform: translateY(-5px);
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-        }
-        
-        .type-card-icon {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-        }
-        
-        .type-card h3 {
-            margin-bottom: 0.5rem;
-            color: var(--dark);
-        }
-        
-        .type-card p {
-            color: #6b7280;
-        }
-        
-        /* Artist list */
-        .artist-list {
-            background: var(--light);
-            border-radius: 8px;
-            padding: 1rem;
-            margin: 1rem 0;
-        }
-        
-        .artist-item {
-            background: white;
-            border: 1px solid #e5e7eb;
-            border-radius: 6px;
-            padding: 1rem;
-            margin-bottom: 0.5rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .artist-info {
-            flex: 1;
-        }
-        
-        .artist-role-compensation {
-            display: flex;
-            gap: 1rem;
-            align-items: center;
-        }
-        
-        .btn-remove {
-            background: var(--danger);
-            color: white;
-            border: none;
-            padding: 0.25rem 0.75rem;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.875rem;
-        }
-        
-        .btn-remove:hover {
-            background: #dc2626;
-        }
-        
-        /* Search modal */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 1000;
-            padding: 20px;
-        }
-        
-        .modal-content {
-            background: white;
-            border-radius: 12px;
-            max-width: 600px;
-            margin: 50px auto;
-            padding: 2rem;
-            position: relative;
-            max-height: 80vh;
-            overflow-y: auto;
-        }
-        
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-        }
-        
-        .close-modal {
-            background: none;
-            border: none;
-            font-size: 1.5rem;
-            cursor: pointer;
-            color: #6b7280;
-        }
-        
-        .search-results {
-            margin-top: 1rem;
-        }
-        
-        .search-result {
-            padding: 0.75rem;
-            border: 1px solid #e5e7eb;
-            border-radius: 6px;
-            margin-bottom: 0.5rem;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-        
-        .search-result:hover {
-            background: var(--light);
-            border-color: var(--primary);
-        }
-        
-        /* Summary box */
-        .summary-box {
-            background: #e0e7ff;
-            border: 1px solid #c7d2fe;
-            border-radius: 8px;
-            padding: 1rem;
-            margin: 1rem 0;
-        }
-        
-        .summary-box h4 {
-            color: var(--primary);
-            margin-bottom: 0.5rem;
-        }
-        
-        /* Tab system */
-        .tabs {
-            display: flex;
-            gap: 1rem;
-            border-bottom: 2px solid #e5e7eb;
-            margin-bottom: 1.5rem;
-        }
-        
-        .tab {
-            padding: 0.75rem 1.5rem;
-            background: none;
-            border: none;
-            cursor: pointer;
-            color: #6b7280;
-            font-weight: 500;
-            transition: all 0.3s ease;
-            border-bottom: 2px solid transparent;
-            margin-bottom: -2px;
-        }
-        
-        .tab.active {
-            color: var(--primary);
-            border-bottom-color: var(--primary);
-        }
-        
-        .tab-content {
-            display: none;
-        }
-        
-        .tab-content.active {
-            display: block;
-        }
-        
-        /* XML preview */
-        .xml-preview {
-            background: #1f2937;
-            color: #f3f4f6;
-            padding: 1rem;
-            border-radius: 8px;
-            overflow-x: auto;
-            font-family: 'Courier New', monospace;
-            font-size: 0.875rem;
-            line-height: 1.5;
-            max-height: 500px;
-            overflow-y: auto;
-        }
-        
-        /* Agibilità list */
-        .agibilita-item {
-            background: white;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin-bottom: 1rem;
-            transition: all 0.3s ease;
-        }
-        
-        .agibilita-item:hover {
-            border-color: var(--primary);
-            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
-        }
-        
-        .agibilita-info {
-            margin-bottom: 1rem;
-        }
-        
-        .agibilita-code {
-            font-weight: 600;
-            color: var(--primary);
-            margin-bottom: 0.5rem;
-        }
-        
-        .agibilita-dates, .agibilita-location, .agibilita-artists {
-            color: #6b7280;
-            font-size: 0.9rem;
-            margin-bottom: 0.25rem;
-        }
-        
-        .agibilita-actions {
-            display: flex;
-            gap: 0.5rem;
-        }
-        
-        .btn-sm {
-            padding: 0.5rem 1rem;
-            font-size: 0.875rem;
-        }
-        
-        /* Date info */
-        .date-info {
-            background: #f3f4f6;
-            border-radius: 6px;
-            padding: 0.75rem;
-            margin-top: 1rem;
-            font-size: 0.9rem;
-            color: #6b7280;
-        }
-        
-        /* Autocomplete dropdown */
-        .autocomplete-dropdown {
-            position: absolute;
-            background: white;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            max-height: 300px;
-            overflow-y: auto;
-            z-index: 1000;
-            width: 100%;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
-            border-top: none;
-            margin-top: -1px;
-        }
-        
-        .autocomplete-item {
-            padding: 12px 16px;
-            cursor: pointer;
-            border-bottom: 1px solid #f3f4f6;
-            transition: all 0.2s ease;
-        }
-        
-        .autocomplete-item:hover {
-            background: #f8fafc;
-            border-left: 3px solid var(--primary);
-        }
-        
-        .autocomplete-item:last-child {
-            border-bottom: none;
-            border-radius: 0 0 8px 8px;
-        }
-        
-        .autocomplete-item strong {
-            color: var(--dark);
-            font-weight: 600;
-        }
-        
-        .autocomplete-item small {
-            color: #6b7280;
-            font-size: 0.875rem;
-        }
-        
-        .autocomplete-header {
-            padding: 8px 16px;
-            background: #f3f4f6;
-            font-weight: bold;
-            color: #6b7280;
-            border-bottom: 1px solid #e5e7eb;
-        }
-        
-        .autocomplete-loading {
-            padding: 12px 16px;
-            text-align: center;
-            color: #6b7280;
-            font-style: italic;
-        }
-        
-        .autocomplete-no-results {
-            padding: 12px 16px;
-            text-align: center;
-            color: #6b7280;
-            font-style: italic;
-        }
-        
-        /* Validazione campi località */
-        .form-control.valid {
-            border-color: #10b981 !important;
-            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%2310b981' d='m2.3 6.73.4.4L7.5 2.4l-.5-.5L3.7 5.2 1.5 3l-.5.5 1.3 1.23z'/%3e%3c/svg%3e");
-            background-repeat: no-repeat;
-            background-position: right 12px center;
-            background-size: 16px 16px;
-            padding-right: 40px;
-        }
-        
-        .form-control.invalid {
-            border-color: #ef4444 !important;
-            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23ef4444'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath d='m6 3v3m0 3h.01'/%3e%3c/svg%3e");
-            background-repeat: no-repeat;
-            background-position: right 12px center;
-            background-size: 16px 16px;
-            padding-right: 40px;
-        }
-        
-        .province-badge {
-            display: inline-block;
-            background: var(--primary);
-            color: white;
-            padding: 2px 6px;
-            border-radius: 12px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            margin-left: 4px;
-        }
-        
-        .highlight {
-            background-color: #fef3c7;
-            font-weight: 600;
-            padding: 1px 2px;
-            border-radius: 2px;
-        }
-        
-        .location-helper-text {
-            font-size: 0.875rem;
-            color: #6b7280;
-            margin-top: 4px;
-        }
-        
-        /* Alert messages */
-        .alert {
-            padding: 1rem;
-            border-radius: 6px;
-            margin-bottom: 1rem;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .alert-success {
-            background: #d1fae5;
-            color: #065f46;
-            border: 1px solid #34d399;
-        }
-        
-        .alert-error {
-            background: #fee2e2;
-            color: #991b1b;
-            border: 1px solid #f87171;
-        }
-        
-        .alert-warning {
-            background: #fef3c7;
-            color: #92400e;
-            border: 1px solid #fbbf24;
-        }
-        
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-    </style>
 </head>
 <body>
     <div class="main-container">
@@ -477,7 +54,7 @@
             <button class="btn btn-primary" onclick="showAddArtistModal()">+ Aggiungi Artista</button>
             
             <div class="artist-list" id="artistList">
-                <p style="text-align: center; color: #6b7280;">Nessun artista selezionato</p>
+                <p class="no-artists-message">Nessun artista selezionato</p>
             </div>
             
             <div class="summary-box" id="summaryBox" style="display: none;">
@@ -500,11 +77,11 @@
                 <h3>📅 Date dell'Evento</h3>
                 <div class="form-row">
                     <div class="form-group">
-                        <label class="form-label">Data Inizio *</label>
+                        <label class="form-label">Data Inizio <span class="required">*</span></label>
                         <input type="date" class="form-control" id="dataInizio" required onchange="validateDates()">
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Data Fine *</label>
+                        <label class="form-label">Data Fine <span class="required">*</span></label>
                         <input type="date" class="form-control" id="dataFine" required onchange="validateDates()">
                     </div>
                 </div>
@@ -514,7 +91,7 @@
             <div class="form-section">
                 <h3>📍 Luogo dell'Evento</h3>
                 <div class="form-group">
-                    <label class="form-label">Descrizione Locale *</label>
+                    <label class="form-label">Descrizione Locale <span class="required">*</span></label>
                     <div style="position: relative;">
                         <input type="text" class="form-control" id="descrizioneLocale" required 
                                oninput="searchVenue()" placeholder="Es: Teatro Olimpico">
@@ -522,26 +99,26 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Indirizzo *</label>
+                    <label class="form-label">Indirizzo <span class="required">*</span></label>
                     <input type="text" class="form-control" id="indirizzo" required>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label class="form-label">Provincia *</label>
+                        <label class="form-label">Provincia <span class="required">*</span></label>
                         <select class="form-control" id="provincia" required onchange="loadCitiesForProvince()">
                             <option value="">Seleziona provincia...</option>
                         </select>
                         <div class="location-helper-text">Seleziona prima la provincia</div>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Città *</label>
+                        <label class="form-label">Città <span class="required">*</span></label>
                         <select class="form-control" id="citta" required onchange="loadCAPsForCity()" disabled>
                             <option value="">Prima seleziona la provincia</option>
                         </select>
                         <div class="location-helper-text">Seleziona la città</div>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">CAP *</label>
+                        <label class="form-label">CAP <span class="required">*</span></label>
                         <select class="form-control" id="cap" required disabled>
                             <option value="">Prima seleziona città</option>
                         </select>
@@ -551,6 +128,67 @@
                 <div class="form-group">
                     <label class="form-label">Note (opzionale)</label>
                     <textarea class="form-control" id="noteLocale" rows="3"></textarea>
+                </div>
+            </div>
+
+            <!-- NUOVA SEZIONE FATTURAZIONE -->
+            <div class="form-section">
+                <h3>💰 Dati Fatturazione</h3>
+                <div class="alert alert-info">
+                    <small>I dati di fatturazione verranno salvati e associati a questo locale per usi futuri</small>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Ragione Sociale <span class="required">*</span></label>
+                    <input type="text" class="form-control" id="ragioneSociale" required>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Partita IVA</label>
+                        <input type="text" class="form-control" id="piva" pattern="[0-9]{11}" maxlength="11">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Codice Fiscale</label>
+                        <input type="text" class="form-control uppercase-field" id="codiceFiscale" pattern="[A-Z0-9]{16}" maxlength="16">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="copyVenueAddress()">
+                        📋 Copia indirizzo del locale
+                    </button>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Indirizzo Fatturazione <span class="required">*</span></label>
+                    <input type="text" class="form-control" id="indirizzoFatturazione" required>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Città <span class="required">*</span></label>
+                        <input type="text" class="form-control" id="cittaFatturazione" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">CAP <span class="required">*</span></label>
+                        <input type="text" class="form-control" id="capFatturazione" pattern="[0-9]{5}" maxlength="5" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Provincia <span class="required">*</span></label>
+                        <input type="text" class="form-control uppercase-field" id="provinciaFatturazione" pattern="[A-Z]{2}" maxlength="2" required>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Codice SDI</label>
+                        <input type="text" class="form-control uppercase-field" id="codiceSDI" pattern="[A-Z0-9]{7}" maxlength="7">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">PEC</label>
+                        <input type="email" class="form-control" id="pecFatturazione">
+                    </div>
                 </div>
             </div>
             
@@ -585,6 +223,12 @@
                 <div class="summary-box">
                     <h4>📍 Luogo</h4>
                     <div id="summaryLocation"></div>
+                </div>
+
+                <!-- NUOVO RIEPILOGO FATTURAZIONE -->
+                <div class="summary-box">
+                    <h4>💰 Fatturazione</h4>
+                    <div id="summaryInvoice"></div>
                 </div>
             </div>
             
