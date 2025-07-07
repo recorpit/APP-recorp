@@ -412,27 +412,35 @@
                 // Prima prova con il file province dedicato
                 const provinceData = window.GIDatabase.getData().province;
                 
+                console.log('🔍 Debug struttura province:', {
+                    hasProvinceData: !!provinceData,
+                    isArray: Array.isArray(provinceData),
+                    length: provinceData ? provinceData.length : 0,
+                    firstProvince: provinceData && provinceData[0] ? provinceData[0] : null,
+                    firstProvinceKeys: provinceData && provinceData[0] ? Object.keys(provinceData[0]) : []
+                });
+                
                 if (provinceData && Array.isArray(provinceData) && provinceData.length > 20) {
                     // Usa il file gi_province.json se ha abbastanza elementi
                     const sortedProvinces = provinceData
                         .filter(provincia => {
-                            const sigla = provincia.sigla || provincia.codice || provincia.siglaProvincia || provincia.SIGLA;
+                            const sigla = provincia.sigla_provincia || provincia.sigla || provincia.codice;
                             return sigla && sigla.length === 2; // Solo province valide con sigla a 2 caratteri
                         })
                         .sort((a, b) => {
-                            const siglaA = a.sigla || a.codice || a.siglaProvincia || a.SIGLA;
-                            const siglaB = b.sigla || b.codice || b.siglaProvincia || b.SIGLA;
+                            const siglaA = a.sigla_provincia || a.sigla || a.codice;
+                            const siglaB = b.sigla_provincia || b.sigla || b.codice;
                             return siglaA.localeCompare(siglaB);
                         });
 
                     provinciaSelect.innerHTML = '<option value="">Seleziona provincia...</option>';
                     sortedProvinces.forEach(provincia => {
-                        const sigla = provincia.sigla || provincia.codice || provincia.siglaProvincia || provincia.SIGLA;
-                        const nome = provincia.denominazione || provincia.nome || provincia.denominazioneProvincia || provincia.DENOMINAZIONE;
+                        const sigla = provincia.sigla_provincia || provincia.sigla || provincia.codice;
+                        const nome = provincia.denominazione_provincia || provincia.denominazione || provincia.nome;
                         
                         const option = document.createElement('option');
                         option.value = sigla;
-                        option.textContent = `${sigla}${nome ? ' - ' + nome : ''}`;
+                        option.textContent = `${sigla} - ${nome}`;
                         provinciaSelect.appendChild(option);
                     });
 
