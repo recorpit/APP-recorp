@@ -1,16 +1,4 @@
 /**
- * NOTA IMPORTANTE SUL CODICE FISCALE:
- * 
- * Il sistema estrae automaticamente dal codice fiscale:
- * - Data di nascita (anno dalle posizioni 7-8, mese dalla 9, giorno dalle 10-11)
- * - Sesso (giorno > 40 = Femmina, altrimenti Maschio)
- * 
- * La data estratta viene automaticamente inserita nel campo data di nascita.
- * Se l'utente modifica manualmente la data, viene verificata la corrispondenza
- * con il CF e mostrato un avviso in caso di discrepanza.
- * 
- * L'età minima richiesta è 18 anni.
- *//**
  * registrazione-artista.js
  * 
  * Script per la gestione della registrazione artisti nel sistema RECORP ALL-IN-ONE.
@@ -75,22 +63,6 @@ function loadProvinces() {
                 .map(p => ({
                     sigla: p.sigla_provincia || p.sigla || p.codice,
                     nome: p.denominazione_provincia || p.denominazione || p.nome
-                    // Mostra anche il sesso estratto dal CF
-                    const gender = extractGenderFromCF(e.target.value);
-                    const genderText = gender === 'M' ? '(Maschio)' : '(Femmina)';
-                    
-                    // Rimuovi eventuale span esistente
-                    const existingGender = e.target.parentElement.querySelector('.gender-display');
-                    if (existingGender) existingGender.remove();
-                    
-                    // Aggiungi span con il sesso
-                    const genderSpan = document.createElement('span');
-                    genderSpan.className = 'gender-display';
-                    genderSpan.style.marginLeft = '10px';
-                    genderSpan.style.color = 'var(--text-muted)';
-                    genderSpan.style.fontSize = '0.875rem';
-                    genderSpan.textContent = genderText;
-                    e.target.parentElement.appendChild(genderSpan);
                 }))
                 .filter(p => p.sigla && p.nome && p.sigla.length === 2);
                 
@@ -321,6 +293,23 @@ function setupEventListeners() {
                     // Rimuovi eventuali alert di mancata corrispondenza
                     const existingAlert = dataNascitaField.parentElement.querySelector('.cf-mismatch-alert');
                     if (existingAlert) existingAlert.remove();
+                    
+                    // Mostra anche il sesso estratto dal CF
+                    const gender = extractGenderFromCF(e.target.value);
+                    const genderText = gender === 'M' ? '(Maschio)' : '(Femmina)';
+                    
+                    // Rimuovi eventuale span esistente
+                    const existingGender = e.target.parentElement.querySelector('.gender-display');
+                    if (existingGender) existingGender.remove();
+                    
+                    // Aggiungi span con il sesso
+                    const genderSpan = document.createElement('span');
+                    genderSpan.className = 'gender-display';
+                    genderSpan.style.marginLeft = '10px';
+                    genderSpan.style.color = 'var(--text-muted)';
+                    genderSpan.style.fontSize = '0.875rem';
+                    genderSpan.textContent = genderText;
+                    e.target.parentElement.appendChild(genderSpan);
                 }
             } else {
                 e.target.classList.remove('valid');
@@ -700,6 +689,9 @@ function saveArtist(artistData) {
         
         // Mostra messaggio di successo
         showSuccess('Artista registrato con successo! Reindirizzamento...');
+        
+        // Reset form
+        resetForm();
         
         // Reindirizza alla dashboard dopo 2 secondi
         setTimeout(() => {
