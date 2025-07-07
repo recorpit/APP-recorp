@@ -1,125 +1,331 @@
-/* RECORP ALL-IN-ONE - Sistema Gestionale
-   Foglio di stile principale
-   ========================================= */
+/* Variables CSS già esistenti... */
 
-/* Reset e variabili base */
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
+/* ==================== DASHBOARD SPECIFIC STYLES ==================== */
 
-:root {
-    --primary: #6366f1;
-    --primary-dark: #4f46e5;
-    --secondary: #8b5cf6;
-    --success: #10b981;
-    --danger: #ef4444;
-    --warning: #f59e0b;
-    --info: #3b82f6;
-    --dark: #1f2937;
-    --light: #f3f4f6;
-    --white: #ffffff;
-    --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.1);
-}
-
-/* Base */
+/* Fix per il body quando c'è la navbar */
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 0;
+    display: block;
     min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-    color: var(--dark);
-    line-height: 1.6;
 }
 
-/* Container principale */
-.main-container {
-    background: rgba(255, 255, 255, 0.95);
-    border-radius: 20px;
-    padding: 2rem;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-    width: 100%;
-    max-width: 1200px;
-    backdrop-filter: blur(10px);
+/* Container principale con padding per navbar */
+.page-container {
+    padding-top: 80px;
+    min-height: 100vh;
+    background: var(--dark-surface);
 }
 
-/* Header */
-.header {
+/* Search input wrapper */
+.search-input-wrapper {
+    position: relative;
+    flex: 1;
+}
+
+/* Suggestions dropdown */
+.suggestions-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--dark-card);
+    border: 1px solid var(--dark-border);
+    border-radius: 0 0 10px 10px;
+    box-shadow: var(--shadow-lg);
+    max-height: 300px;
+    overflow-y: auto;
+    display: none;
+    z-index: 100;
+}
+
+.suggestion-item {
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    border-bottom: 1px solid var(--dark-border);
+}
+
+.suggestion-item:hover {
+    background: var(--dark-bg);
+}
+
+.suggestion-item:last-child {
+    border-bottom: none;
+}
+
+.suggestion-info {
+    font-size: 0.85rem;
+    color: var(--gray-500);
+    margin-top: 0.25rem;
+}
+
+.no-suggestions {
+    padding: 1rem;
     text-align: center;
-    margin-bottom: 3rem;
+    color: var(--gray-500);
+    font-style: italic;
 }
 
-.header h1 {
-    font-size: 2.5rem;
-    font-weight: 700;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    margin-bottom: 0.5rem;
+/* Highlight match in suggestions */
+.highlight-match {
+    color: var(--accent-gold);
 }
 
-.header p {
-    color: #6b7280;
-    font-size: 1.1rem;
+/* Search register link */
+.search-register-link {
+    text-align: center;
+    margin-top: 1rem;
 }
 
-/* Ricerca */
-.search-section {
-    background: var(--light);
-    border-radius: 12px;
-    padding: 1.5rem;
-    margin-bottom: 2rem;
+/* Stats cards con gradient */
+.stat-card {
+    background: linear-gradient(135deg, var(--dark-card), var(--dark-bg));
 }
 
-.search-container {
+/* Result cards */
+.no-agibilita-msg {
+    color: var(--gray-500);
+    margin-top: 1rem;
+    font-size: 0.9rem;
+}
+
+.artist-role {
+    font-size: 0.85rem;
+    color: var(--accent-purple);
+}
+
+/* ==================== TAB SYSTEM STYLES ==================== */
+
+.tabs {
     display: flex;
     gap: 1rem;
-    align-items: center;
+    border-bottom: 2px solid var(--dark-border);
+    margin-bottom: 1.5rem;
 }
 
-.search-input {
-    flex: 1;
-    padding: 0.75rem 1rem;
-    border: 2px solid #e5e7eb;
-    border-radius: 8px;
-    font-size: 1rem;
-    transition: all 0.3s ease;
-}
-
-.search-input:focus {
-    outline: none;
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-}
-
-.btn-search {
+.tab {
     padding: 0.75rem 1.5rem;
-    background: var(--primary);
-    color: white;
+    background: none;
     border: none;
-    border-radius: 8px;
-    font-weight: 600;
     cursor: pointer;
+    color: var(--gray-500);
+    font-weight: 500;
     transition: all 0.3s ease;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+}
+
+.tab:hover {
+    color: var(--gray-300);
+}
+
+.tab.active {
+    color: var(--accent-gold) !important;
+    border-bottom-color: var(--accent-gold) !important;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* ==================== DATABASE MANAGER STYLES ==================== */
+
+/* Database manager button */
+.db-manager-button {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 100;
+}
+
+.db-manager-button .btn {
+    opacity: 0.8;
+}
+
+/* Chat AI button */
+.chat-ai-button {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 100;
+}
+
+.btn-chat-ai {
+    box-shadow: 0 4px 15px rgba(251, 191, 36, 0.4);
+    padding: 0.75rem 1.5rem;
     display: flex;
     align-items: center;
     gap: 0.5rem;
 }
 
-.btn-search:hover {
-    background: var(--primary-dark);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+.chat-ai-icon {
+    font-size: 1.2rem;
 }
 
-/* Grid delle azioni */
-.actions-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 1.5rem;
-    margin-bottom: 2rem;
+/* Wide modal content */
+.modal-content-wide {
+    max-width: 900px;
+}
+
+/* Small buttons */
+.btn-sm {
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+}
+
+/* Form sections */
+.form-section {
+    background: var(--dark-card);
+    padding: 1.5rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--dark-border);
+}
+
+.form-section-title {
+    margin-bottom: 1rem;
+    color: var(--gray-200);
+}
+
+/* Button groups */
+.btn-group {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+/* Table styles for dark theme */
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th {
+    background: var(--dark-bg) !important;
+    color: var(--gray-300);
+    padding: 0.75rem !important;
+    text-align: left;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    letter-spacing: 0.5px;
+}
+
+td {
+    padding: 0.75rem !important;
+    border-bottom: 1px solid var(--dark-border);
+    color: var(--gray-200);
+}
+
+tr:hover {
+    background: var(--dark-bg);
+}
+
+.text-center {
+    text-align: center;
+}
+
+/* Database table container */
+.db-table-container {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+/* No data message */
+.no-data-msg {
+    text-align: center;
+    color: var(--gray-500);
+    margin-top: 2rem;
+    display: none;
+}
+
+/* File input styling */
+input[type="file"] {
+    padding: 0.5rem;
+    background: var(--dark-bg);
+    border: 2px dashed var(--dark-border);
+    border-radius: 8px;
+    width: 100%;
+    cursor: pointer;
+    color: var(--gray-300);
+}
+
+input[type="file"]:hover {
+    border-color: var(--accent-gold);
+}
+
+/* Import help text */
+.import-help-text {
+    margin-top: 0.5rem;
+    color: var(--gray-500);
+    font-size: 0.9rem;
+}
+
+/* ==================== AGIBILITA LIST STYLES ==================== */
+
+.agibilita-list {
+    margin-top: 1rem;
+}
+
+.agibilita-list h4 {
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+    color: var(--gray-300);
+}
+
+.agibilita-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem;
+    background: var(--dark-bg);
+    border-radius: 4px;
+    margin-bottom: 0.25rem;
+    font-size: 0.85rem;
+}
+
+.agibilita-item:hover {
+    background: var(--dark-surface);
+}
+
+/* ==================== RESPONSIVE ADJUSTMENTS ==================== */
+
+@media (max-width: 768px) {
+    .modal-content-wide {
+        max-width: 100%;
+        margin: 20px;
+    }
+    
+    .tabs {
+        flex-wrap: wrap;
+    }
+    
+    .tab {
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+    }
+    
+    .db-table-container {
+        max-height: 300px;
+    }
+    
+    table {
+        font-size: 0.875rem;
+    }
+    
+    th, td {
+        padding: 0.5rem !important;
+    }
+    
+    .btn-group {
+        flex-direction: column;
+    }
+    
+    .db-manager-button {
+        bottom: 70px;
+    }
+}
