@@ -409,19 +409,21 @@
             if (!provinciaSelect) return;
 
             try {
+                // Prima prova con il file province dedicato
                 const provinceData = window.GIDatabase.getData().province;
                 
-                if (provinceData && Array.isArray(provinceData)) {
+                if (provinceData && Array.isArray(provinceData) && provinceData.length > 20) {
+                    // Usa il file gi_province.json se ha abbastanza elementi
                     const sortedProvinces = provinceData.sort((a, b) => {
-                        const siglaA = a.sigla || a.codice || a.siglaProvincia;
-                        const siglaB = b.sigla || b.codice || b.siglaProvincia;
+                        const siglaA = a.sigla || a.codice || a.siglaProvincia || a.SIGLA;
+                        const siglaB = b.sigla || b.codice || b.siglaProvincia || b.SIGLA;
                         return siglaA.localeCompare(siglaB);
                     });
 
                     provinciaSelect.innerHTML = '<option value="">Seleziona provincia...</option>';
                     sortedProvinces.forEach(provincia => {
-                        const sigla = provincia.sigla || provincia.codice || provincia.siglaProvincia;
-                        const nome = provincia.denominazione || provincia.nome || provincia.denominazioneProvincia;
+                        const sigla = provincia.sigla || provincia.codice || provincia.siglaProvincia || provincia.SIGLA;
+                        const nome = provincia.denominazione || provincia.nome || provincia.denominazioneProvincia || provincia.DENOMINAZIONE;
                         
                         if (sigla) {
                             const option = document.createElement('option');
@@ -432,37 +434,165 @@
                     });
 
                     console.log(`✅ Caricate ${sortedProvinces.length} province dal file dedicato`);
-                } else {
-                    loadFallbackProvinces();
+                    return;
                 }
+
+                // Fallback: estrai le province dai comuni
+                console.log('📄 File province non completo, estraggo dai comuni...');
+                const allComuni = window.GIDatabase.getData().comuni || [];
+                
+                if (allComuni.length > 0) {
+                    const provinces = new Set();
+                    
+                    allComuni.forEach(comune => {
+                        const provincia = comune.siglaProvincialeSedeMunicipio || 
+                                        comune.provincia || 
+                                        comune.siglaProvincia ||
+                                        comune.SIGLA_PROVINCIA;
+                        if (provincia) {
+                            provinces.add(provincia);
+                        }
+                    });
+
+                    if (provinces.size > 20) {
+                        const sortedProvinces = Array.from(provinces).sort();
+
+                        provinciaSelect.innerHTML = '<option value="">Seleziona provincia...</option>';
+                        sortedProvinces.forEach(provincia => {
+                            const option = document.createElement('option');
+                            option.value = provincia;
+                            option.textContent = `${provincia} - ${getProvinciaNameByCode(provincia)}`;
+                            provinciaSelect.appendChild(option);
+                        });
+
+                        console.log(`✅ Caricate ${sortedProvinces.length} province estratte dai comuni`);
+                        return;
+                    }
+                }
+
+                // Se tutto fallisce, usa il fallback manuale
+                console.warn('⚠️ Database incompleto, uso fallback manuale');
+                loadFallbackProvinces();
+
             } catch (error) {
                 console.error('Errore caricamento province:', error);
                 loadFallbackProvinces();
             }
         }
 
-        // Fallback: carica province manualmente
+        // Fallback completo con tutte le province italiane
         function loadFallbackProvinces() {
             const provinciaSelect = document.getElementById('provincia');
             if (!provinciaSelect) return;
 
             const provinceItaliane = [
-                { sigla: 'VI', nome: 'VICENZA' },
-                { sigla: 'VE', nome: 'VENEZIA' },
-                { sigla: 'VR', nome: 'VERONA' },
-                { sigla: 'PD', nome: 'PADOVA' },
-                { sigla: 'TV', nome: 'TREVISO' },
-                { sigla: 'RO', nome: 'ROVIGO' },
-                { sigla: 'BL', nome: 'BELLUNO' },
-                { sigla: 'MI', nome: 'MILANO' },
-                { sigla: 'RM', nome: 'ROMA' },
-                { sigla: 'NA', nome: 'NAPOLI' },
-                { sigla: 'TO', nome: 'TORINO' },
+                { sigla: 'AG', nome: 'AGRIGENTO' },
+                { sigla: 'AL', nome: 'ALESSANDRIA' },
+                { sigla: 'AN', nome: 'ANCONA' },
+                { sigla: 'AO', nome: 'AOSTA' },
+                { sigla: 'AR', nome: 'AREZZO' },
+                { sigla: 'AP', nome: 'ASCOLI PICENO' },
+                { sigla: 'AT', nome: 'ASTI' },
+                { sigla: 'AV', nome: 'AVELLINO' },
                 { sigla: 'BA', nome: 'BARI' },
-                { sigla: 'FI', nome: 'FIRENZE' },
+                { sigla: 'BT', nome: 'BARLETTA-ANDRIA-TRANI' },
+                { sigla: 'BL', nome: 'BELLUNO' },
+                { sigla: 'BN', nome: 'BENEVENTO' },
+                { sigla: 'BG', nome: 'BERGAMO' },
+                { sigla: 'BI', nome: 'BIELLA' },
                 { sigla: 'BO', nome: 'BOLOGNA' },
+                { sigla: 'BZ', nome: 'BOLZANO' },
+                { sigla: 'BS', nome: 'BRESCIA' },
+                { sigla: 'BR', nome: 'BRINDISI' },
+                { sigla: 'CA', nome: 'CAGLIARI' },
+                { sigla: 'CL', nome: 'CALTANISSETTA' },
+                { sigla: 'CB', nome: 'CAMPOBASSO' },
+                { sigla: 'CE', nome: 'CASERTA' },
+                { sigla: 'CT', nome: 'CATANIA' },
+                { sigla: 'CZ', nome: 'CATANZARO' },
+                { sigla: 'CH', nome: 'CHIETI' },
+                { sigla: 'CO', nome: 'COMO' },
+                { sigla: 'CS', nome: 'COSENZA' },
+                { sigla: 'CR', nome: 'CREMONA' },
+                { sigla: 'KR', nome: 'CROTONE' },
+                { sigla: 'CN', nome: 'CUNEO' },
+                { sigla: 'EN', nome: 'ENNA' },
+                { sigla: 'FM', nome: 'FERMO' },
+                { sigla: 'FE', nome: 'FERRARA' },
+                { sigla: 'FI', nome: 'FIRENZE' },
+                { sigla: 'FG', nome: 'FOGGIA' },
+                { sigla: 'FC', nome: 'FORLÌ-CESENA' },
+                { sigla: 'FR', nome: 'FROSINONE' },
                 { sigla: 'GE', nome: 'GENOVA' },
-                { sigla: 'PA', nome: 'PALERMO' }
+                { sigla: 'GO', nome: 'GORIZIA' },
+                { sigla: 'GR', nome: 'GROSSETO' },
+                { sigla: 'IM', nome: 'IMPERIA' },
+                { sigla: 'IS', nome: 'ISERNIA' },
+                { sigla: 'AQ', nome: 'L\'AQUILA' },
+                { sigla: 'SP', nome: 'LA SPEZIA' },
+                { sigla: 'LT', nome: 'LATINA' },
+                { sigla: 'LE', nome: 'LECCE' },
+                { sigla: 'LC', nome: 'LECCO' },
+                { sigla: 'LI', nome: 'LIVORNO' },
+                { sigla: 'LO', nome: 'LODI' },
+                { sigla: 'LU', nome: 'LUCCA' },
+                { sigla: 'MC', nome: 'MACERATA' },
+                { sigla: 'MN', nome: 'MANTOVA' },
+                { sigla: 'MS', nome: 'MASSA-CARRARA' },
+                { sigla: 'MT', nome: 'MATERA' },
+                { sigla: 'ME', nome: 'MESSINA' },
+                { sigla: 'MI', nome: 'MILANO' },
+                { sigla: 'MO', nome: 'MODENA' },
+                { sigla: 'MB', nome: 'MONZA E DELLA BRIANZA' },
+                { sigla: 'NA', nome: 'NAPOLI' },
+                { sigla: 'NO', nome: 'NOVARA' },
+                { sigla: 'NU', nome: 'NUORO' },
+                { sigla: 'OR', nome: 'ORISTANO' },
+                { sigla: 'PD', nome: 'PADOVA' },
+                { sigla: 'PA', nome: 'PALERMO' },
+                { sigla: 'PR', nome: 'PARMA' },
+                { sigla: 'PV', nome: 'PAVIA' },
+                { sigla: 'PG', nome: 'PERUGIA' },
+                { sigla: 'PU', nome: 'PESARO E URBINO' },
+                { sigla: 'PE', nome: 'PESCARA' },
+                { sigla: 'PC', nome: 'PIACENZA' },
+                { sigla: 'PI', nome: 'PISA' },
+                { sigla: 'PT', nome: 'PISTOIA' },
+                { sigla: 'PN', nome: 'PORDENONE' },
+                { sigla: 'PZ', nome: 'POTENZA' },
+                { sigla: 'PO', nome: 'PRATO' },
+                { sigla: 'RG', nome: 'RAGUSA' },
+                { sigla: 'RA', nome: 'RAVENNA' },
+                { sigla: 'RC', nome: 'REGGIO CALABRIA' },
+                { sigla: 'RE', nome: 'REGGIO EMILIA' },
+                { sigla: 'RI', nome: 'RIETI' },
+                { sigla: 'RN', nome: 'RIMINI' },
+                { sigla: 'RM', nome: 'ROMA' },
+                { sigla: 'RO', nome: 'ROVIGO' },
+                { sigla: 'SA', nome: 'SALERNO' },
+                { sigla: 'SS', nome: 'SASSARI' },
+                { sigla: 'SV', nome: 'SAVONA' },
+                { sigla: 'SI', nome: 'SIENA' },
+                { sigla: 'SR', nome: 'SIRACUSA' },
+                { sigla: 'SO', nome: 'SONDRIO' },
+                { sigla: 'SU', nome: 'SUD SARDEGNA' },
+                { sigla: 'TA', nome: 'TARANTO' },
+                { sigla: 'TE', nome: 'TERAMO' },
+                { sigla: 'TR', nome: 'TERNI' },
+                { sigla: 'TO', nome: 'TORINO' },
+                { sigla: 'TP', nome: 'TRAPANI' },
+                { sigla: 'TN', nome: 'TRENTO' },
+                { sigla: 'TV', nome: 'TREVISO' },
+                { sigla: 'TS', nome: 'TRIESTE' },
+                { sigla: 'UD', nome: 'UDINE' },
+                { sigla: 'VA', nome: 'VARESE' },
+                { sigla: 'VE', nome: 'VENEZIA' },
+                { sigla: 'VB', nome: 'VERBANO-CUSIO-OSSOLA' },
+                { sigla: 'VC', nome: 'VERCELLI' },
+                { sigla: 'VR', nome: 'VERONA' },
+                { sigla: 'VI', nome: 'VICENZA' },
+                { sigla: 'VV', nome: 'VIBO VALENTIA' },
+                { sigla: 'VT', nome: 'VITERBO' }
             ];
 
             provinciaSelect.innerHTML = '<option value="">Seleziona provincia...</option>';
@@ -473,7 +603,7 @@
                 provinciaSelect.appendChild(option);
             });
 
-            console.log(`✅ Caricate ${provinceItaliane.length} province da fallback`);
+            console.log(`✅ Caricate ${provinceItaliane.length} province da fallback completo`);
         }
 
         // Carica le città per la provincia selezionata
