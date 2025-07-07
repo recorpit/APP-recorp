@@ -1,31 +1,29 @@
 /* ==================== CSS VARIABLES ==================== */
 :root {
-    /* Dark theme colors */
-    --dark-bg: #0a0b0d;
-    --dark-surface: #111214;
-    --dark-card: #1a1b1e;
-    --dark-border: #2a2b2e;
+    /* Light theme colors */
+    --bg-primary: #f8f9fa;
+    --bg-secondary: #ffffff;
+    --bg-card: #ffffff;
+    --border-color: #e5e7eb;
     
     /* Text colors */
-    --gray-100: #f3f4f6;
-    --gray-200: #e5e7eb;
-    --gray-300: #d1d5db;
-    --gray-400: #9ca3af;
-    --gray-500: #6b7280;
+    --text-primary: #1f2937;
+    --text-secondary: #4b5563;
+    --text-muted: #6b7280;
     
     /* Accent colors */
-    --accent-gold: #fbbf24;
-    --accent-purple: #8b5cf6;
+    --accent-purple: #7c3aed;
+    --accent-purple-light: #8b5cf6;
+    --accent-gold: #f59e0b;
     --primary: #6366f1;
     --success: #10b981;
     --danger: #ef4444;
-    --light: #f3f4f6;
-    --dark: #111827;
+    --info: #3b82f6;
     
     /* Shadows */
-    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
 /* ==================== RESET & BASE STYLES ==================== */
@@ -37,8 +35,8 @@
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    background-color: var(--dark-bg);
-    color: var(--gray-200);
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
     line-height: 1.6;
     padding: 0;
     display: block;
@@ -47,7 +45,7 @@ body {
 
 /* ==================== TYPOGRAPHY ==================== */
 h1, h2, h3, h4, h5, h6 {
-    color: var(--gray-100);
+    color: var(--text-primary);
     line-height: 1.2;
 }
 
@@ -59,13 +57,13 @@ h5 { font-size: 1.125rem; }
 h6 { font-size: 1rem; }
 
 a {
-    color: var(--accent-gold);
+    color: var(--primary);
     text-decoration: none;
     transition: color 0.3s ease;
 }
 
 a:hover {
-    color: var(--primary);
+    color: var(--accent-purple);
 }
 
 /* ==================== NAVBAR STYLES ==================== */
@@ -74,10 +72,11 @@ a:hover {
     top: 0;
     left: 0;
     right: 0;
-    background: var(--dark-card);
-    border-bottom: 1px solid var(--dark-border);
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
     z-index: 1000;
     padding: 1rem 0;
+    box-shadow: var(--shadow-sm);
 }
 
 .navbar-content {
@@ -104,7 +103,7 @@ a:hover {
 .logo-text {
     font-size: 1.25rem;
     font-weight: 700;
-    color: var(--gray-100);
+    color: var(--text-primary);
 }
 
 .nav-links {
@@ -113,25 +112,26 @@ a:hover {
 }
 
 .nav-links a {
-    color: var(--gray-400);
+    color: var(--text-secondary);
     text-decoration: none;
     font-weight: 500;
     transition: color 0.3s ease;
 }
 
 .nav-links a:hover {
-    color: var(--gray-100);
+    color: var(--primary);
 }
 
 .nav-links a.active {
-    color: var(--accent-gold);
+    color: var(--accent-purple);
+    font-weight: 600;
 }
 
 /* ==================== LAYOUT CONTAINERS ==================== */
 .page-container {
     padding-top: 80px;
     min-height: 100vh;
-    background: var(--dark-surface);
+    background: var(--bg-primary);
 }
 
 .container {
@@ -155,7 +155,7 @@ a:hover {
 .header h1 {
     font-size: 2.5rem;
     margin-bottom: 0.5rem;
-    background: linear-gradient(135deg, var(--accent-gold), var(--accent-purple));
+    background: linear-gradient(135deg, var(--accent-purple), var(--primary));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -163,16 +163,16 @@ a:hover {
 
 .header p {
     font-size: 1.125rem;
-    color: var(--gray-400);
+    color: var(--text-secondary);
 }
 
 /* ==================== SEARCH SECTION ==================== */
 .search-section {
-    background: var(--dark-card);
+    background: var(--bg-card);
     padding: 2rem;
     border-radius: 12px;
     margin-bottom: 3rem;
-    border: 1px solid var(--dark-border);
+    box-shadow: var(--shadow-md);
 }
 
 .search-container {
@@ -189,18 +189,18 @@ a:hover {
 .search-input {
     width: 100%;
     padding: 0.75rem 1rem;
-    background: var(--dark-bg);
-    border: 2px solid var(--dark-border);
+    background: var(--bg-primary);
+    border: 2px solid var(--border-color);
     border-radius: 8px;
-    color: var(--gray-100);
+    color: var(--text-primary);
     font-size: 1rem;
     transition: all 0.3s ease;
 }
 
 .search-input:focus {
     outline: none;
-    border-color: var(--accent-gold);
-    box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.1);
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
 .search-register-link {
@@ -214,8 +214,8 @@ a:hover {
     top: 100%;
     left: 0;
     right: 0;
-    background: var(--dark-card);
-    border: 1px solid var(--dark-border);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
     border-radius: 0 0 10px 10px;
     box-shadow: var(--shadow-lg);
     max-height: 300px;
@@ -228,11 +228,11 @@ a:hover {
     padding: 0.75rem 1rem;
     cursor: pointer;
     transition: background 0.2s ease;
-    border-bottom: 1px solid var(--dark-border);
+    border-bottom: 1px solid var(--border-color);
 }
 
 .suggestion-item:hover {
-    background: var(--dark-bg);
+    background: var(--bg-primary);
 }
 
 .suggestion-item:last-child {
@@ -241,19 +241,19 @@ a:hover {
 
 .suggestion-info {
     font-size: 0.85rem;
-    color: var(--gray-500);
+    color: var(--text-muted);
     margin-top: 0.25rem;
 }
 
 .no-suggestions {
     padding: 1rem;
     text-align: center;
-    color: var(--gray-500);
+    color: var(--text-muted);
     font-style: italic;
 }
 
 .highlight-match {
-    color: var(--accent-gold);
+    color: var(--accent-purple);
     font-weight: 600;
 }
 
@@ -266,18 +266,19 @@ a:hover {
 }
 
 .action-card {
-    background: var(--dark-card);
+    background: var(--bg-card);
     padding: 2rem;
     border-radius: 12px;
     text-align: center;
     cursor: pointer;
     transition: all 0.3s ease;
     border: 2px solid transparent;
+    box-shadow: var(--shadow-md);
 }
 
 .action-card:hover {
     transform: translateY(-5px);
-    border-color: var(--accent-gold);
+    border-color: var(--accent-purple);
     box-shadow: var(--shadow-lg);
 }
 
@@ -288,19 +289,19 @@ a:hover {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--dark-bg);
+    background: linear-gradient(135deg, var(--accent-purple), var(--primary));
     border-radius: 12px;
-    color: var(--accent-gold);
+    color: white;
 }
 
 .action-card h3 {
     font-size: 1.125rem;
     margin-bottom: 0.5rem;
-    color: var(--gray-100);
+    color: var(--text-primary);
 }
 
 .action-card p {
-    color: var(--gray-400);
+    color: var(--text-secondary);
     font-size: 0.875rem;
 }
 
@@ -316,26 +317,29 @@ a:hover {
 }
 
 .stat-card {
-    background: linear-gradient(135deg, var(--dark-card), var(--dark-bg));
+    background: var(--bg-card);
     padding: 2rem;
     border-radius: 12px;
     text-align: center;
     transition: transform 0.3s ease;
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--border-color);
 }
 
 .stat-card:hover {
     transform: translateY(-3px);
+    box-shadow: var(--shadow-lg);
 }
 
 .stat-value {
     font-size: 2rem;
     font-weight: 700;
-    color: var(--accent-gold);
+    color: var(--accent-purple);
     margin-bottom: 0.5rem;
 }
 
 .stat-label {
-    color: var(--gray-400);
+    color: var(--text-secondary);
     font-size: 0.875rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -361,20 +365,21 @@ a:hover {
 }
 
 .btn-primary:hover {
-    background: #5558e3;
+    background: var(--accent-purple);
     transform: translateY(-2px);
     box-shadow: var(--shadow-md);
 }
 
 .btn-secondary {
-    background: var(--dark-card);
-    color: var(--gray-300);
-    border: 1px solid var(--dark-border);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border: 2px solid var(--border-color);
 }
 
 .btn-secondary:hover {
-    background: var(--dark-bg);
-    border-color: var(--gray-500);
+    background: var(--bg-secondary);
+    border-color: var(--accent-purple);
+    color: var(--accent-purple);
 }
 
 .btn-success {
@@ -416,14 +421,14 @@ a:hover {
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.8);
+    background: rgba(0, 0, 0, 0.5);
     z-index: 1000;
     padding: 20px;
     overflow-y: auto;
 }
 
 .modal-content {
-    background: var(--dark-card);
+    background: var(--bg-card);
     border-radius: 12px;
     max-width: 600px;
     margin: 50px auto;
@@ -431,7 +436,7 @@ a:hover {
     position: relative;
     max-height: 80vh;
     overflow-y: auto;
-    border: 1px solid var(--dark-border);
+    box-shadow: var(--shadow-lg);
 }
 
 .modal-content-wide {
@@ -454,12 +459,12 @@ a:hover {
     border: none;
     font-size: 1.5rem;
     cursor: pointer;
-    color: var(--gray-500);
+    color: var(--text-muted);
     transition: color 0.3s ease;
 }
 
 .close-modal:hover {
-    color: var(--gray-300);
+    color: var(--text-primary);
 }
 
 /* ==================== SEARCH RESULTS ==================== */
@@ -468,8 +473,8 @@ a:hover {
 }
 
 .result-card {
-    background: var(--dark-bg);
-    border: 1px solid var(--dark-border);
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
     border-radius: 8px;
     padding: 1.5rem;
     margin-bottom: 1rem;
@@ -487,7 +492,7 @@ a:hover {
 }
 
 .result-info p {
-    color: var(--gray-400);
+    color: var(--text-secondary);
     font-size: 0.875rem;
     margin-bottom: 0.25rem;
 }
@@ -503,7 +508,7 @@ a:hover {
 }
 
 .no-agibilita-msg {
-    color: var(--gray-500);
+    color: var(--text-muted);
     margin-top: 1rem;
     font-size: 0.9rem;
 }
@@ -516,21 +521,21 @@ a:hover {
 .agibilita-list h4 {
     font-size: 0.9rem;
     margin-bottom: 0.5rem;
-    color: var(--gray-300);
+    color: var(--text-primary);
 }
 
 .agibilita-item {
     display: flex;
     justify-content: space-between;
     padding: 0.5rem;
-    background: var(--dark-bg);
+    background: var(--bg-primary);
     border-radius: 4px;
     margin-bottom: 0.25rem;
     font-size: 0.85rem;
 }
 
 .agibilita-item:hover {
-    background: var(--dark-surface);
+    background: var(--bg-secondary);
 }
 
 /* ==================== FORM STYLES ==================== */
@@ -541,17 +546,17 @@ a:hover {
 .form-label {
     display: block;
     margin-bottom: 0.5rem;
-    color: var(--gray-300);
+    color: var(--text-primary);
     font-weight: 500;
 }
 
 .form-control {
     width: 100%;
     padding: 0.75rem 1rem;
-    background: var(--dark-bg);
-    border: 2px solid var(--dark-border);
+    background: var(--bg-secondary);
+    border: 2px solid var(--border-color);
     border-radius: 8px;
-    color: var(--gray-100);
+    color: var(--text-primary);
     font-size: 1rem;
     transition: all 0.3s ease;
 }
@@ -563,23 +568,23 @@ a:hover {
 }
 
 .form-section {
-    background: var(--dark-card);
+    background: var(--bg-card);
     padding: 1.5rem;
     border-radius: 8px;
     margin-bottom: 1.5rem;
-    border: 1px solid var(--dark-border);
+    border: 1px solid var(--border-color);
 }
 
 .form-section-title {
     margin-bottom: 1rem;
-    color: var(--gray-200);
+    color: var(--text-primary);
 }
 
 /* ==================== TAB SYSTEM ==================== */
 .tabs {
     display: flex;
     gap: 1rem;
-    border-bottom: 2px solid var(--dark-border);
+    border-bottom: 2px solid var(--border-color);
     margin-bottom: 1.5rem;
 }
 
@@ -588,7 +593,7 @@ a:hover {
     background: none;
     border: none;
     cursor: pointer;
-    color: var(--gray-500);
+    color: var(--text-secondary);
     font-weight: 500;
     transition: all 0.3s ease;
     border-bottom: 2px solid transparent;
@@ -596,12 +601,12 @@ a:hover {
 }
 
 .tab:hover {
-    color: var(--gray-300);
+    color: var(--primary);
 }
 
 .tab.active {
-    color: var(--accent-gold) !important;
-    border-bottom-color: var(--accent-gold) !important;
+    color: var(--accent-purple) !important;
+    border-bottom-color: var(--accent-purple) !important;
 }
 
 .tab-content {
@@ -619,24 +624,25 @@ table {
 }
 
 th {
-    background: var(--dark-bg) !important;
-    color: var(--gray-300);
+    background: var(--bg-primary) !important;
+    color: var(--text-primary);
     padding: 0.75rem !important;
     text-align: left;
     font-weight: 600;
     text-transform: uppercase;
     font-size: 0.85rem;
     letter-spacing: 0.5px;
+    border-bottom: 2px solid var(--border-color);
 }
 
 td {
     padding: 0.75rem !important;
-    border-bottom: 1px solid var(--dark-border);
-    color: var(--gray-200);
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-primary);
 }
 
 tr:hover {
-    background: var(--dark-bg);
+    background: var(--bg-primary);
 }
 
 .text-center {
@@ -652,7 +658,7 @@ tr:hover {
 }
 
 .db-manager-button .btn {
-    opacity: 0.8;
+    opacity: 0.9;
 }
 
 .db-manager-button .btn:hover {
@@ -666,7 +672,7 @@ tr:hover {
 
 .no-data-msg {
     text-align: center;
-    color: var(--gray-500);
+    color: var(--text-muted);
     margin-top: 2rem;
     display: none;
 }
@@ -681,11 +687,16 @@ tr:hover {
 }
 
 .btn-chat-ai {
-    box-shadow: 0 4px 15px rgba(251, 191, 36, 0.4);
+    box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
     padding: 0.75rem 1.5rem;
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    background: var(--accent-purple) !important;
+}
+
+.btn-chat-ai:hover {
+    background: var(--accent-purple-light) !important;
 }
 
 .chat-ai-icon {
@@ -695,21 +706,21 @@ tr:hover {
 /* ==================== FILE INPUT ==================== */
 input[type="file"] {
     padding: 0.5rem;
-    background: var(--dark-bg);
-    border: 2px dashed var(--dark-border);
+    background: var(--bg-primary);
+    border: 2px dashed var(--border-color);
     border-radius: 8px;
     width: 100%;
     cursor: pointer;
-    color: var(--gray-300);
+    color: var(--text-primary);
 }
 
 input[type="file"]:hover {
-    border-color: var(--accent-gold);
+    border-color: var(--accent-purple);
 }
 
 .import-help-text {
     margin-top: 0.5rem;
-    color: var(--gray-500);
+    color: var(--text-muted);
     font-size: 0.9rem;
 }
 
@@ -717,8 +728,8 @@ input[type="file"]:hover {
 .footer {
     text-align: center;
     padding: 2rem 0;
-    border-top: 1px solid var(--dark-border);
-    color: var(--gray-500);
+    border-top: 1px solid var(--border-color);
+    color: var(--text-muted);
     font-size: 0.875rem;
 }
 
@@ -728,16 +739,16 @@ input[type="file"]:hover {
 }
 
 ::-webkit-scrollbar-track {
-    background: var(--dark-bg);
+    background: var(--bg-primary);
 }
 
 ::-webkit-scrollbar-thumb {
-    background: var(--dark-border);
+    background: #d1d5db;
     border-radius: 5px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: var(--gray-500);
+    background: #9ca3af;
 }
 
 /* ==================== UTILITY CLASSES ==================== */
