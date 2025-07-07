@@ -117,20 +117,26 @@ window.GIDatabase.getComuniByProvincia = function(siglaProvincia) {
 };
 
 window.GIDatabase.getCapByComune = function(codiceIstat) {
-    if (!window.GIDatabase.data.comuniCap) return [];
+    // Usa gi_cap.json che contiene effettivamente i CAP
+    if (!window.GIDatabase.data.cap) {
+        console.warn('⚠️ File gi_cap.json non caricato');
+        return [];
+    }
     
-    // Usa il campo corretto basato sulla struttura del file
-    return window.GIDatabase.data.comuniCap
+    const caps = window.GIDatabase.data.cap
         .filter(item => item.codice_istat === codiceIstat)
         .map(item => item.cap)
         .filter((cap, index, self) => cap && self.indexOf(cap) === index);
+    
+    console.log(`📮 CAP trovati per ${codiceIstat}:`, caps);
+    return caps;
 };
 
 window.GIDatabase.getComuneByCap = function(cap) {
-    if (!window.GIDatabase.data.comuniCap || !window.GIDatabase.data.comuni) return [];
+    if (!window.GIDatabase.data.cap || !window.GIDatabase.data.comuni) return [];
     
-    // Trova tutti i codici ISTAT per questo CAP
-    const codiciIstat = window.GIDatabase.data.comuniCap
+    // Trova tutti i codici ISTAT per questo CAP dal file gi_cap.json
+    const codiciIstat = window.GIDatabase.data.cap
         .filter(item => item.cap === cap)
         .map(item => item.codice_istat);
     
