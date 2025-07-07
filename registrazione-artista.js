@@ -25,7 +25,7 @@
  * - comuni-loader.js (database località italiane)
  * 
  * @author RECORP ALL-IN-ONE
- * @version 1.1
+ * @version 1.2
  */
 
 // Inizializzazione sistema registrazione artista
@@ -53,52 +53,19 @@ function loadProvinces() {
         const provinceSelect = document.getElementById('provincia');
         provinceSelect.innerHTML = '<option value="">Seleziona provincia...</option>';
         
-        // Prima prova con il file dedicato
-        const provinceData = window.GIDatabase?.getData()?.province || [];
-        let province = [];
+        // Usa la funzione helper dal comuni-loader
+        const province = window.GIDatabase.getProvince();
         
-        if (provinceData.length > 0) {
-            // Usa la struttura corretta del file gi_province.json
-            province = provinceData
-                .map(p => ({
-                    sigla: p.sigla_provincia || p.sigla || p.codice,
-                    nome: p.denominazione_provincia || p.denominazione || p.nome
-                }))
-                .filter(p => p.sigla && p.nome && p.sigla.length === 2);
-                
-            if (province.length > 20) {
-                console.log(`✅ Caricate ${province.length} province dal file dedicato`);
-            }
+        if (province.length === 0) {
+            console.error('❌ Nessuna provincia trovata nel database');
+            provinceSelect.innerHTML = '<option value="">Errore: nessuna provincia disponibile</option>';
+            showError('Impossibile caricare le province. Verificare i file di database.');
+            return;
         }
         
-        // Se non ci sono province dal file dedicato, estrai dai comuni
-        if (province.length < 20) {
-            const allComuni = window.GIDatabase?.getData()?.comuni || [];
-            const provinceMap = new Map();
-            
-            allComuni.forEach(comune => {
-                const sigla = comune.sigla_provincia || comune.provincia || comune.siglaProvincia;
-                if (sigla && sigla.length === 2 && !provinceMap.has(sigla)) {
-                    provinceMap.set(sigla, sigla);
-                }
-            });
-            
-            if (provinceMap.size > 20) {
-                province = Array.from(provinceMap.keys()).map(sigla => ({
-                    sigla: sigla,
-                    nome: getNomeProvinciaFromSigla(sigla)
-                }));
-                console.log(`⚠️ Caricate ${province.length} province estratte dai comuni`);
-            }
-        }
+        console.log(`✅ Caricate ${province.length} province dal database`);
         
-        // Fallback completo se ancora non ci sono abbastanza province
-        if (province.length < 100) {
-            province = getProvinceFallback();
-            console.log(`🆘 Caricate ${province.length} province da fallback completo`);
-        }
-        
-        // Ordina le province
+        // Ordina le province per sigla
         province.sort((a, b) => {
             if (!a.sigla || !b.sigla) return 0;
             return a.sigla.localeCompare(b.sigla);
@@ -114,116 +81,10 @@ function loadProvinces() {
         
     } catch (error) {
         console.error('Errore caricamento province:', error);
-        // Carica fallback in caso di errore
-        loadProvinceFallback();
+        const provinceSelect = document.getElementById('provincia');
+        provinceSelect.innerHTML = '<option value="">Errore caricamento province</option>';
+        showError('Errore nel caricamento delle province.');
     }
-}
-
-function loadProvinceFallback() {
-    const provinceSelect = document.getElementById('provincia');
-    const province = getProvinceFallback();
-    
-    province.forEach(p => {
-        const option = document.createElement('option');
-        option.value = p.sigla;
-        option.textContent = `${p.sigla} - ${p.nome}`;
-        provinceSelect.appendChild(option);
-    });
-}
-
-function getNomeProvinciaFromSigla(sigla) {
-    const nomiProvince = {
-        'AG': 'AGRIGENTO', 'AL': 'ALESSANDRIA', 'AN': 'ANCONA', 'AO': 'AOSTA',
-        'AR': 'AREZZO', 'AP': 'ASCOLI PICENO', 'AT': 'ASTI', 'AV': 'AVELLINO',
-        'BA': 'BARI', 'BT': 'BARLETTA-ANDRIA-TRANI', 'BL': 'BELLUNO', 'BN': 'BENEVENTO',
-        'BG': 'BERGAMO', 'BI': 'BIELLA', 'BO': 'BOLOGNA', 'BZ': 'BOLZANO',
-        'BS': 'BRESCIA', 'BR': 'BRINDISI', 'CA': 'CAGLIARI', 'CL': 'CALTANISSETTA',
-        'CB': 'CAMPOBASSO', 'CI': 'CARBONIA-IGLESIAS', 'CE': 'CASERTA', 'CT': 'CATANIA',
-        'CZ': 'CATANZARO', 'CH': 'CHIETI', 'CO': 'COMO', 'CS': 'COSENZA',
-        'CR': 'CREMONA', 'KR': 'CROTONE', 'CN': 'CUNEO', 'EN': 'ENNA',
-        'FM': 'FERMO', 'FE': 'FERRARA', 'FI': 'FIRENZE', 'FG': 'FOGGIA',
-        'FC': 'FORLI-CESENA', 'FR': 'FROSINONE', 'GE': 'GENOVA', 'GO': 'GORIZIA',
-        'GR': 'GROSSETO', 'IM': 'IMPERIA', 'IS': 'ISERNIA', 'SP': 'LA SPEZIA',
-        'AQ': 'L\'AQUILA', 'LT': 'LATINA', 'LE': 'LECCE', 'LC': 'LECCO',
-        'LI': 'LIVORNO', 'LO': 'LODI', 'LU': 'LUCCA', 'MC': 'MACERATA',
-        'MN': 'MANTOVA', 'MS': 'MASSA-CARRARA', 'MT': 'MATERA', 'ME': 'MESSINA',
-        'MI': 'MILANO', 'MO': 'MODENA', 'MB': 'MONZA E BRIANZA', 'NA': 'NAPOLI',
-        'NO': 'NOVARA', 'NU': 'NUORO', 'OT': 'OLBIA-TEMPIO', 'OR': 'ORISTANO',
-        'PD': 'PADOVA', 'PA': 'PALERMO', 'PR': 'PARMA', 'PV': 'PAVIA',
-        'PG': 'PERUGIA', 'PU': 'PESARO E URBINO', 'PE': 'PESCARA', 'PC': 'PIACENZA',
-        'PI': 'PISA', 'PT': 'PISTOIA', 'PN': 'PORDENONE', 'PZ': 'POTENZA',
-        'PO': 'PRATO', 'RG': 'RAGUSA', 'RA': 'RAVENNA', 'RC': 'REGGIO CALABRIA',
-        'RE': 'REGGIO EMILIA', 'RI': 'RIETI', 'RN': 'RIMINI', 'RM': 'ROMA',
-        'RO': 'ROVIGO', 'SA': 'SALERNO', 'VS': 'MEDIO CAMPIDANO', 'SS': 'SASSARI',
-        'SV': 'SAVONA', 'SI': 'SIENA', 'SR': 'SIRACUSA', 'SO': 'SONDRIO',
-        'TA': 'TARANTO', 'TE': 'TERAMO', 'TR': 'TERNI', 'TO': 'TORINO',
-        'OG': 'OGLIASTRA', 'TP': 'TRAPANI', 'TN': 'TRENTO', 'TV': 'TREVISO',
-        'TS': 'TRIESTE', 'UD': 'UDINE', 'VA': 'VARESE', 'VE': 'VENEZIA',
-        'VB': 'VERBANO-CUSIO-OSSOLA', 'VC': 'VERCELLI', 'VR': 'VERONA',
-        'VV': 'VIBO VALENTIA', 'VI': 'VICENZA', 'VT': 'VITERBO', 'SU': 'SUD SARDEGNA'
-    };
-    return nomiProvince[sigla] || sigla;
-}
-
-function getProvinceFallback() {
-    return [
-        { sigla: 'AG', nome: 'AGRIGENTO' }, { sigla: 'AL', nome: 'ALESSANDRIA' },
-        { sigla: 'AN', nome: 'ANCONA' }, { sigla: 'AO', nome: 'AOSTA' },
-        { sigla: 'AR', nome: 'AREZZO' }, { sigla: 'AP', nome: 'ASCOLI PICENO' },
-        { sigla: 'AT', nome: 'ASTI' }, { sigla: 'AV', nome: 'AVELLINO' },
-        { sigla: 'BA', nome: 'BARI' }, { sigla: 'BT', nome: 'BARLETTA-ANDRIA-TRANI' },
-        { sigla: 'BL', nome: 'BELLUNO' }, { sigla: 'BN', nome: 'BENEVENTO' },
-        { sigla: 'BG', nome: 'BERGAMO' }, { sigla: 'BI', nome: 'BIELLA' },
-        { sigla: 'BO', nome: 'BOLOGNA' }, { sigla: 'BZ', nome: 'BOLZANO' },
-        { sigla: 'BS', nome: 'BRESCIA' }, { sigla: 'BR', nome: 'BRINDISI' },
-        { sigla: 'CA', nome: 'CAGLIARI' }, { sigla: 'CL', nome: 'CALTANISSETTA' },
-        { sigla: 'CB', nome: 'CAMPOBASSO' }, { sigla: 'CI', nome: 'CARBONIA-IGLESIAS' },
-        { sigla: 'CE', nome: 'CASERTA' }, { sigla: 'CT', nome: 'CATANIA' },
-        { sigla: 'CZ', nome: 'CATANZARO' }, { sigla: 'CH', nome: 'CHIETI' },
-        { sigla: 'CO', nome: 'COMO' }, { sigla: 'CS', nome: 'COSENZA' },
-        { sigla: 'CR', nome: 'CREMONA' }, { sigla: 'KR', nome: 'CROTONE' },
-        { sigla: 'CN', nome: 'CUNEO' }, { sigla: 'EN', nome: 'ENNA' },
-        { sigla: 'FM', nome: 'FERMO' }, { sigla: 'FE', nome: 'FERRARA' },
-        { sigla: 'FI', nome: 'FIRENZE' }, { sigla: 'FG', nome: 'FOGGIA' },
-        { sigla: 'FC', nome: 'FORLI-CESENA' }, { sigla: 'FR', nome: 'FROSINONE' },
-        { sigla: 'GE', nome: 'GENOVA' }, { sigla: 'GO', nome: 'GORIZIA' },
-        { sigla: 'GR', nome: 'GROSSETO' }, { sigla: 'IM', nome: 'IMPERIA' },
-        { sigla: 'IS', nome: 'ISERNIA' }, { sigla: 'SP', nome: 'LA SPEZIA' },
-        { sigla: 'AQ', nome: 'L\'AQUILA' }, { sigla: 'LT', nome: 'LATINA' },
-        { sigla: 'LE', nome: 'LECCE' }, { sigla: 'LC', nome: 'LECCO' },
-        { sigla: 'LI', nome: 'LIVORNO' }, { sigla: 'LO', nome: 'LODI' },
-        { sigla: 'LU', nome: 'LUCCA' }, { sigla: 'MC', nome: 'MACERATA' },
-        { sigla: 'MN', nome: 'MANTOVA' }, { sigla: 'MS', nome: 'MASSA-CARRARA' },
-        { sigla: 'MT', nome: 'MATERA' }, { sigla: 'ME', nome: 'MESSINA' },
-        { sigla: 'MI', nome: 'MILANO' }, { sigla: 'MO', nome: 'MODENA' },
-        { sigla: 'MB', nome: 'MONZA E BRIANZA' }, { sigla: 'NA', nome: 'NAPOLI' },
-        { sigla: 'NO', nome: 'NOVARA' }, { sigla: 'NU', nome: 'NUORO' },
-        { sigla: 'OT', nome: 'OLBIA-TEMPIO' }, { sigla: 'OR', nome: 'ORISTANO' },
-        { sigla: 'PD', nome: 'PADOVA' }, { sigla: 'PA', nome: 'PALERMO' },
-        { sigla: 'PR', nome: 'PARMA' }, { sigla: 'PV', nome: 'PAVIA' },
-        { sigla: 'PG', nome: 'PERUGIA' }, { sigla: 'PU', nome: 'PESARO E URBINO' },
-        { sigla: 'PE', nome: 'PESCARA' }, { sigla: 'PC', nome: 'PIACENZA' },
-        { sigla: 'PI', nome: 'PISA' }, { sigla: 'PT', nome: 'PISTOIA' },
-        { sigla: 'PN', nome: 'PORDENONE' }, { sigla: 'PZ', nome: 'POTENZA' },
-        { sigla: 'PO', nome: 'PRATO' }, { sigla: 'RG', nome: 'RAGUSA' },
-        { sigla: 'RA', nome: 'RAVENNA' }, { sigla: 'RC', nome: 'REGGIO CALABRIA' },
-        { sigla: 'RE', nome: 'REGGIO EMILIA' }, { sigla: 'RI', nome: 'RIETI' },
-        { sigla: 'RN', nome: 'RIMINI' }, { sigla: 'RM', nome: 'ROMA' },
-        { sigla: 'RO', nome: 'ROVIGO' }, { sigla: 'SA', nome: 'SALERNO' },
-        { sigla: 'VS', nome: 'MEDIO CAMPIDANO' }, { sigla: 'SS', nome: 'SASSARI' },
-        { sigla: 'SV', nome: 'SAVONA' }, { sigla: 'SI', nome: 'SIENA' },
-        { sigla: 'SR', nome: 'SIRACUSA' }, { sigla: 'SO', nome: 'SONDRIO' },
-        { sigla: 'TA', nome: 'TARANTO' }, { sigla: 'TE', nome: 'TERAMO' },
-        { sigla: 'TR', nome: 'TERNI' }, { sigla: 'TO', nome: 'TORINO' },
-        { sigla: 'OG', nome: 'OGLIASTRA' }, { sigla: 'TP', nome: 'TRAPANI' },
-        { sigla: 'TN', nome: 'TRENTO' }, { sigla: 'TV', nome: 'TREVISO' },
-        { sigla: 'TS', nome: 'TRIESTE' }, { sigla: 'UD', nome: 'UDINE' },
-        { sigla: 'VA', nome: 'VARESE' }, { sigla: 'VE', nome: 'VENEZIA' },
-        { sigla: 'VB', nome: 'VERBANO-CUSIO-OSSOLA' }, { sigla: 'VC', nome: 'VERCELLI' },
-        { sigla: 'VR', nome: 'VERONA' }, { sigla: 'VV', nome: 'VIBO VALENTIA' },
-        { sigla: 'VI', nome: 'VICENZA' }, { sigla: 'VT', nome: 'VITERBO' },
-        { sigla: 'SU', nome: 'SUD SARDEGNA' }
-    ];
 }
 
 function setupEventListeners() {
@@ -440,54 +301,26 @@ function loadCAP(codiceIstat) {
     capSelect.innerHTML = '<option value="">Caricamento CAP...</option>';
     
     try {
-        // DEBUG: Verifica stato database
-        console.log('🔍 DEBUG loadCAP:');
-        console.log('- Codice ISTAT cercato:', codiceIstat);
-        console.log('- Database caricato?', window.GIDatabase?.isLoaded());
+        // Usa la funzione helper dal comuni-loader
+        const capList = window.GIDatabase.getCapByComune(codiceIstat);
         
-        // USA gi_cap.json INVECE DI gi_comuni_cap.json!
-        const capData = window.GIDatabase?.getData()?.cap || [];
-        console.log('- File gi_cap.json contiene:', capData.length, 'elementi');
-        
-        // Verifica formato dati
-        if (capData.length > 0) {
-            console.log('- Struttura primo elemento:', capData[0]);
-        }
-        
-        const selectedOption = document.querySelector(`#citta option[value="${codiceIstat}"]`);
-        if (!selectedOption) {
-            console.warn('❌ Opzione città non trovata per codice:', codiceIstat);
-            capSelect.innerHTML = '<option value="">Errore caricamento CAP</option>';
-            return;
-        }
-        
-        const comuneData = JSON.parse(selectedOption.getAttribute('data-comune'));
-        console.log('- Dati comune selezionato:', comuneData);
-        
-        // Cerca i CAP per questo comune - DICHIARA capList PRIMA DI USARLA
-        let capList = [];
-        
-        if (capData && capData.length > 0) {
-            capList = capData
-                .filter(item => item.codice_istat === codiceIstat)
-                .map(item => item.cap)
-                .filter((cap, index, self) => cap && self.indexOf(cap) === index)
-                .sort();
-        }
-        
-        console.log(`✅ CAP trovati per ${codiceIstat}:`, capList);
+        console.log(`📮 CAP trovati per ${codiceIstat}:`, capList);
         
         if (capList.length === 0) {
-            console.warn('❌ Nessun CAP trovato nel file gi_cap.json');
-            
-            // Fallback: prova con il CAP del comune se disponibile
-            if (comuneData.cap) {
-                console.log('📮 Uso CAP di fallback dal comune:', comuneData.cap);
-                capList = [comuneData.cap];
-            } else {
-                capSelect.innerHTML = '<option value="">CAP non trovato</option>';
-                return;
+            // Prova a recuperare il CAP dai dati del comune
+            const selectedOption = document.querySelector(`#citta option[value="${codiceIstat}"]`);
+            if (selectedOption) {
+                const comuneData = JSON.parse(selectedOption.getAttribute('data-comune'));
+                if (comuneData.cap) {
+                    console.log('📮 Uso CAP di fallback dal comune:', comuneData.cap);
+                    capList.push(comuneData.cap);
+                }
             }
+        }
+        
+        if (capList.length === 0) {
+            capSelect.innerHTML = '<option value="">CAP non trovato</option>';
+            return;
         }
         
         // Popola la select con i CAP trovati
@@ -512,7 +345,6 @@ function loadCAP(codiceIstat) {
         
     } catch (error) {
         console.error('❌ Errore in loadCAP:', error);
-        console.error('Stack trace:', error.stack);
         capSelect.innerHTML = '<option value="">Errore caricamento CAP</option>';
     }
 }
