@@ -99,6 +99,146 @@
             margin-bottom: 1rem;
             display: none;
         }
+
+        /* Autocomplete dropdown per città */
+        .autocomplete-dropdown {
+            position: absolute;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            max-height: 300px;
+            overflow-y: auto;
+            z-index: 1000;
+            width: 100%;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+            border-top: none;
+            margin-top: -1px;
+        }
+        
+        .autocomplete-item {
+            padding: 12px 16px;
+            cursor: pointer;
+            border-bottom: 1px solid #f3f4f6;
+            transition: all 0.2s ease;
+        }
+        
+        .autocomplete-item:hover {
+            background: #f8fafc;
+            border-left: 3px solid var(--primary);
+        }
+        
+        .autocomplete-item:last-child {
+            border-bottom: none;
+            border-radius: 0 0 8px 8px;
+        }
+        
+        .autocomplete-item strong {
+            color: var(--dark);
+            font-weight: 600;
+        }
+        
+        .autocomplete-item small {
+            color: #6b7280;
+            font-size: 0.875rem;
+        }
+        
+        .autocomplete-header {
+            padding: 8px 16px;
+            background: #f3f4f6;
+            font-weight: bold;
+            color: #6b7280;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .autocomplete-loading {
+            padding: 12px 16px;
+            text-align: center;
+            color: #6b7280;
+            font-style: italic;
+        }
+        
+        .autocomplete-no-results {
+            padding: 12px 16px;
+            text-align: center;
+            color: #6b7280;
+            font-style: italic;
+        }
+
+        /* Validazione campi località */
+        .form-control.valid {
+            border-color: #10b981 !important;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%2310b981' d='m2.3 6.73.4.4L7.5 2.4l-.5-.5L3.7 5.2 1.5 3l-.5.5 1.3 1.23z'/%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 16px 16px;
+            padding-right: 40px;
+        }
+        
+        .form-control.invalid {
+            border-color: #ef4444 !important;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23ef4444'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath d='m6 3v3m0 3h.01'/%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 16px 16px;
+            padding-right: 40px;
+        }
+        
+        .province-badge {
+            display: inline-block;
+            background: var(--primary);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-left: 4px;
+        }
+        
+        .highlight {
+            background-color: #fef3c7;
+            font-weight: 600;
+            padding: 1px 2px;
+            border-radius: 2px;
+        }
+        
+        .location-helper-text {
+            font-size: 0.875rem;
+            color: #6b7280;
+            margin-top: 4px;
+        }
+
+        /* Alert messages */
+        .alert {
+            padding: 1rem;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .alert-success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #34d399;
+        }
+        
+        .alert-error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #f87171;
+        }
+        
+        .alert-warning {
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #fbbf24;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -154,7 +294,7 @@
                     </div>
                 </div>
 
-                <!-- Indirizzo -->
+                <!-- Indirizzo con Autocomplete -->
                 <div class="form-section">
                     <h3>📍 Indirizzo</h3>
                     <div class="form-row">
@@ -164,19 +304,22 @@
                         </div>
                     </div>
                     <div class="form-row">
-                        <div class="form-group">
+                        <div class="form-group" style="position: relative;">
                             <label class="form-label">Città *</label>
                             <input type="text" class="form-control" id="citta" name="citta" required>
+                            <div class="location-helper-text">Inizia a digitare per cercare la città</div>
+                        </div>
+                        <div class="form-group" style="position: relative;">
+                            <label class="form-label">CAP *</label>
+                            <input type="text" class="form-control" id="cap" name="cap" 
+                                   pattern="[0-9]{5}" maxlength="5" required placeholder="00100">
+                            <div class="location-helper-text">Inserisci il CAP a 5 cifre</div>
                         </div>
                         <div class="form-group">
                             <label class="form-label">Provincia *</label>
                             <input type="text" class="form-control" id="provincia" name="provincia" 
                                    maxlength="2" required placeholder="RM" style="text-transform: uppercase;">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">CAP *</label>
-                            <input type="text" class="form-control" id="cap" name="cap" 
-                                   pattern="[0-9]{5}" maxlength="5" required placeholder="00100">
+                            <div class="location-helper-text">Codice provincia (es: VI, VE, PD)</div>
                         </div>
                     </div>
                 </div>
@@ -200,10 +343,12 @@
                             <label class="form-label">Mansione *</label>
                             <select class="form-control" id="mansione" name="mansione" required>
                                 <option value="">Seleziona...</option>
-                                <option value="DJ">DJ</option>
-                                <option value="Vocalist">Vocalist</option>
-                                <option value="Ballerino/a">Ballerino/a</option>
-                                <option value="Tecnico">Tecnico</option>
+                                <option value="DJ">DJ (032)</option>
+                                <option value="Vocalist">Vocalist (031)</option>
+                                <option value="Ballerino/a">Ballerino/a (092)</option>
+                                <option value="Tecnico">Tecnico (117)</option>
+                                <option value="Fotografo">Fotografo (126)</option>
+                                <option value="Truccatore">Truccatore (141)</option>
                             </select>
                         </div>
                     </div>
@@ -292,14 +437,346 @@
         </div>
     </div>
 
+    <!-- Scripts -->
+    <script src="comuni-loader.js"></script>
     <script>
-        // Set max date for birth date (18 years ago)
-        const today = new Date();
-        const maxDate = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
-        document.getElementById('dataNascita').max = maxDate.toISOString().split('T')[0];
+        // Variabili globali
+        let cfExtractedDate = null;
 
-        // Validate age
+        // Inizializzazione
+        document.addEventListener('DOMContentLoaded', function() {
+            // Inizializza database GI
+            if (typeof window.GIDatabase !== 'undefined') {
+                window.GIDatabase.init().then(() => {
+                    console.log('✅ Database GI inizializzato per registrazione');
+                    setupLocationAutocomplete();
+                });
+            } else {
+                console.warn('⚠️ Database GI non disponibile');
+                setupLocationAutocomplete();
+            }
+
+            // Set max date for birth date (18 years ago)
+            const today = new Date();
+            const maxDate = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
+            document.getElementById('dataNascita').max = maxDate.toISOString().split('T')[0];
+
+            // Auto uppercase per alcuni campi
+            document.getElementById('cf').addEventListener('input', function() {
+                this.value = this.value.toUpperCase();
+            });
+            
+            document.getElementById('provincia').addEventListener('input', function() {
+                this.value = this.value.toUpperCase();
+            });
+            
+            document.getElementById('iban').addEventListener('input', function() {
+                this.value = this.value.toUpperCase();
+            });
+
+            // Event listeners per chiudere dropdown
+            document.addEventListener('click', function(event) {
+                if (!event.target.closest('#citta') && !event.target.closest('#cityAutocompleteDropdown')) {
+                    hideCityAutocomplete();
+                }
+                
+                if (!event.target.closest('#cap') && !event.target.closest('#capMultipleDropdown')) {
+                    hideMultipleDropdowns();
+                }
+            });
+        });
+
+        // SETUP AUTOCOMPLETE LOCALITÀ
+        function setupLocationAutocomplete() {
+            const cittaInput = document.getElementById('citta');
+            const capInput = document.getElementById('cap');
+            const provinciaInput = document.getElementById('provincia');
+            
+            if (!cittaInput || !capInput || !provinciaInput) {
+                console.warn('⚠️ Campi località non trovati');
+                return;
+            }
+            
+            // Autocomplete città
+            cittaInput.addEventListener('input', function() {
+                showCityAutocompleteGI(this.value);
+            });
+            
+            // Autocomplete CAP
+            capInput.addEventListener('input', function() {
+                if (this.value.length === 5) {
+                    autoFillFromCAPGI(this.value);
+                } else if (this.value.length === 0) {
+                    resetLocationValidation();
+                }
+            });
+            
+            // Validazione provincia
+            provinciaInput.addEventListener('change', function() {
+                validateProvinciaAndCAPGI();
+            });
+        }
+
+        // Mostra autocomplete città con database GI
+        function showCityAutocompleteGI(searchTerm) {
+            if (searchTerm.length < 2) {
+                hideCityAutocomplete();
+                return;
+            }
+            
+            if (!window.GIDatabase || !window.GIDatabase.isLoaded()) {
+                showLoadingInAutocomplete();
+                return;
+            }
+            
+            const results = window.GIDatabase.searchComuni(searchTerm);
+            
+            if (results.length === 0) {
+                showNoResultsInAutocomplete();
+                return;
+            }
+            
+            let dropdown = document.getElementById('cityAutocompleteDropdown');
+            if (!dropdown) {
+                dropdown = createAutocompleteDropdown('cityAutocompleteDropdown', 'citta');
+            }
+            
+            dropdown.innerHTML = results.map(comune => {
+                const highlighted = highlightSearchTerm(comune.nome, searchTerm);
+                return `
+                    <div class="autocomplete-item" onclick="selectCityGI('${comune.nome}', '${comune.cap || ''}', '${comune.provincia}', '${comune.codice}')">
+                        <strong>${highlighted}</strong>
+                        <span class="province-badge">${comune.provincia}</span><br>
+                        <small>CAP: ${comune.cap || 'N/D'} - ${getProvinciaNameByCode(comune.provincia)}</small>
+                    </div>
+                `;
+            }).join('');
+            
+            dropdown.style.display = 'block';
+        }
+
+        // Auto-riempimento da CAP
+        function autoFillFromCAPGI(cap) {
+            if (!window.GIDatabase || !window.GIDatabase.isLoaded()) {
+                showCAPError('Database non caricato');
+                return;
+            }
+            
+            const results = window.GIDatabase.searchByCAP(cap);
+            
+            if (results.length === 0) {
+                showCAPError('CAP non trovato');
+                return;
+            }
+            
+            if (results.length === 1) {
+                const result = results[0];
+                const comune = window.GIDatabase.getComuneByCodice(result.comune);
+                
+                if (comune) {
+                    document.getElementById('citta').value = comune.nome;
+                    document.getElementById('provincia').value = comune.provincia;
+                    document.getElementById('citta').dataset.codiceIstat = comune.codice;
+                    
+                    validateLocationDataGI();
+                }
+            } else {
+                showCAPMultipleResultsGI(results);
+            }
+        }
+
+        // Mostra risultati multipli per CAP
+        function showCAPMultipleResultsGI(results) {
+            let dropdown = document.getElementById('capMultipleDropdown');
+            if (!dropdown) {
+                dropdown = createAutocompleteDropdown('capMultipleDropdown', 'cap');
+            }
+            
+            dropdown.innerHTML = `
+                <div class="autocomplete-header">
+                    Più comuni con questo CAP:
+                </div>
+                ${results.map(result => {
+                    const comune = window.GIDatabase.getComuneByCodice(result.comune);
+                    if (!comune) return '';
+                    
+                    return `
+                        <div class="autocomplete-item" onclick="selectCityGI('${comune.nome}', '${result.cap}', '${comune.provincia}', '${comune.codice}')">
+                            <strong>${comune.nome}</strong>
+                            <span class="province-badge">${comune.provincia}</span><br>
+                            <small>${getProvinciaNameByCode(comune.provincia)}</small>
+                        </div>
+                    `;
+                }).join('')}
+            `;
+            
+            dropdown.style.display = 'block';
+            
+            setTimeout(() => {
+                if (dropdown) dropdown.style.display = 'none';
+            }, 15000);
+        }
+
+        // Seleziona città dall'autocomplete
+        function selectCityGI(nome, cap, provincia, codiceIstat) {
+            document.getElementById('citta').value = nome;
+            document.getElementById('cap').value = cap;
+            document.getElementById('provincia').value = provincia;
+            
+            document.getElementById('citta').dataset.codiceIstat = codiceIstat;
+            
+            hideCityAutocomplete();
+            hideMultipleDropdowns();
+            
+            validateLocationDataGI();
+        }
+
+        // Valida dati località
+        function validateLocationDataGI() {
+            const citta = document.getElementById('citta').value;
+            const cap = document.getElementById('cap').value;
+            const provincia = document.getElementById('provincia').value;
+            
+            if (!citta || !cap || !provincia) return;
+            
+            if (!window.GIDatabase || !window.GIDatabase.isLoaded()) {
+                return;
+            }
+            
+            const isValid = window.GIDatabase.validateCAP(cap, provincia);
+            
+            if (isValid) {
+                setFieldValidation('citta', true);
+                setFieldValidation('cap', true);
+                setFieldValidation('provincia', true);
+                
+                showValidationMessage('✅ Dati località validati', 'success');
+            } else {
+                setFieldValidation('cap', false);
+                showValidationMessage('⚠️ CAP e provincia potrebbero non essere coerenti', 'warning');
+            }
+        }
+
+        function validateProvinciaAndCAPGI() {
+            validateLocationDataGI();
+        }
+
+        // Ottieni nome provincia da codice
+        function getProvinciaNameByCode(codice) {
+            if (!window.GIDatabase || !window.GIDatabase.isLoaded()) {
+                return codice;
+            }
+            
+            const provincia = window.GIDatabase.getProvinciaByCode(codice);
+            return provincia ? provincia.nome : codice;
+        }
+
+        // FUNZIONI UTILITÀ UI
+        function createAutocompleteDropdown(id, parentInputId) {
+            const dropdown = document.createElement('div');
+            dropdown.id = id;
+            dropdown.className = 'autocomplete-dropdown';
+            
+            const parentInput = document.getElementById(parentInputId);
+            parentInput.parentNode.style.position = 'relative';
+            parentInput.parentNode.appendChild(dropdown);
+            
+            return dropdown;
+        }
+
+        function highlightSearchTerm(text, searchTerm) {
+            if (!searchTerm) return text;
+            
+            const regex = new RegExp(`(${escapeRegExp(searchTerm)})`, 'gi');
+            return text.replace(regex, '<span class="highlight">$1</span>');
+        }
+
+        function escapeRegExp(string) {
+            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
+        function showLoadingInAutocomplete() {
+            let dropdown = document.getElementById('cityAutocompleteDropdown');
+            if (!dropdown) {
+                dropdown = createAutocompleteDropdown('cityAutocompleteDropdown', 'citta');
+            }
+            
+            dropdown.innerHTML = '<div class="autocomplete-loading">Caricamento database...</div>';
+            dropdown.style.display = 'block';
+        }
+
+        function showNoResultsInAutocomplete() {
+            let dropdown = document.getElementById('cityAutocompleteDropdown');
+            if (!dropdown) {
+                dropdown = createAutocompleteDropdown('cityAutocompleteDropdown', 'citta');
+            }
+            
+            dropdown.innerHTML = '<div class="autocomplete-no-results">Nessun comune trovato</div>';
+            dropdown.style.display = 'block';
+        }
+
+        function hideCityAutocomplete() {
+            const dropdown = document.getElementById('cityAutocompleteDropdown');
+            if (dropdown) {
+                dropdown.style.display = 'none';
+            }
+        }
+
+        function hideMultipleDropdowns() {
+            const dropdowns = ['capMultipleDropdown'];
+            dropdowns.forEach(id => {
+                const dropdown = document.getElementById(id);
+                if (dropdown) {
+                    dropdown.style.display = 'none';
+                }
+            });
+        }
+
+        function setFieldValidation(fieldId, isValid) {
+            const field = document.getElementById(fieldId);
+            if (!field) return;
+            
+            field.classList.remove('valid', 'invalid');
+            field.classList.add(isValid ? 'valid' : 'invalid');
+        }
+
+        function showValidationMessage(message, type) {
+            const existing = document.querySelectorAll('.validation-message');
+            existing.forEach(msg => msg.remove());
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `alert alert-${type} validation-message`;
+            messageDiv.textContent = message;
+            
+            const provinciaInput = document.getElementById('provincia');
+            provinciaInput.parentNode.appendChild(messageDiv);
+            
+            setTimeout(() => messageDiv.remove(), 3000);
+        }
+
+        function showCAPError(message) {
+            const capInput = document.getElementById('cap');
+            setFieldValidation('cap', false);
+            
+            showValidationMessage(`❌ ${message}`, 'error');
+        }
+
+        function resetLocationValidation() {
+            ['citta', 'cap', 'provincia'].forEach(id => {
+                const field = document.getElementById(id);
+                if (field) {
+                    field.classList.remove('valid', 'invalid');
+                    field.style.borderColor = '';
+                }
+            });
+            
+            const messages = document.querySelectorAll('.validation-message');
+            messages.forEach(msg => msg.remove());
+        }
+
+        // VALIDAZIONI ORIGINALI
         function validateAge() {
+            const today = new Date();
             const birthDate = new Date(document.getElementById('dataNascita').value);
             const age = Math.floor((today - birthDate) / (365.25 * 24 * 60 * 60 * 1000));
             
@@ -314,20 +791,14 @@
             }
         }
 
-        // Extract data from CF
-        let cfExtractedDate = null; // Store the date extracted from CF
-        
         function extractDataFromCF() {
             const cf = document.getElementById('cf').value.toUpperCase();
             
-            // Check if CF is complete (16 characters)
             if (cf.length === 16) {
-                // Extract birth date
                 const year = cf.substring(6, 8);
                 const monthLetter = cf.substring(8, 9);
                 const day = cf.substring(9, 11);
                 
-                // Month conversion
                 const months = {
                     'A': '01', 'B': '02', 'C': '03', 'D': '04',
                     'E': '05', 'H': '06', 'L': '07', 'M': '08',
@@ -336,12 +807,10 @@
                 
                 const month = months[monthLetter];
                 if (month) {
-                    // Determine century (00-40 = 2000s, 41-99 = 1900s)
                     const yearInt = parseInt(year);
                     const currentYear = new Date().getFullYear();
                     const currentYearShort = currentYear % 100;
                     
-                    // More accurate century determination
                     let fullYear;
                     if (yearInt <= currentYearShort && yearInt <= 40) {
                         fullYear = '20' + year;
@@ -349,17 +818,14 @@
                         fullYear = '19' + year;
                     }
                     
-                    // Adjust day for females (subtract 40)
                     const dayInt = parseInt(day);
                     const actualDay = dayInt > 40 ? dayInt - 40 : dayInt;
                     const formattedDay = actualDay.toString().padStart(2, '0');
                     
-                    // Set birth date
                     const birthDate = `${fullYear}-${month}-${formattedDay}`;
-                    cfExtractedDate = birthDate; // Store for later comparison
+                    cfExtractedDate = birthDate;
                     document.getElementById('dataNascita').value = birthDate;
                     
-                    // Calculate age properly
                     const birthDateObj = new Date(birthDate);
                     const today = new Date();
                     let age = today.getFullYear() - birthDateObj.getFullYear();
@@ -369,29 +835,18 @@
                         age--;
                     }
                     
-                    console.log('CF:', cf, 'Data estratta:', birthDate, 'Età:', age);
-                    
-                    // Check if minor
                     if (age < 18) {
                         alert('⚠️ ATTENZIONE: Il soggetto risulta minorenne.\n\nNon è possibile procedere con la registrazione.\nSolo i maggiorenni possono essere registrati nel sistema.');
-                        // Clear the form
                         document.getElementById('cf').value = '';
                         document.getElementById('dataNascita').value = '';
                         cfExtractedDate = null;
                     }
-                    
-                    // Extract sex (if day > 40, it's female)
-                    const isFemale = dayInt > 40;
-                    
-                    // Extract birth place code
-                    const birthPlaceCode = cf.substring(11, 15);
                 }
             }
         }
 
-        // Check if manually entered date matches CF
         function checkDateCFMatch() {
-            if (!cfExtractedDate) return true; // No CF date to compare
+            if (!cfExtractedDate) return true;
             
             const manualDate = document.getElementById('dataNascita').value;
             
@@ -406,7 +861,6 @@
             }
         }
 
-        // Validate CF (basic check)
         function validateCF() {
             const cf = document.getElementById('cf').value.toUpperCase();
             const cfRegex = /^[A-Z]{6}[0-9]{2}[A-Z][0-9]{2}[A-Z][0-9]{3}[A-Z]$/;
@@ -422,7 +876,6 @@
             }
         }
 
-        // Validate IBAN (basic check)
         function validateIBAN() {
             const iban = document.getElementById('iban').value.toUpperCase().replace(/\s/g, '');
             const ibanRegex = /^IT[0-9]{2}[A-Z][0-9]{22}$/;
@@ -438,20 +891,18 @@
             }
         }
 
-        // Submit form
+        // SUBMIT FORM
         function submitForm(event) {
             event.preventDefault();
             
-            // Validate all fields
             if (!validateAge() || !validateCF() || !validateIBAN() || !checkDateCFMatch()) {
                 alert('Correggi gli errori nel form prima di procedere');
                 return;
             }
 
-            // Get form data
             const formData = new FormData(event.target);
             const artistData = {
-                id: Date.now(), // Simple ID generation
+                id: Date.now(),
                 cf: formData.get('cf').toUpperCase(),
                 nome: formData.get('nome'),
                 cognome: formData.get('cognome'),
@@ -468,41 +919,34 @@
                 telefono: formData.get('telefono'),
                 privacy: formData.get('privacy') === 'on',
                 marketing: formData.get('marketing') === 'on',
-                agibilita: [] // Empty initially
+                agibilita: [],
+                // Salva codice ISTAT se disponibile
+                codiceIstatNascita: document.getElementById('citta').dataset.codiceIstat || null
             };
 
-            // Get existing artists from localStorage
             let artistsDB = JSON.parse(localStorage.getItem('artistsDB')) || [];
             
-            // Check if CF already exists
             if (artistsDB.some(a => a.cf === artistData.cf)) {
                 alert('Esiste già un artista con questo codice fiscale!');
                 return;
             }
 
-            // Add new artist
             artistsDB.push(artistData);
-            
-            // Save to localStorage
             localStorage.setItem('artistsDB', JSON.stringify(artistsDB));
 
-            // NEW: Check if coming from agibilità
             if (sessionStorage.getItem('returnToAgibilita')) {
                 sessionStorage.removeItem('returnToAgibilita');
                 sessionStorage.setItem('newArtistId', artistData.id);
                 
-                // Show different message
                 document.getElementById('successMessage').innerHTML = 
                     '✅ Artista registrato! Torno alla creazione agibilità...';
                 document.getElementById('successMessage').style.display = 'block';
                 document.getElementById('registrationForm').style.display = 'none';
                 
-                // Redirect to agibilità instead of homepage
                 setTimeout(() => {
                     window.location.href = './agibilita/index.html';
                 }, 1500);
             } else {
-                // Normal behavior (go to homepage)
                 document.getElementById('successMessage').style.display = 'block';
                 document.getElementById('registrationForm').style.display = 'none';
                 
@@ -511,19 +955,6 @@
                 }, 2000);
             }
         }
-
-        // Auto uppercase for some fields
-        document.getElementById('cf').addEventListener('input', function() {
-            this.value = this.value.toUpperCase();
-        });
-        
-        document.getElementById('provincia').addEventListener('input', function() {
-            this.value = this.value.toUpperCase();
-        });
-        
-        document.getElementById('iban').addEventListener('input', function() {
-            this.value = this.value.toUpperCase();
-        });
     </script>
 </body>
 </html>
