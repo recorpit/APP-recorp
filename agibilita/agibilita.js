@@ -1,789 +1,194 @@
 // agibilita.js - Sistema Gestione Agibilità RECORP con Database GI
 
-// Variabili globali
+// ==================== VARIABILI GLOBALI ====================
 let selectedArtists = [];
 let agibilitaData = {
     isModifica: false,
     codiceAgibilita: null
 };
 
-// Carica database dal localStorage
+// Database
 let artistsDB = [];
 let agibilitaDB = [];
 let venuesDB = [];
+let invoiceDB = [];
 
-try {
-    artistsDB = JSON.parse(localStorage.getItem('artistsDB')) || [];
-    agibilitaDB = JSON.parse(localStorage.getItem('agibilitaDB')) || [];
-    venuesDB = JSON.parse(localStorage.getItem('venuesDB')) || [];
-} catch (error) {
-    console.error('Errore caricamento database:', error);
-    artistsDB = [];
-    agibilitaDB = [];
-    venuesDB = [];
+// ==================== INIZIALIZZAZIONE DATABASE ====================
+function initializeDatabase() {
+    try {
+        artistsDB = JSON.parse(localStorage.getItem('artistsDB')) || [];
+        agibilitaDB = JSON.parse(localStorage.getItem('agibilitaDB')) || [];
+        venuesDB = JSON.parse(localStorage.getItem('venuesDB')) || [];
+        invoiceDB = JSON.parse(localStorage.getItem('invoiceDB')) || [];
+    } catch (error) {
+        console.error('Errore caricamento database:', error);
+        artistsDB = [];
+        agibilitaDB = [];
+        venuesDB = [];
+        invoiceDB = [];
+    }
 }
 
-// Inizializzazione
+// ==================== INIZIALIZZAZIONE PAGINA ====================
 document.addEventListener('DOMContentLoaded', function() {
-    // Inizializza database GI per primi
-    if (typeof window.GIDatabase !== 'undefined') {
-        window.GIDatabase.init().then(() => {
-            console.log('✅ Database GI inizializzato, setup autocomplete...');
-            setupLocationAutocomplete();
-        });
-    } else {
-        console.warn('⚠️ Database GI non disponibile, uso fallback');
-        setupLocationAutocomplete();
-    }
-    
-    const today = new Date().toISOString().split('T')[0];
-    document.getElementById('dataInizio').value = today;
-    document.getElementById('dataInizio').min = today;
-    document.getElementById('dataFine').min = today;
-
-    // Check if coming from artist search
-    const selectedArtistId = sessionStorage.getItem('selectedArtistId');
-    if (selectedArtistId) {
-        sessionStorage.removeItem('selectedArtistId');
-        startNewAgibilita();
-
-        setTimeout(() => {
-            const artistId = parseInt(selectedArtistId);
-            const artist = artistsDB.find(a => a.id === artistId);
-            if (artist) {
-                addArtistToList(artistId);
-            }
-        }, 100);
-    }
-
-    // Check if coming from registration
-    const newArtistId = sessionStorage.getItem('newArtistId');
-    if (newArtistId) {
-        sessionStorage.removeItem('newArtistId');
-        const newArtist = artistsDB.find(a => a.id == newArtistId);
-        if (newArtist) {
-            startNewAgibilita();
-            setTimeout(() => {
-                showAddArtistModal();
-                addArtistToList(parseInt(newArtistId));
-            }, 500);
-        }
-    }
-
-    // Check if coming from chat
-    const quickAgibilita = sessionStorage.getItem('quickAgibilita');
-    if (quickAgibilita) {
-        sessionStorage.removeItem('quickAgibilita');
-        const data = JSON.parse(quickAgibilita);
-
-        startNewAgibilita();
-
-        setTimeout(() => {
-            data.artisti.forEach(artistData => {
-                const artist = artistsDB.find(a => a.codiceFiscale === artistData.cf);
-                if (artist) {
-                    selectedArtists.push({
-                        ...artist,
-                        ruolo: artistData.ruolo,
-                        compenso: artistData.compenso
-                    });
-                }
-            });
-            updateArtistsList();
-
-            if (data.dataInizio) {
-                document.getElementById('dataInizio').value = data.dataInizio;
-            }
-            if (data.dataFine) {
-                document.getElementById('dataFine').value = data.dataFine;
-            }
-
-            if (data.locale) {
-                document.getElementById('descrizioneLocale').value = data.locale.nome;
-                document.getElementById('indirizzo').value = data.locale.indirizzo;
-                document.getElementById('citta').value = data.locale.citta;
-                document.getElementById('cap').value = data.locale.cap;
-                document.getElementById('provincia').value = data.locale.provincia;
-            }
-
-            if (selectedArtists.length > 0) {
-                setTimeout(() => {
-                    goToStep2();
-                }, 500);
-            }
-        }, 200);
-    }
+    initializeDatabase();
+    initializeGIDatabase();
+    initializeDateFields();
+    checkSessionData();
+    setupEventListeners();
 });
 
-// SETUP LOCALITÀ CON MENU A TENDINA
-
-function setupLocationAutocomplete() {
-    // Carica le province nel dropdown
-    if (window.GIDatabase && window.GIDatabase.isLoaded()) {
-        loadProvinces();
+function initializeGIDatabase() {
+    if (typeof window.GIDatabase !== 'undefined') {
+        window.GIDatabase.init().then(() => {
+            console.log('✅ Database GI inizializzato');
+            setupLocationDropdowns();
+        }).catch(error => {
+            console.error('❌ Errore inizializzazione Database GI:', error);
+            setupLocationDropdowns();
+        });
     } else {
-        // Retry dopo un po' se il database non è ancora pronto
-        setTimeout(() => {
-            if (window.GIDatabase && window.GIDatabase.isLoaded()) {
-                loadProvinces();
-            } else {
-                console.warn('Database GI non pronto, uso fallback');
-                loadFallbackProvinces();
-            }
-        }, 1000);
+        console.warn('⚠️ Database GI non disponibile');
+        setTimeout(setupLocationDropdowns, 1000);
     }
 }
 
-// Carica tutte le province disponibili
-function loadProvinces() {
-    if (!window.GIDatabase || !window.GIDatabase.isLoaded()) {
-        console.warn('Database GI non ancora caricato');
-        return;
+function initializeDateFields() {
+    const today = new Date().toISOString().split('T')[0];
+    const dataInizio = document.getElementById('dataInizio');
+    if (dataInizio) {
+        dataInizio.value = today;
+        dataInizio.min = today;
     }
-
-    const provinciaSelect = document.getElementById('provincia');
-    if (!provinciaSelect) return;
-
-    // Prima prova con il file province dedicato
-    const provinceData = window.GIDatabase.getData().province;
     
-    if (provinceData && Array.isArray(provinceData)) {
-        // Usa il file gi_province.json con i campi corretti
-        const sortedProvinces = provinceData.sort((a, b) => {
-            const siglaA = a.sigla_provincia || a.sigla || a.codice;
-            const siglaB = b.sigla_provincia || b.sigla || b.codice;
-            return siglaA.localeCompare(siglaB);
-        });
-
-        provinciaSelect.innerHTML = '<option value="">Seleziona provincia...</option>';
-        sortedProvinces.forEach(provincia => {
-            const sigla = provincia.sigla_provincia || provincia.sigla || provincia.codice;
-            const nome = provincia.denominazione_provincia || provincia.denominazione || provincia.nome;
-            
-            if (sigla) {
-                const option = document.createElement('option');
-                option.value = sigla;
-                option.textContent = `${sigla} - ${nome}`;
-                provinciaSelect.appendChild(option);
-            }
-        });
-
-        console.log(`✅ Caricate ${sortedProvinces.length} province dal file dedicato`);
-    } else {
-        // Fallback: estrai le province dai comuni
-        const allComuni = window.GIDatabase.getData().comuni || [];
-        const provinces = new Map();
-        
-        allComuni.forEach(comune => {
-            const provincia = comune.sigla_provincia || comune.provincia || comune.siglaProvincia;
-            if (provincia && provincia.length === 2 && !provinces.has(provincia)) {
-                provinces.set(provincia, provincia);
-            }
-        });
-
-        // Ordina le province alfabeticamente
-        const sortedProvinces = Array.from(provinces.keys()).sort();
-
-        // Popola il dropdown
-        provinciaSelect.innerHTML = '<option value="">Seleziona provincia...</option>';
-        sortedProvinces.forEach(provincia => {
-            const option = document.createElement('option');
-            option.value = provincia;
-            option.textContent = `${provincia} - ${getProvinciaNameByCode(provincia)}`;
-            provinciaSelect.appendChild(option);
-        });
-
-        console.log(`✅ Caricate ${sortedProvinces.length} province estratte dai comuni`);
+    const dataFine = document.getElementById('dataFine');
+    if (dataFine) {
+        dataFine.min = today;
     }
 }
 
-// Carica le città per la provincia selezionata
-function loadCitiesForProvince() {
-    const provinciaSelect = document.getElementById('provincia');
-    const cittaSelect = document.getElementById('citta');
-    const capSelect = document.getElementById('cap');
-    
-    const selectedProvincia = provinciaSelect.value;
-    
-    // Reset campi successivi
-    cittaSelect.innerHTML = '<option value="">Seleziona città...</option>';
-    cittaSelect.disabled = !selectedProvincia;
-    
-    capSelect.innerHTML = '<option value="">Prima seleziona città</option>';
-    capSelect.disabled = true;
-
-    if (!selectedProvincia) return;
-
-    if (!window.GIDatabase || !window.GIDatabase.isLoaded()) {
-        cittaSelect.innerHTML = '<option value="">Database non disponibile</option>';
-        return;
+function checkSessionData() {
+    // Check se viene dalla ricerca artista
+    const selectedArtistId = sessionStorage.getItem('selectedArtistId');
+    if (selectedArtistId) {
+        handleArtistFromSearch(selectedArtistId);
     }
 
-    // Ottieni tutti i comuni della provincia usando la funzione corretta
-    const comuni = window.GIDatabase.getComuniByProvincia(selectedProvincia);
-    
-    if (comuni.length === 0) {
-        cittaSelect.innerHTML = '<option value="">Nessuna città trovata</option>';
-        return;
+    // Check se viene dalla registrazione
+    const newArtistId = sessionStorage.getItem('newArtistId');
+    if (newArtistId) {
+        handleNewArtistRegistration(newArtistId);
     }
 
-    // Ordina i comuni alfabeticamente
-    const sortedComuni = comuni.sort((a, b) => {
-        const nomeA = a.denominazione_ita || a.denominazione || a.nome || '';
-        const nomeB = b.denominazione_ita || b.denominazione || b.nome || '';
-        return nomeA.localeCompare(nomeB);
-    });
-
-    // Popola il dropdown città
-    sortedComuni.forEach(comune => {
-        const option = document.createElement('option');
-        const nomeComune = comune.denominazione_ita || comune.denominazione || comune.nome;
-        const codiceIstat = comune.codice_istat || comune.codiceIstat || comune.codice;
-        
-        option.value = nomeComune;
-        option.dataset.codice = codiceIstat;
-        option.dataset.cap = comune.cap || '';
-        option.textContent = nomeComune;
-        cittaSelect.appendChild(option);
-    });
-
-    cittaSelect.disabled = false;
-    console.log(`✅ Caricate ${sortedComuni.length} città per ${selectedProvincia}`);
-}
-
-// Carica i CAP per la città selezionata
-function loadCAPsForCity() {
-    const cittaSelect = document.getElementById('citta');
-    const capSelect = document.getElementById('cap');
-    
-    const selectedCitta = cittaSelect.value;
-    const selectedOption = cittaSelect.options[cittaSelect.selectedIndex];
-    
-    // Reset CAP
-    capSelect.innerHTML = '<option value="">Seleziona CAP...</option>';
-    capSelect.disabled = !selectedCitta;
-
-    if (!selectedCitta) return;
-
-    if (!window.GIDatabase || !window.GIDatabase.isLoaded()) {
-        capSelect.innerHTML = '<option value="">Database non disponibile</option>';
-        return;
-    }
-
-    // Ottieni il codice comune dalla option selezionata
-    const codiceComune = selectedOption.dataset.codice;
-    if (!codiceComune) return;
-
-    // Cerca tutti i CAP per questo comune
-    const comuniCapData = window.GIDatabase?.getData()?.comuniCap || [];
-    const capsForComune = comuniCapData.filter(
-        cap => cap.codice_istat === codiceComune
-    );
-
-    if (capsForComune.length === 0) {
-        // Prova con il CAP dall'option dataset
-        const capFromDataset = selectedOption.dataset.cap;
-        if (capFromDataset) {
-            capSelect.innerHTML = `<option value="${capFromDataset}" selected>${capFromDataset}</option>`;
-        } else {
-            capSelect.innerHTML = '<option value="">Nessun CAP trovato</option>';
-        }
-        return;
-    }
-
-    if (capsForComune.length === 1) {
-        // Un solo CAP, selezionalo automaticamente
-        const cap = capsForComune[0].cap;
-        capSelect.innerHTML = `<option value="${cap}" selected>${cap}</option>`;
-        
-        // Salva il codice ISTAT
-        document.getElementById('citta').dataset.codiceIstat = codiceComune;
-        
-        // Valida automaticamente
-        validateLocationDataGI();
-    } else {
-        // Più CAP, mostra tutti
-        capsForComune.forEach(capData => {
-            const option = document.createElement('option');
-            option.value = capData.cap;
-            option.textContent = capData.cap;
-            capSelect.appendChild(option);
-        });
-    }
-
-    capSelect.disabled = false;
-    
-    // Salva il codice ISTAT quando si seleziona la città
-    document.getElementById('citta').dataset.codiceIstat = codiceComune;
-    
-    console.log(`✅ Caricati ${capsForComune.length} CAP per ${selectedCitta}`);
-}
-
-// Valida dati località (versione semplificata per dropdown)
-function validateLocationDataGI() {
-    const provincia = document.getElementById('provincia').value;
-    const citta = document.getElementById('citta').value;
-    const cap = document.getElementById('cap').value;
-    
-    if (!provincia || !citta || !cap) return;
-    
-    // Se arriviamo qui dai dropdown, i dati sono sempre validi
-    setFieldValidation('provincia', true);
-    setFieldValidation('citta', true);
-    setFieldValidation('cap', true);
-    
-    showValidationMessage('✅ Dati località validati', 'success');
-}
-
-// Fallback: carica province manualmente se il database non funziona
-function loadFallbackProvinces() {
-    const provinciaSelect = document.getElementById('provincia');
-    if (!provinciaSelect) return;
-
-    // Province italiane principali
-    const provinceItaliane = [
-        { sigla: 'AG', nome: 'AGRIGENTO' },
-        { sigla: 'AL', nome: 'ALESSANDRIA' },
-        { sigla: 'AN', nome: 'ANCONA' },
-        { sigla: 'AR', nome: 'AREZZO' },
-        { sigla: 'AP', nome: 'ASCOLI PICENO' },
-        { sigla: 'AT', nome: 'ASTI' },
-        { sigla: 'AV', nome: 'AVELLINO' },
-        { sigla: 'BA', nome: 'BARI' },
-        { sigla: 'BT', nome: 'BARLETTA-ANDRIA-TRANI' },
-        { sigla: 'BL', nome: 'BELLUNO' },
-        { sigla: 'BN', nome: 'BENEVENTO' },
-        { sigla: 'BG', nome: 'BERGAMO' },
-        { sigla: 'BI', nome: 'BIELLA' },
-        { sigla: 'BO', nome: 'BOLOGNA' },
-        { sigla: 'BZ', nome: 'BOLZANO' },
-        { sigla: 'BS', nome: 'BRESCIA' },
-        { sigla: 'BR', nome: 'BRINDISI' },
-        { sigla: 'CA', nome: 'CAGLIARI' },
-        { sigla: 'CL', nome: 'CALTANISSETTA' },
-        { sigla: 'CB', nome: 'CAMPOBASSO' },
-        { sigla: 'CE', nome: 'CASERTA' },
-        { sigla: 'CT', nome: 'CATANIA' },
-        { sigla: 'CZ', nome: 'CATANZARO' },
-        { sigla: 'CH', nome: 'CHIETI' },
-        { sigla: 'CO', nome: 'COMO' },
-        { sigla: 'CS', nome: 'COSENZA' },
-        { sigla: 'CR', nome: 'CREMONA' },
-        { sigla: 'KR', nome: 'CROTONE' },
-        { sigla: 'CN', nome: 'CUNEO' },
-        { sigla: 'EN', nome: 'ENNA' },
-        { sigla: 'FM', nome: 'FERMO' },
-        { sigla: 'FE', nome: 'FERRARA' },
-        { sigla: 'FI', nome: 'FIRENZE' },
-        { sigla: 'FG', nome: 'FOGGIA' },
-        { sigla: 'FC', nome: 'FORLÌ-CESENA' },
-        { sigla: 'FR', nome: 'FROSINONE' },
-        { sigla: 'GE', nome: 'GENOVA' },
-        { sigla: 'GO', nome: 'GORIZIA' },
-        { sigla: 'GR', nome: 'GROSSETO' },
-        { sigla: 'IM', nome: 'IMPERIA' },
-        { sigla: 'IS', nome: 'ISERNIA' },
-        { sigla: 'AQ', nome: 'L\'AQUILA' },
-        { sigla: 'SP', nome: 'LA SPEZIA' },
-        { sigla: 'LT', nome: 'LATINA' },
-        { sigla: 'LE', nome: 'LECCE' },
-        { sigla: 'LC', nome: 'LECCO' },
-        { sigla: 'LI', nome: 'LIVORNO' },
-        { sigla: 'LO', nome: 'LODI' },
-        { sigla: 'LU', nome: 'LUCCA' },
-        { sigla: 'MC', nome: 'MACERATA' },
-        { sigla: 'MN', nome: 'MANTOVA' },
-        { sigla: 'MS', nome: 'MASSA-CARRARA' },
-        { sigla: 'MT', nome: 'MATERA' },
-        { sigla: 'ME', nome: 'MESSINA' },
-        { sigla: 'MI', nome: 'MILANO' },
-        { sigla: 'MO', nome: 'MODENA' },
-        { sigla: 'MB', nome: 'MONZA E DELLA BRIANZA' },
-        { sigla: 'NA', nome: 'NAPOLI' },
-        { sigla: 'NO', nome: 'NOVARA' },
-        { sigla: 'NU', nome: 'NUORO' },
-        { sigla: 'OR', nome: 'ORISTANO' },
-        { sigla: 'PD', nome: 'PADOVA' },
-        { sigla: 'PA', nome: 'PALERMO' },
-        { sigla: 'PR', nome: 'PARMA' },
-        { sigla: 'PV', nome: 'PAVIA' },
-        { sigla: 'PG', nome: 'PERUGIA' },
-        { sigla: 'PU', nome: 'PESARO E URBINO' },
-        { sigla: 'PE', nome: 'PESCARA' },
-        { sigla: 'PC', nome: 'PIACENZA' },
-        { sigla: 'PI', nome: 'PISA' },
-        { sigla: 'PT', nome: 'PISTOIA' },
-        { sigla: 'PN', nome: 'PORDENONE' },
-        { sigla: 'PZ', nome: 'POTENZA' },
-        { sigla: 'PO', nome: 'PRATO' },
-        { sigla: 'RG', nome: 'RAGUSA' },
-        { sigla: 'RA', nome: 'RAVENNA' },
-        { sigla: 'RC', nome: 'REGGIO CALABRIA' },
-        { sigla: 'RE', nome: 'REGGIO EMILIA' },
-        { sigla: 'RI', nome: 'RIETI' },
-        { sigla: 'RN', nome: 'RIMINI' },
-        { sigla: 'RM', nome: 'ROMA' },
-        { sigla: 'RO', nome: 'ROVIGO' },
-        { sigla: 'SA', nome: 'SALERNO' },
-        { sigla: 'SS', nome: 'SASSARI' },
-        { sigla: 'SV', nome: 'SAVONA' },
-        { sigla: 'SI', nome: 'SIENA' },
-        { sigla: 'SR', nome: 'SIRACUSA' },
-        { sigla: 'SO', nome: 'SONDRIO' },
-        { sigla: 'SU', nome: 'SUD SARDEGNA' },
-        { sigla: 'TA', nome: 'TARANTO' },
-        { sigla: 'TE', nome: 'TERAMO' },
-        { sigla: 'TR', nome: 'TERNI' },
-        { sigla: 'TO', nome: 'TORINO' },
-        { sigla: 'TP', nome: 'TRAPANI' },
-        { sigla: 'TN', nome: 'TRENTO' },
-        { sigla: 'TV', nome: 'TREVISO' },
-        { sigla: 'TS', nome: 'TRIESTE' },
-        { sigla: 'UD', nome: 'UDINE' },
-        { sigla: 'VA', nome: 'VARESE' },
-        { sigla: 'VE', nome: 'VENEZIA' },
-        { sigla: 'VB', nome: 'VERBANO-CUSIO-OSSOLA' },
-        { sigla: 'VC', nome: 'VERCELLI' },
-        { sigla: 'VR', nome: 'VERONA' },
-        { sigla: 'VI', nome: 'VICENZA' },
-        { sigla: 'VV', nome: 'VIBO VALENTIA' },
-        { sigla: 'VT', nome: 'VITERBO' }
-    ];
-
-    provinciaSelect.innerHTML = '<option value="">Seleziona provincia...</option>';
-    provinceItaliane.forEach(provincia => {
-        const option = document.createElement('option');
-        option.value = provincia.sigla;
-        option.textContent = `${provincia.sigla} - ${provincia.nome}`;
-        provinciaSelect.appendChild(option);
-    });
-
-    console.log(`✅ Caricate ${provinceItaliane.length} province da fallback`);
-}
-
-// Autocomplete CAP quando si digita la città
-function autoFillFromCityGI() {
-    const citta = document.getElementById('citta').value;
-    const provincia = document.getElementById('provincia').value;
-    
-    if (!citta || citta.length < 3) return;
-    
-    if (!window.GIDatabase || !window.GIDatabase.isLoaded()) return;
-    
-    // Cerca il comune esatto
-    const comuni = window.GIDatabase.getComuniByProvincia(provincia);
-    const comune = comuni.find(c => {
-        const nomeComune = c.denominazione_ita || c.denominazione || c.nome || '';
-        return nomeComune.toUpperCase() === citta.toUpperCase();
-    });
-    
-    if (comune && comune.cap) {
-        document.getElementById('cap').value = comune.cap;
-        document.getElementById('citta').dataset.codiceIstat = comune.codice_istat || comune.codiceIstat || comune.codice;
-        validateLocationDataGI();
+    // Check se viene dalla chat
+    const quickAgibilita = sessionStorage.getItem('quickAgibilita');
+    if (quickAgibilita) {
+        handleQuickAgibilita(quickAgibilita);
     }
 }
 
-// Ottieni codice ISTAT
-function getCodiceIstatFromCityGI() {
-    const cittaSelect = document.getElementById('citta');
-    
-    // Prova prima dal dataset
-    const codiceIstat = cittaSelect.dataset.codiceIstat;
-    if (codiceIstat) {
-        return codiceIstat;
+function setupEventListeners() {
+    // Date validation
+    const dataInizio = document.getElementById('dataInizio');
+    const dataFine = document.getElementById('dataFine');
+    if (dataInizio) dataInizio.addEventListener('change', validateDates);
+    if (dataFine) dataFine.addEventListener('change', validateDates);
+
+    // Venue search
+    const descrizioneLocale = document.getElementById('descrizioneLocale');
+    if (descrizioneLocale) {
+        descrizioneLocale.addEventListener('input', searchVenue);
     }
+
+    // Location dropdowns
+    const provincia = document.getElementById('provincia');
+    if (provincia) provincia.addEventListener('change', loadCitiesForProvince);
     
-    // Fallback: ottieni dalla option selezionata
-    const selectedOption = cittaSelect.options[cittaSelect.selectedIndex];
-    if (selectedOption && selectedOption.dataset.codice) {
-        return selectedOption.dataset.codice;
-    }
-    
-    // Ultimo tentativo: cerca nel database
-    if (window.GIDatabase && window.GIDatabase.isLoaded()) {
-        const citta = cittaSelect.value;
-        const provincia = document.getElementById('provincia').value;
-        
-        const comuni = window.GIDatabase.getComuniByProvincia(provincia);
-        const comune = comuni.find(c => {
-            const nomeComune = c.denominazione_ita || c.denominazione || c.nome || '';
-            return nomeComune.toUpperCase() === citta.toUpperCase();
-        });
-        
-        if (comune) {
-            return comune.codice_istat || comune.codiceIstat || comune.codice;
-        }
-    }
-    
-    return 'L736'; // Default: Venezia
+    const citta = document.getElementById('citta');
+    if (citta) citta.addEventListener('change', loadCAPsForCity);
+
+    // Modal close on outside click
+    window.addEventListener('click', handleModalClick);
 }
 
-// Mostra autocomplete città con database GI
-function showCityAutocompleteGI(searchTerm) {
-    if (searchTerm.length < 2) {
-        hideCityAutocomplete();
-        return;
-    }
-    
-    if (!window.GIDatabase || !window.GIDatabase.isLoaded()) {
-        showLoadingInAutocomplete();
-        return;
-    }
-    
-    const results = window.GIDatabase.searchComuni(searchTerm);
-    
-    if (results.length === 0) {
-        showNoResultsInAutocomplete();
-        return;
-    }
-    
-    let dropdown = document.getElementById('cityAutocompleteDropdown');
-    if (!dropdown) {
-        dropdown = createAutocompleteDropdown('cityAutocompleteDropdown', 'citta');
-    }
-    
-    dropdown.innerHTML = results.map(comune => {
-        const highlighted = highlightSearchTerm(comune.nome, searchTerm);
-        return `
-            <div class="autocomplete-item" onclick="selectCityGI('${comune.nome}', '${comune.cap || ''}', '${comune.provincia}', '${comune.codice}')">
-                <strong>${highlighted}</strong>
-                <span class="province-badge">${comune.provincia}</span><br>
-                <small>CAP: ${comune.cap || 'N/D'} - ${getProvinciaNameByCode(comune.provincia)}</small>
-            </div>
-        `;
-    }).join('');
-    
-    dropdown.style.display = 'block';
-}
-
-// Auto-riempimento da CAP con database GI
-function autoFillFromCAPGI(cap) {
-    if (!window.GIDatabase || !window.GIDatabase.isLoaded()) {
-        showCAPError('Database non caricato');
-        return;
-    }
-    
-    const results = window.GIDatabase.searchByCAP(cap);
-    
-    if (results.length === 0) {
-        showCAPError('CAP non trovato');
-        return;
-    }
-    
-    if (results.length === 1) {
-        const result = results[0];
-        const comune = window.GIDatabase.getComuneByCodice(result.comune);
-        
-        if (comune) {
-            document.getElementById('citta').value = comune.nome;
-            document.getElementById('provincia').value = comune.provincia;
-            document.getElementById('citta').dataset.codiceIstat = comune.codice;
-            
-            validateLocationDataGI();
-        }
-    } else {
-        showCAPMultipleResultsGI(results);
-    }
-}
-
-// Mostra risultati multipli per CAP
-function showCAPMultipleResultsGI(results) {
-    let dropdown = document.getElementById('capMultipleDropdown');
-    if (!dropdown) {
-        dropdown = createAutocompleteDropdown('capMultipleDropdown', 'cap');
-    }
-    
-    dropdown.innerHTML = `
-        <div class="autocomplete-header">
-            Più comuni con questo CAP:
-        </div>
-        ${results.map(result => {
-            const comune = window.GIDatabase.getComuneByCodice(result.comune);
-            if (!comune) return '';
-            
-            return `
-                <div class="autocomplete-item" onclick="selectCityGI('${comune.nome}', '${result.cap}', '${comune.provincia}', '${comune.codice}')">
-                    <strong>${comune.nome}</strong>
-                    <span class="province-badge">${comune.provincia}</span><br>
-                    <small>${getProvinciaNameByCode(comune.provincia)}</small>
-                </div>
-            `;
-        }).join('')}
-    `;
-    
-    dropdown.style.display = 'block';
+// ==================== GESTIONE SESSIONE ====================
+function handleArtistFromSearch(artistId) {
+    sessionStorage.removeItem('selectedArtistId');
+    startNewAgibilita();
     
     setTimeout(() => {
-        if (dropdown) dropdown.style.display = 'none';
-    }, 15000);
+        const artist = artistsDB.find(a => a.id === parseInt(artistId));
+        if (artist) {
+            addArtistToList(parseInt(artistId));
+        }
+    }, 100);
 }
 
-// Seleziona città dall'autocomplete
-function selectCityGI(nome, cap, provincia, codiceIstat) {
-    document.getElementById('citta').value = nome;
-    document.getElementById('cap').value = cap;
-    document.getElementById('provincia').value = provincia;
+function handleNewArtistRegistration(newArtistId) {
+    sessionStorage.removeItem('newArtistId');
+    const newArtist = artistsDB.find(a => a.id == newArtistId);
     
-    document.getElementById('citta').dataset.codiceIstat = codiceIstat;
-    
-    hideCityAutocomplete();
-    hideMultipleDropdowns();
-    
-    validateLocationDataGI();
-}
-
-// Valida dati località
-function validateLocationDataGI() {
-    const citta = document.getElementById('citta').value;
-    const cap = document.getElementById('cap').value;
-    const provincia = document.getElementById('provincia').value;
-    
-    if (!citta || !cap || !provincia) return;
-    
-    if (!window.GIDatabase || !window.GIDatabase.isLoaded()) {
-        return;
+    if (newArtist) {
+        startNewAgibilita();
+        setTimeout(() => {
+            showAddArtistModal();
+            addArtistToList(parseInt(newArtistId));
+        }, 500);
     }
+}
+
+function handleQuickAgibilita(quickAgibilitaData) {
+    sessionStorage.removeItem('quickAgibilita');
+    const data = JSON.parse(quickAgibilitaData);
     
-    const isValid = window.GIDatabase.validateCAP(cap, provincia);
+    startNewAgibilita();
     
-    if (isValid) {
-        setFieldValidation('citta', true);
-        setFieldValidation('cap', true);
-        setFieldValidation('provincia', true);
+    setTimeout(() => {
+        // Aggiungi artisti
+        data.artisti.forEach(artistData => {
+            const artist = artistsDB.find(a => a.codiceFiscale === artistData.cf);
+            if (artist) {
+                const tipoRapporto = determineTipoRapporto(artist);
+                selectedArtists.push({
+                    ...artist,
+                    ruolo: artistData.ruolo,
+                    compenso: artistData.compenso,
+                    tipoRapporto: tipoRapporto,
+                    matricolaEnpals: artist.matricolaENPALS || generateMatricolaEnpals()
+                });
+            }
+        });
         
-        showValidationMessage('✅ Dati località validati', 'success');
-    } else {
-        setFieldValidation('cap', false);
-        showValidationMessage('⚠️ CAP e provincia potrebbero non essere coerenti', 'warning');
-    }
-}
-
-function validateProvinciaAndCAPGI() {
-    validateLocationDataGI();
-}
-
-// Ottieni nome provincia da codice
-function getProvinciaNameByCode(codice) {
-    if (!window.GIDatabase || !window.GIDatabase.isLoaded()) {
-        return codice;
-    }
-    
-    const provincia = window.GIDatabase.getProvinciaByCode(codice);
-    return provincia ? provincia.nome : codice;
-}
-
-// FUNZIONI UTILITÀ UI
-
-function createAutocompleteDropdown(id, parentInputId) {
-    const dropdown = document.createElement('div');
-    dropdown.id = id;
-    dropdown.className = 'autocomplete-dropdown';
-    
-    const parentInput = document.getElementById(parentInputId);
-    parentInput.parentNode.style.position = 'relative';
-    parentInput.parentNode.appendChild(dropdown);
-    
-    return dropdown;
-}
-
-function highlightSearchTerm(text, searchTerm) {
-    if (!searchTerm) return text;
-    
-    const regex = new RegExp(`(${escapeRegExp(searchTerm)})`, 'gi');
-    return text.replace(regex, '<span class="highlight">$1</span>');
-}
-
-function escapeRegExp(string) {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function showLoadingInAutocomplete() {
-    let dropdown = document.getElementById('cityAutocompleteDropdown');
-    if (!dropdown) {
-        dropdown = createAutocompleteDropdown('cityAutocompleteDropdown', 'citta');
-    }
-    
-    dropdown.innerHTML = '<div class="autocomplete-loading">Caricamento database...</div>';
-    dropdown.style.display = 'block';
-}
-
-function showNoResultsInAutocomplete() {
-    let dropdown = document.getElementById('cityAutocompleteDropdown');
-    if (!dropdown) {
-        dropdown = createAutocompleteDropdown('cityAutocompleteDropdown', 'citta');
-    }
-    
-    dropdown.innerHTML = '<div class="autocomplete-no-results">Nessun comune trovato</div>';
-    dropdown.style.display = 'block';
-}
-
-function hideCityAutocomplete() {
-    const dropdown = document.getElementById('cityAutocompleteDropdown');
-    if (dropdown) {
-        dropdown.style.display = 'none';
-    }
-}
-
-function hideMultipleDropdowns() {
-    const dropdowns = ['capMultipleDropdown'];
-    dropdowns.forEach(id => {
-        const dropdown = document.getElementById(id);
-        if (dropdown) {
-            dropdown.style.display = 'none';
+        updateArtistsList();
+        
+        // Compila campi
+        if (data.dataInizio) document.getElementById('dataInizio').value = data.dataInizio;
+        if (data.dataFine) document.getElementById('dataFine').value = data.dataFine;
+        
+        if (data.locale) {
+            document.getElementById('descrizioneLocale').value = data.locale.nome;
+            document.getElementById('indirizzo').value = data.locale.indirizzo;
+            document.getElementById('citta').value = data.locale.citta;
+            document.getElementById('cap').value = data.locale.cap;
+            document.getElementById('provincia').value = data.locale.provincia;
         }
-    });
-}
-
-function setFieldValidation(fieldId, isValid) {
-    const field = document.getElementById(fieldId);
-    if (!field) return;
-    
-    field.classList.remove('valid', 'invalid');
-    field.classList.add(isValid ? 'valid' : 'invalid');
-}
-
-function showValidationMessage(message, type) {
-    const existing = document.querySelectorAll('.validation-message');
-    existing.forEach(msg => msg.remove());
-    
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `alert alert-${type} validation-message`;
-    messageDiv.textContent = message;
-    
-    const provinciaInput = document.getElementById('provincia');
-    provinciaInput.parentNode.appendChild(messageDiv);
-    
-    setTimeout(() => messageDiv.remove(), 3000);
-}
-
-function showCAPError(message) {
-    const capInput = document.getElementById('cap');
-    setFieldValidation('cap', false);
-    
-    showValidationMessage(`❌ ${message}`, 'error');
-}
-
-function resetLocationValidation() {
-    ['citta', 'cap', 'provincia'].forEach(id => {
-        const field = document.getElementById(id);
-        if (field) {
-            field.classList.remove('valid', 'invalid');
-            field.style.borderColor = '';
+        
+        if (selectedArtists.length > 0) {
+            setTimeout(() => goToStep2(), 500);
         }
-    });
-    
-    const messages = document.querySelectorAll('.validation-message');
-    messages.forEach(msg => msg.remove());
+    }, 200);
 }
 
-// NAVIGAZIONE SEZIONI
-
+// ==================== NAVIGAZIONE ====================
 function showSection(sectionId) {
     document.querySelectorAll('.step-section').forEach(section => {
         section.classList.remove('active');
     });
-    document.getElementById(sectionId).classList.add('active');
+    
+    const targetSection = document.getElementById(sectionId);
+    if (targetSection) {
+        targetSection.classList.add('active');
+    }
 }
 
 function startNewAgibilita() {
@@ -795,43 +200,87 @@ function startNewAgibilita() {
 }
 
 function showEditAgibilita() {
-    document.getElementById('editListSection').style.display = 'block';
-    showExistingAgibilita();
+    const editListSection = document.getElementById('editListSection');
+    if (editListSection) {
+        editListSection.style.display = 'block';
+        showExistingAgibilita();
+    }
 }
 
-function clearAllForms() {
-    selectedArtists = [];
-    updateArtistsList();
-
-    const today = new Date().toISOString().split('T')[0];
-    document.getElementById('dataInizio').value = today;
-    document.getElementById('dataFine').value = '';
-
-    document.getElementById('descrizioneLocale').value = '';
-    document.getElementById('indirizzo').value = '';
-    document.getElementById('citta').value = '';
-    document.getElementById('cap').value = '';
-    document.getElementById('provincia').value = '';
-    document.getElementById('noteLocale').value = '';
-
-    document.getElementById('editListSection').style.display = 'none';
-    resetLocationValidation();
+function goToStep2() {
+    if (selectedArtists.length === 0) {
+        alert('Seleziona almeno un artista');
+        return;
+    }
+    
+    const allValid = selectedArtists.every(a => a.ruolo && a.compenso > 0);
+    if (!allValid) {
+        alert('Completa ruolo e compenso per tutti gli artisti');
+        return;
+    }
+    
+    showSection('step2');
 }
 
-// GESTIONE ARTISTI
+function goToStep3() {
+    const requiredFields = ['dataInizio', 'dataFine', 'descrizioneLocale', 'indirizzo', 
+                          'citta', 'cap', 'provincia', 'ragioneSociale'];
+    
+    const missingFields = requiredFields.filter(field => {
+        const element = document.getElementById(field);
+        return !element || !element.value;
+    });
 
+    if (missingFields.length > 0) {
+        alert('Compila tutti i campi obbligatori');
+        return;
+    }
+
+    // Salva venue se nuovo
+    saveVenueIfNew();
+    
+    // Salva dati fatturazione
+    saveInvoiceData();
+    
+    // Aggiorna riepiloghi
+    updateSummaries();
+    generateXMLPreview();
+    
+    showSection('step3');
+}
+
+// ==================== GESTIONE ARTISTI ====================
 function showAddArtistModal() {
-    document.getElementById('addArtistModal').style.display = 'block';
-    document.getElementById('artistSearch').value = '';
-    document.getElementById('searchResults').innerHTML = '';
+    const modal = document.getElementById('addArtistModal');
+    if (modal) {
+        modal.style.display = 'block';
+        const searchInput = document.getElementById('artistSearch');
+        if (searchInput) {
+            searchInput.value = '';
+            searchInput.focus();
+        }
+        const searchResults = document.getElementById('searchResults');
+        if (searchResults) {
+            searchResults.innerHTML = '';
+        }
+    }
 }
 
 function closeModal() {
-    document.getElementById('addArtistModal').style.display = 'none';
+    const modal = document.getElementById('addArtistModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
 }
 
 function searchArtists() {
     const searchTerm = document.getElementById('artistSearch').value.toLowerCase();
+    
+    if (!searchTerm) {
+        document.getElementById('searchResults').innerHTML = '';
+        return;
+    }
+    
     const results = artistsDB.filter(artist => 
         artist.nome.toLowerCase().includes(searchTerm) || 
         artist.cognome.toLowerCase().includes(searchTerm) ||
@@ -840,10 +289,11 @@ function searchArtists() {
     );
 
     const resultsDiv = document.getElementById('searchResults');
+    
     if (results.length === 0) {
         resultsDiv.innerHTML = `
-            <p>Nessun artista trovato</p>
-            <div style="text-align: center; margin-top: 1rem;">
+            <p class="no-results">Nessun artista trovato</p>
+            <div class="text-center mt-4">
                 <button class="btn btn-primary" onclick="goToRegistration()">
                     ➕ Registra Nuovo Artista
                 </button>
@@ -859,39 +309,51 @@ function searchArtists() {
     }
 }
 
-function goToRegistration() {
-    sessionStorage.setItem('returnToAgibilita', 'true');
-    window.location.href = '../registrazione-artista.html';
-}
-
 function addArtistToList(artistId) {
     const artist = artistsDB.find(a => a.id === artistId);
     if (!artist) return;
 
+    // Controlla se già presente
     const existingIndex = selectedArtists.findIndex(a => a.codiceFiscale === artist.codiceFiscale);
     if (existingIndex !== -1) {
         alert('Questo artista è già stato aggiunto!');
         return;
     }
 
+    // Determina tipo rapporto
+    const tipoRapporto = determineTipoRapporto(artist);
+
+    // Aggiungi artista
     selectedArtists.push({
         ...artist,
         ruolo: artist.mansione || '',
         compenso: 0,
-        matricolaEnpals: artist.matricolaENPALS || generateMatricolaEnpals()
+        matricolaEnpals: artist.matricolaENPALS || generateMatricolaEnpals(),
+        tipoRapporto: tipoRapporto
     });
 
     updateArtistsList();
     closeModal();
 }
 
+function determineTipoRapporto(artist) {
+    if (artist.hasPartitaIva === 'si') {
+        return 'partitaiva';
+    } else if (artist.tipoRapporto) {
+        return artist.tipoRapporto;
+    } else {
+        return 'occasionale';
+    }
+}
+
 function updateArtistsList() {
     const listDiv = document.getElementById('artistList');
+    if (!listDiv) return;
 
     if (selectedArtists.length === 0) {
-        listDiv.innerHTML = '<p style="text-align: center; color: #6b7280;">Nessun artista selezionato</p>';
-        document.getElementById('summaryBox').style.display = 'none';
-        document.getElementById('btnNext1').style.display = 'none';
+        listDiv.innerHTML = '<p class="no-artists-message">Nessun artista selezionato</p>';
+        hideElement('summaryBox');
+        hideElement('btnNext1');
     } else {
         listDiv.innerHTML = selectedArtists.map((artist, index) => `
             <div class="artist-item">
@@ -899,47 +361,68 @@ function updateArtistsList() {
                     <strong>${artist.nome} ${artist.cognome}${artist.nomeArte ? ' - ' + artist.nomeArte : ''}</strong><br>
                     <small>CF: ${artist.codiceFiscale}</small>
                     ${artist.matricolaEnpals ? `<br><small>Matricola ENPALS: ${artist.matricolaEnpals}</small>` : ''}
+                    <br><span class="tipo-rapporto-badge tipo-${artist.tipoRapporto}">${getTipoRapportoLabel(artist.tipoRapporto)}</span>
                 </div>
                 <div class="artist-role-compensation">
                     <select class="form-control" required onchange="updateArtistRole(${index}, this.value)">
                         <option value="">Seleziona ruolo...</option>
-                        <option value="DJ" ${artist.ruolo === 'DJ' ? 'selected' : ''}>DJ (032)</option>
-                        <option value="Vocalist" ${artist.ruolo === 'Vocalist' ? 'selected' : ''}>Vocalist (031)</option>
-                        <option value="Ballerino/a" ${artist.ruolo === 'Ballerino/a' ? 'selected' : ''}>Ballerino/a (092)</option>
-                        <option value="Tecnico" ${artist.ruolo === 'Tecnico' ? 'selected' : ''}>Tecnico (117)</option>
-                        <option value="Fotografo" ${artist.ruolo === 'Fotografo' ? 'selected' : ''}>Fotografo (126)</option>
-                        <option value="Truccatore" ${artist.ruolo === 'Truccatore' ? 'selected' : ''}>Truccatore (141)</option>
+                        ${getRuoliOptions(artist.ruolo)}
                     </select>
-                    <input type="number" class="form-control" placeholder="Compenso €" 
-                           value="${artist.compenso || ''}" min="0" step="0.01"
-                           onchange="updateArtistCompensation(${index}, this.value)"
-                           style="width: 150px;">
-                    <button class="btn-remove" onclick="removeArtist(${index})">Rimuovi</button>
+                    <input type="number" class="form-control compensation-input" 
+                           placeholder="Compenso €" 
+                           value="${artist.compenso || ''}" 
+                           min="0" 
+                           step="0.01"
+                           onchange="updateArtistCompensation(${index}, this.value)">
+                    <button class="btn btn-danger btn-sm" onclick="removeArtist(${index})">Rimuovi</button>
                 </div>
             </div>
         `).join('');
 
-        document.getElementById('summaryBox').style.display = 'block';
+        showElement('summaryBox');
         updateTotalCompensation();
         checkCanProceed();
     }
 }
 
+function getRuoliOptions(selectedRuolo) {
+    const ruoli = [
+        { value: 'DJ', label: 'DJ (032)' },
+        { value: 'Vocalist', label: 'Vocalist (031)' },
+        { value: 'Ballerino/a', label: 'Ballerino/a (092)' },
+        { value: 'Tecnico', label: 'Tecnico (117)' },
+        { value: 'Fotografo', label: 'Fotografo (126)' },
+        { value: 'Truccatore', label: 'Truccatore (141)' }
+    ];
+    
+    return ruoli.map(ruolo => 
+        `<option value="${ruolo.value}" ${selectedRuolo === ruolo.value ? 'selected' : ''}>${ruolo.label}</option>`
+    ).join('');
+}
+
+function getTipoRapportoLabel(tipo) {
+    const labels = {
+        'partitaiva': 'P.IVA',
+        'occasionale': 'Prestazione Occasionale',
+        'chiamata': 'Contratto a Chiamata',
+        'fulltime': 'Full Time'
+    };
+    return labels[tipo] || tipo;
+}
+
 function updateArtistRole(index, role) {
-    selectedArtists[index].ruolo = role;
-    checkCanProceed();
+    if (selectedArtists[index]) {
+        selectedArtists[index].ruolo = role;
+        checkCanProceed();
+    }
 }
 
 function updateArtistCompensation(index, value) {
-    selectedArtists[index].compenso = parseFloat(value) || 0;
-    updateTotalCompensation();
-    checkCanProceed();
-}
-
-function updateTotalCompensation() {
-    const total = selectedArtists.reduce((sum, artist) => sum + (artist.compenso || 0), 0);
-    document.getElementById('totalArtists').textContent = selectedArtists.length;
-    document.getElementById('totalCompensation').textContent = total.toFixed(2);
+    if (selectedArtists[index]) {
+        selectedArtists[index].compenso = parseFloat(value) || 0;
+        updateTotalCompensation();
+        checkCanProceed();
+    }
 }
 
 function removeArtist(index) {
@@ -947,44 +430,221 @@ function removeArtist(index) {
     updateArtistsList();
 }
 
+function updateTotalCompensation() {
+    const total = selectedArtists.reduce((sum, artist) => sum + (artist.compenso || 0), 0);
+    
+    const totalArtistsEl = document.getElementById('totalArtists');
+    if (totalArtistsEl) totalArtistsEl.textContent = selectedArtists.length;
+    
+    const totalCompensationEl = document.getElementById('totalCompensation');
+    if (totalCompensationEl) totalCompensationEl.textContent = total.toFixed(2);
+}
+
 function checkCanProceed() {
     const canProceed = selectedArtists.length > 0 && 
         selectedArtists.every(a => a.ruolo && a.compenso > 0);
-    document.getElementById('btnNext1').style.display = canProceed ? 'inline-block' : 'none';
-}
-
-function goToStep2() {
-    if (selectedArtists.length === 0) {
-        alert('Seleziona almeno un artista');
-        return;
+    
+    const btnNext = document.getElementById('btnNext1');
+    if (btnNext) {
+        btnNext.style.display = canProceed ? 'inline-block' : 'none';
     }
-    showSection('step2');
 }
 
-// GESTIONE DATE E VALIDAZIONE
+function goToRegistration() {
+    sessionStorage.setItem('returnToAgibilita', 'true');
+    window.location.href = '../registrazione-artista.html';
+}
 
+// ==================== GESTIONE DATE ====================
 function validateDates() {
     const startDate = document.getElementById('dataInizio').value;
     const endDate = document.getElementById('dataFine').value;
 
-    if (startDate && endDate) {
-        if (endDate < startDate) {
-            alert('La data di fine non può essere precedente alla data di inizio');
-            document.getElementById('dataFine').value = startDate;
-        }
+    if (!startDate || !endDate) return;
 
-        const start = new Date(startDate);
-        const end = new Date(endDate);
-        const diffTime = Math.abs(end - start);
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    if (endDate < startDate) {
+        alert('La data di fine non può essere precedente alla data di inizio');
+        document.getElementById('dataFine').value = startDate;
+        return;
+    }
 
-        document.getElementById('dateInfo').style.display = 'block';
-        document.getElementById('dateInfo').textContent = `Durata: ${diffDays} giorn${diffDays > 1 ? 'i' : 'o'}`;
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const diffTime = Math.abs(end - start);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+    const dateInfo = document.getElementById('dateInfo');
+    if (dateInfo) {
+        dateInfo.style.display = 'block';
+        dateInfo.textContent = `Durata: ${diffDays} giorn${diffDays > 1 ? 'i' : 'o'}`;
     }
 }
 
-// GESTIONE VENUE
+// ==================== GESTIONE LOCALITÀ ====================
+function setupLocationDropdowns() {
+    if (window.GIDatabase && window.GIDatabase.isLoaded()) {
+        loadProvinces();
+    } else {
+        setTimeout(() => {
+            if (window.GIDatabase && window.GIDatabase.isLoaded()) {
+                loadProvinces();
+            } else {
+                console.warn('Database GI non pronto');
+                loadFallbackProvinces();
+            }
+        }, 1000);
+    }
+}
 
+function loadProvinces() {
+    if (!window.GIDatabase || !window.GIDatabase.isLoaded()) {
+        console.warn('Database GI non ancora caricato');
+        return;
+    }
+
+    const provinciaSelect = document.getElementById('provincia');
+    if (!provinciaSelect) return;
+
+    const provinceData = window.GIDatabase.getData().province;
+    
+    if (provinceData && Array.isArray(provinceData)) {
+        const sortedProvinces = provinceData.sort((a, b) => {
+            const siglaA = a.sigla_provincia || a.sigla || '';
+            const siglaB = b.sigla_provincia || b.sigla || '';
+            return siglaA.localeCompare(siglaB);
+        });
+
+        provinciaSelect.innerHTML = '<option value="">Seleziona provincia...</option>';
+        
+        sortedProvinces.forEach(provincia => {
+            const sigla = provincia.sigla_provincia || provincia.sigla || provincia.codice;
+            const nome = provincia.denominazione_provincia || provincia.denominazione || provincia.nome;
+            
+            if (sigla) {
+                const option = document.createElement('option');
+                option.value = sigla;
+                option.textContent = `${sigla} - ${nome}`;
+                provinciaSelect.appendChild(option);
+            }
+        });
+
+        console.log(`✅ Caricate ${sortedProvinces.length} province`);
+    } else {
+        loadProvincesFromComuni();
+    }
+}
+
+function loadProvincesFromComuni() {
+    const allComuni = window.GIDatabase.getData().comuni || [];
+    const provinces = new Map();
+    
+    allComuni.forEach(comune => {
+        const provincia = comune.sigla_provincia || comune.provincia;
+        if (provincia && provincia.length === 2 && !provinces.has(provincia)) {
+            provinces.set(provincia, provincia);
+        }
+    });
+
+    const sortedProvinces = Array.from(provinces.keys()).sort();
+    const provinciaSelect = document.getElementById('provincia');
+    
+    provinciaSelect.innerHTML = '<option value="">Seleziona provincia...</option>';
+    
+    sortedProvinces.forEach(provincia => {
+        const option = document.createElement('option');
+        option.value = provincia;
+        option.textContent = provincia;
+        provinciaSelect.appendChild(option);
+    });
+}
+
+function loadCitiesForProvince() {
+    const provinciaSelect = document.getElementById('provincia');
+    const cittaSelect = document.getElementById('citta');
+    const capSelect = document.getElementById('cap');
+    
+    const selectedProvincia = provinciaSelect.value;
+    
+    // Reset campi
+    cittaSelect.innerHTML = '<option value="">Seleziona città...</option>';
+    cittaSelect.disabled = !selectedProvincia;
+    
+    capSelect.innerHTML = '<option value="">Prima seleziona città</option>';
+    capSelect.disabled = true;
+
+    if (!selectedProvincia) return;
+
+    if (!window.GIDatabase || !window.GIDatabase.isLoaded()) {
+        cittaSelect.innerHTML = '<option value="">Database non disponibile</option>';
+        return;
+    }
+
+    const comuni = window.GIDatabase.getComuniByProvincia(selectedProvincia);
+    
+    if (comuni.length === 0) {
+        cittaSelect.innerHTML = '<option value="">Nessuna città trovata</option>';
+        return;
+    }
+
+    const sortedComuni = comuni.sort((a, b) => {
+        const nomeA = a.denominazione_ita || a.denominazione || '';
+        const nomeB = b.denominazione_ita || b.denominazione || '';
+        return nomeA.localeCompare(nomeB);
+    });
+
+    sortedComuni.forEach(comune => {
+        const option = document.createElement('option');
+        const nomeComune = comune.denominazione_ita || comune.denominazione || comune.nome;
+        const codiceIstat = comune.codice_istat || comune.codiceIstat;
+        
+        option.value = nomeComune;
+        option.dataset.codice = codiceIstat;
+        option.textContent = nomeComune;
+        cittaSelect.appendChild(option);
+    });
+
+    cittaSelect.disabled = false;
+}
+
+function loadCAPsForCity() {
+    const cittaSelect = document.getElementById('citta');
+    const capSelect = document.getElementById('cap');
+    
+    const selectedOption = cittaSelect.options[cittaSelect.selectedIndex];
+    if (!selectedOption) return;
+    
+    capSelect.innerHTML = '<option value="">Seleziona CAP...</option>';
+    capSelect.disabled = false;
+
+    const codiceComune = selectedOption.dataset.codice;
+    if (!codiceComune) return;
+
+    if (window.GIDatabase && window.GIDatabase.isLoaded()) {
+        const caps = window.GIDatabase.getCapByComune(codiceComune);
+        
+        if (caps && caps.length > 0) {
+            if (caps.length === 1) {
+                capSelect.innerHTML = `<option value="${caps[0]}" selected>${caps[0]}</option>`;
+            } else {
+                caps.forEach(cap => {
+                    const option = document.createElement('option');
+                    option.value = cap;
+                    option.textContent = cap;
+                    capSelect.appendChild(option);
+                });
+            }
+        } else {
+            capSelect.innerHTML = '<option value="">Nessun CAP trovato</option>';
+        }
+    }
+}
+
+function loadFallbackProvinces() {
+    // Implementazione fallback se necessaria
+    console.warn('Usando province di fallback');
+}
+
+// ==================== GESTIONE VENUE ====================
 function searchVenue() {
     const searchTerm = document.getElementById('descrizioneLocale').value.toLowerCase();
     const dropdown = document.getElementById('venueDropdown');
@@ -1001,7 +661,7 @@ function searchVenue() {
 
     if (matches.length > 0) {
         dropdown.innerHTML = matches.map(venue => `
-            <div class="autocomplete-item" onclick="selectVenue('${venue.nome}', '${venue.indirizzo}', '${venue.citta}', '${venue.cap}', '${venue.provincia}')">
+            <div class="autocomplete-item" onclick="selectVenue(${venue.id})">
                 <strong>${venue.nome}</strong><br>
                 <small>${venue.citta} - ${venue.provincia}</small>
             </div>
@@ -1012,27 +672,22 @@ function searchVenue() {
     }
 }
 
-function selectVenue(nome, indirizzo, citta, cap, provincia) {
-    document.getElementById('descrizioneLocale').value = nome;
-    document.getElementById('indirizzo').value = indirizzo;
-    document.getElementById('citta').value = citta;
-    document.getElementById('cap').value = cap;
-    document.getElementById('provincia').value = provincia;
+function selectVenue(venueId) {
+    const venue = venuesDB.find(v => v.id === venueId);
+    if (!venue) return;
+    
+    document.getElementById('descrizioneLocale').value = venue.nome;
+    document.getElementById('indirizzo').value = venue.indirizzo;
+    document.getElementById('citta').value = venue.citta;
+    document.getElementById('cap').value = venue.cap;
+    document.getElementById('provincia').value = venue.provincia;
     document.getElementById('venueDropdown').style.display = 'none';
     
-    // Valida i dati dopo la selezione
-    validateLocationDataGI();
+    // Carica dati fatturazione associati
+    loadInvoiceDataForVenue(venue.nome);
 }
 
-function goToStep3() {
-    const requiredFields = ['dataInizio', 'dataFine', 'descrizioneLocale', 'indirizzo', 'citta', 'cap', 'provincia'];
-    const missingFields = requiredFields.filter(field => !document.getElementById(field).value);
-
-    if (missingFields.length > 0) {
-        alert('Compila tutti i campi obbligatori');
-        return;
-    }
-
+function saveVenueIfNew() {
     const venueName = document.getElementById('descrizioneLocale').value;
     const existingVenue = venuesDB.find(v => v.nome.toLowerCase() === venueName.toLowerCase());
 
@@ -1045,49 +700,161 @@ function goToStep3() {
             cap: document.getElementById('cap').value,
             provincia: document.getElementById('provincia').value
         };
+        
         venuesDB.push(newVenue);
         localStorage.setItem('venuesDB', JSON.stringify(venuesDB));
     }
-
-    updateSummaries();
-    generateXMLPreview();
-    showSection('step3');
 }
 
-// GESTIONE RIEPILOGO E TAB
+// ==================== GESTIONE FATTURAZIONE ====================
+function loadInvoiceDataForVenue(venueName) {
+    const invoiceData = invoiceDB.find(inv => inv.venueName === venueName);
+    
+    if (invoiceData) {
+        document.getElementById('ragioneSociale').value = invoiceData.ragioneSociale || '';
+        document.getElementById('piva').value = invoiceData.piva || '';
+        document.getElementById('codiceFiscale').value = invoiceData.codiceFiscale || '';
+        document.getElementById('indirizzoFatturazione').value = invoiceData.indirizzo || '';
+        document.getElementById('cittaFatturazione').value = invoiceData.citta || '';
+        document.getElementById('capFatturazione').value = invoiceData.cap || '';
+        document.getElementById('provinciaFatturazione').value = invoiceData.provincia || '';
+        document.getElementById('codiceSDI').value = invoiceData.codiceSDI || '';
+        document.getElementById('pecFatturazione').value = invoiceData.pec || '';
+    } else {
+        clearInvoiceFields();
+    }
+}
 
+function clearInvoiceFields() {
+    const fields = ['ragioneSociale', 'piva', 'codiceFiscale', 'indirizzoFatturazione', 
+                   'cittaFatturazione', 'capFatturazione', 'provinciaFatturazione', 
+                   'codiceSDI', 'pecFatturazione'];
+    
+    fields.forEach(fieldId => {
+        const field = document.getElementById(fieldId);
+        if (field) field.value = '';
+    });
+}
+
+function saveInvoiceData() {
+    const venueName = document.getElementById('descrizioneLocale').value;
+    
+    const invoiceData = {
+        venueName: venueName,
+        ragioneSociale: document.getElementById('ragioneSociale').value,
+        piva: document.getElementById('piva').value,
+        codiceFiscale: document.getElementById('codiceFiscale').value,
+        indirizzo: document.getElementById('indirizzoFatturazione').value,
+        citta: document.getElementById('cittaFatturazione').value,
+        cap: document.getElementById('capFatturazione').value,
+        provincia: document.getElementById('provinciaFatturazione').value,
+        codiceSDI: document.getElementById('codiceSDI').value,
+        pec: document.getElementById('pecFatturazione').value,
+        lastUpdated: new Date().toISOString()
+    };
+
+    const existingIndex = invoiceDB.findIndex(inv => inv.venueName === venueName);
+    
+    if (existingIndex !== -1) {
+        invoiceDB[existingIndex] = invoiceData;
+    } else {
+        invoiceDB.push(invoiceData);
+    }
+    
+    localStorage.setItem('invoiceDB', JSON.stringify(invoiceDB));
+}
+
+function copyVenueAddress() {
+    document.getElementById('indirizzoFatturazione').value = document.getElementById('indirizzo').value;
+    document.getElementById('cittaFatturazione').value = document.getElementById('citta').value;
+    document.getElementById('capFatturazione').value = document.getElementById('cap').value;
+    document.getElementById('provinciaFatturazione').value = document.getElementById('provincia').value;
+}
+
+// ==================== GESTIONE RIEPILOGO ====================
 function updateSummaries() {
-    const artistsHtml = selectedArtists.map(artist => 
-        `<p><strong>${artist.nome} ${artist.cognome}</strong> - ${artist.ruolo} - €${artist.compenso.toFixed(2)}</p>`
-    ).join('');
-    document.getElementById('summaryArtists').innerHTML = artistsHtml;
+    updateArtistsSummary();
+    updateDatesSummary();
+    updateLocationSummary();
+    updateInvoiceSummary();
+}
 
+function updateArtistsSummary() {
+    const summaryDiv = document.getElementById('summaryArtists');
+    if (!summaryDiv) return;
+    
+    const artistsHtml = selectedArtists.map(artist => 
+        `<p><strong>${artist.nome} ${artist.cognome}</strong> - ${artist.ruolo} - €${artist.compenso.toFixed(2)} - ${getTipoRapportoLabel(artist.tipoRapporto)}</p>`
+    ).join('');
+    
+    summaryDiv.innerHTML = artistsHtml;
+}
+
+function updateDatesSummary() {
+    const summaryDiv = document.getElementById('summaryDates');
+    if (!summaryDiv) return;
+    
     const startDate = new Date(document.getElementById('dataInizio').value);
     const endDate = new Date(document.getElementById('dataFine').value);
-    const datesHtml = `
+    
+    summaryDiv.innerHTML = `
         <p>Dal: ${startDate.toLocaleDateString('it-IT')}</p>
         <p>Al: ${endDate.toLocaleDateString('it-IT')}</p>
     `;
-    document.getElementById('summaryDates').innerHTML = datesHtml;
+}
 
-    const locationHtml = `
+function updateLocationSummary() {
+    const summaryDiv = document.getElementById('summaryLocation');
+    if (!summaryDiv) return;
+    
+    summaryDiv.innerHTML = `
         <p><strong>${document.getElementById('descrizioneLocale').value}</strong></p>
         <p>${document.getElementById('indirizzo').value}</p>
         <p>${document.getElementById('cap').value} ${document.getElementById('citta').value} (${document.getElementById('provincia').value})</p>
     `;
-    document.getElementById('summaryLocation').innerHTML = locationHtml;
 }
 
+function updateInvoiceSummary() {
+    const summaryDiv = document.getElementById('summaryInvoice');
+    if (!summaryDiv) return;
+    
+    const ragioneSociale = document.getElementById('ragioneSociale').value;
+    const piva = document.getElementById('piva').value;
+    const codiceSDI = document.getElementById('codiceSDI').value;
+    
+    summaryDiv.innerHTML = `
+        <p><strong>${ragioneSociale || 'Non specificata'}</strong></p>
+        <p>P.IVA: ${piva || 'Non specificata'}</p>
+        ${codiceSDI ? `<p>Codice SDI: ${codiceSDI}</p>` : ''}
+    `;
+}
+
+// ==================== GESTIONE TAB ====================
 function showTab(tabName) {
-    document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-    event.target.classList.add('active');
-
-    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-    document.getElementById('tab' + tabName.charAt(0).toUpperCase() + tabName.slice(1)).classList.add('active');
+    // Rimuovi active da tutti i tab
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    
+    // Aggiungi active al tab cliccato
+    if (event && event.target) {
+        event.target.classList.add('active');
+    }
+    
+    // Nascondi tutti i contenuti
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+    
+    // Mostra il contenuto selezionato
+    const tabId = 'tab' + tabName.charAt(0).toUpperCase() + tabName.slice(1);
+    const tabContent = document.getElementById(tabId);
+    if (tabContent) {
+        tabContent.classList.add('active');
+    }
 }
 
-// GENERAZIONE XML CON DATABASE GI
-
+// ==================== GENERAZIONE XML ====================
 function generateXML() {
     const startDate = document.getElementById('dataInizio').value;
     const endDate = document.getElementById('dataFine').value;
@@ -1099,16 +866,7 @@ function generateXML() {
     const cap = document.getElementById('cap').value;
     const provincia = document.getElementById('provincia').value;
     
-    const codiceComune = getCodiceIstatFromCityGI();
-
-    const qualificaMap = {
-        'DJ': '032',
-        'Vocalist': '031',
-        'Ballerino/a': '092',
-        'Tecnico': '117',
-        'Fotografo': '126',
-        'Truccatore': '141'
-    };
+    const codiceComune = getCodiceIstatFromCity();
 
     let xml = `<?xml version="1.0" encoding="UTF-8"?>
 <ImportAgibilita>
@@ -1125,7 +883,7 @@ function generateXML() {
             <Occupazioni>`;
 
     selectedArtists.forEach((artist, index) => {
-        const codiceQualifica = qualificaMap[artist.ruolo] || '032';
+        const codiceQualifica = getQualificaCode(artist.ruolo);
         
         xml += `
                 <Occupazione>
@@ -1166,14 +924,6 @@ function generateXML() {
     return xml;
 }
 
-function generateMatricolaEnpals() {
-    return Math.floor(1000000 + Math.random() * 9000000).toString();
-}
-
-function formatRetribuzione(amount) {
-    return parseFloat(amount).toFixed(2).replace('.', ',');
-}
-
 function generateXMLPreview() {
     try {
         const xml = generateXML();
@@ -1181,37 +931,67 @@ function generateXMLPreview() {
         
         let preview = xml.replace(/</g, '&lt;').replace(/>/g, '&gt;');
         
-        preview = preview.replace(/(&lt;\/?[^&gt;]+&gt;)/g, '<span style="color: #e06c75;">$1</span>');
-        preview = preview.replace(/(&lt;!\[CDATA\[.*?\]\]&gt;)/g, '<span style="color: #98c379;">$1</span>');
+        // Colorazione sintassi
+        preview = preview.replace(/(&lt;\/?[^&gt;]+&gt;)/g, '<span class="xml-tag">$1</span>');
+        preview = preview.replace(/(&lt;!\[CDATA\[.*?\]\]&gt;)/g, '<span class="xml-cdata">$1</span>');
         
-        document.getElementById('xmlPreview').innerHTML = `<pre style="white-space: pre-wrap; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.4;">${preview}</pre>`;
-        
-        const statusDiv = document.createElement('div');
-        statusDiv.style.marginTop = '1rem';
-        statusDiv.style.padding = '0.5rem';
-        statusDiv.style.borderRadius = '4px';
-        
-        if (validation.isValid) {
-            statusDiv.className = 'alert alert-success';
-            statusDiv.innerHTML = '✅ XML valido e pronto per l\'invio INPS';
-        } else {
-            statusDiv.className = 'alert alert-error';
-            statusDiv.innerHTML = `❌ Errori di validazione:<br>${validation.errors.map(error => `• ${error}`).join('<br>')}`;
+        const previewDiv = document.getElementById('xmlPreview');
+        if (previewDiv) {
+            previewDiv.innerHTML = `<pre class="xml-code">${preview}</pre>`;
+            
+            // Aggiungi status validazione
+            const statusDiv = document.createElement('div');
+            statusDiv.className = validation.isValid ? 'alert alert-success' : 'alert alert-error';
+            statusDiv.innerHTML = validation.isValid 
+                ? '✅ XML valido e pronto per l\'invio INPS'
+                : `❌ Errori di validazione:<br>${validation.errors.map(error => `• ${error}`).join('<br>')}`;
+            
+            previewDiv.parentNode.appendChild(statusDiv);
         }
-        
-        document.getElementById('xmlPreview').parentNode.appendChild(statusDiv);
-        
     } catch (error) {
-        document.getElementById('xmlPreview').innerHTML = 
-            `<span style="color: #e06c75;">Errore nella generazione XML: ${error.message}</span>`;
+        const previewDiv = document.getElementById('xmlPreview');
+        if (previewDiv) {
+            previewDiv.innerHTML = `<span class="error-message">Errore nella generazione XML: ${error.message}</span>`;
+        }
     }
 }
 
-// VALIDAZIONE XML
+function getCodiceIstatFromCity() {
+    const cittaSelect = document.getElementById('citta');
+    const selectedOption = cittaSelect.options[cittaSelect.selectedIndex];
+    
+    if (selectedOption && selectedOption.dataset.codice) {
+        return selectedOption.dataset.codice;
+    }
+    
+    return 'L736'; // Default Venezia
+}
 
+function getQualificaCode(ruolo) {
+    const qualificaMap = {
+        'DJ': '032',
+        'Vocalist': '031',
+        'Ballerino/a': '092',
+        'Tecnico': '117',
+        'Fotografo': '126',
+        'Truccatore': '141'
+    };
+    return qualificaMap[ruolo] || '032';
+}
+
+function formatRetribuzione(amount) {
+    return parseFloat(amount).toFixed(2).replace('.', ',');
+}
+
+function generateMatricolaEnpals() {
+    return Math.floor(1000000 + Math.random() * 9000000).toString();
+}
+
+// ==================== VALIDAZIONE XML ====================
 function validateINPSXML(xmlString) {
     const errors = [];
     
+    // Validazioni base
     if (!xmlString.includes('<ImportAgibilita>')) {
         errors.push('Tag principale ImportAgibilita mancante');
     }
@@ -1224,6 +1004,7 @@ function validateINPSXML(xmlString) {
         errors.push('Sezione Occupazioni mancante');
     }
     
+    // Campi obbligatori
     const requiredFields = [
         'CodiceFiscaleAzienda',
         'Matricola', 
@@ -1239,11 +1020,13 @@ function validateINPSXML(xmlString) {
         }
     });
     
+    // Validazione date
     const datePattern = /\d{4}-\d{2}-\d{2}/;
     if (!datePattern.test(xmlString)) {
         errors.push('Formato date non valido (deve essere YYYY-MM-DD)');
     }
     
+    // Validazione codici fiscali
     selectedArtists.forEach(artist => {
         if (!validaCodiceFiscale(artist.codiceFiscale)) {
             errors.push(`Codice fiscale non valido per ${artist.nome} ${artist.cognome}`);
@@ -1261,8 +1044,7 @@ function validaCodiceFiscale(cf) {
     return regex.test(cf.toUpperCase());
 }
 
-// DOWNLOAD E SALVATAGGIO
-
+// ==================== DOWNLOAD E SALVATAGGIO ====================
 function downloadXML(xmlContent) {
     const blob = new Blob([xmlContent], { type: 'text/xml' });
     const url = URL.createObjectURL(blob);
@@ -1285,13 +1067,20 @@ function downloadAndSave() {
     downloadXML(xmlContent);
     saveAgibilitaToDatabase(xmlContent);
 
-    document.getElementById('btnConfirm').style.display = 'none';
-    document.getElementById('btnNewAgibilita').style.display = 'inline-block';
+    // Aggiorna UI
+    hideElement('btnConfirm');
+    showElement('btnNewAgibilita');
 
+    // Mostra messaggio successo
     const successMsg = document.createElement('div');
     successMsg.className = 'alert alert-success';
     successMsg.textContent = 'XML scaricato e agibilità salvata con successo!';
-    document.getElementById('tabInvio').insertBefore(successMsg, document.getElementById('tabInvio').firstChild);
+    
+    const tabInvio = document.getElementById('tabInvio');
+    if (tabInvio) {
+        tabInvio.insertBefore(successMsg, tabInvio.firstChild);
+        setTimeout(() => successMsg.remove(), 5000);
+    }
 }
 
 function saveAgibilitaToDatabase(xmlContent) {
@@ -1308,6 +1097,12 @@ function saveAgibilitaToDatabase(xmlContent) {
             cap: document.getElementById('cap').value,
             provincia: document.getElementById('provincia').value
         },
+        fatturazione: {
+            ragioneSociale: document.getElementById('ragioneSociale').value,
+            piva: document.getElementById('piva').value,
+            codiceFiscale: document.getElementById('codiceFiscale').value,
+            codiceSDI: document.getElementById('codiceSDI').value
+        },
         artisti: selectedArtists.map(a => ({
             cf: a.codiceFiscale,
             nome: a.nome,
@@ -1315,7 +1110,8 @@ function saveAgibilitaToDatabase(xmlContent) {
             nomeArte: a.nomeArte,
             ruolo: a.ruolo,
             compenso: a.compenso,
-            matricolaEnpals: a.matricolaEnpals
+            matricolaEnpals: a.matricolaEnpals,
+            tipoRapporto: a.tipoRapporto
         })),
         xml: xmlContent,
         isModifica: agibilitaData.isModifica,
@@ -1325,12 +1121,18 @@ function saveAgibilitaToDatabase(xmlContent) {
     agibilitaDB.push(agibilita);
     localStorage.setItem('agibilitaDB', JSON.stringify(agibilitaDB));
 
+    // Aggiorna anche i dati degli artisti
+    updateArtistsData(agibilita);
+}
+
+function updateArtistsData(agibilita) {
     selectedArtists.forEach(artist => {
         const artistIndex = artistsDB.findIndex(a => a.codiceFiscale === artist.codiceFiscale);
         if (artistIndex !== -1) {
             if (!artistsDB[artistIndex].agibilita) {
                 artistsDB[artistIndex].agibilita = [];
             }
+            
             artistsDB[artistIndex].agibilita.push({
                 data: `${agibilita.dataInizio} - ${agibilita.dataFine}`,
                 locale: agibilita.locale.descrizione,
@@ -1343,6 +1145,7 @@ function saveAgibilitaToDatabase(xmlContent) {
             }
         }
     });
+    
     localStorage.setItem('artistsDB', JSON.stringify(artistsDB));
 }
 
@@ -1356,8 +1159,8 @@ function newAgibilita() {
     agibilitaData.codiceAgibilita = null;
     selectedArtists = [];
 
-    document.getElementById('btnConfirm').style.display = 'inline-block';
-    document.getElementById('btnNewAgibilita').style.display = 'none';
+    showElement('btnConfirm');
+    hideElement('btnNewAgibilita');
 
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('dataInizio').value = today;
@@ -1369,40 +1172,40 @@ function saveDraft() {
     alert('Funzionalità bozza in sviluppo');
 }
 
-// GESTIONE AGIBILITÀ ESISTENTI
-
+// ==================== GESTIONE AGIBILITÀ ESISTENTI ====================
 function showExistingAgibilita() {
     const listDiv = document.getElementById('agibilitaList');
-    listDiv.innerHTML = '';
+    if (!listDiv) return;
 
     if (agibilitaDB.length === 0) {
-        listDiv.innerHTML = '<p style="text-align: center; color: #6b7280;">Nessuna agibilità trovata</p>';
+        listDiv.innerHTML = '<p class="no-data-message">Nessuna agibilità trovata</p>';
         return;
     }
 
-    agibilitaDB.forEach(agibilita => {
+    const agibilitaHTML = agibilitaDB.map(agibilita => {
         const totalCompensation = agibilita.artisti.reduce((sum, a) => sum + (a.compenso || 0), 0);
         const artistsList = agibilita.artisti.map(a => 
             `${a.nome} ${a.cognome} (${a.ruolo})`
         ).join(', ');
 
-        const item = document.createElement('div');
-        item.className = 'agibilita-item';
-        item.innerHTML = `
-            <div class="agibilita-info">
-                <div class="agibilita-code">[${agibilita.codice}]</div>
-                <div class="agibilita-dates">${agibilita.dataInizio} - ${agibilita.dataFine}</div>
-                <div class="agibilita-location">${agibilita.locale.descrizione} - ${agibilita.locale.citta}</div>
-                <div class="agibilita-artists">Artisti: ${artistsList} - Totale: €${totalCompensation.toFixed(2)}</div>
-            </div>
-            <div class="agibilita-actions">
-                <button class="btn btn-primary btn-sm" onclick="editAgibilita('${agibilita.codice}')">📝 Modifica</button>
-                <button class="btn btn-success btn-sm" onclick="duplicateAgibilita('${agibilita.codice}')">📋 Duplica</button>
-                <button class="btn btn-danger btn-sm" onclick="cancelAgibilita('${agibilita.codice}')">❌ Annulla</button>
+        return `
+            <div class="agibilita-item">
+                <div class="agibilita-info">
+                    <div class="agibilita-code">[${agibilita.codice}]</div>
+                    <div class="agibilita-dates">${agibilita.dataInizio} - ${agibilita.dataFine}</div>
+                    <div class="agibilita-location">${agibilita.locale.descrizione} - ${agibilita.locale.citta}</div>
+                    <div class="agibilita-artists">Artisti: ${artistsList} - Totale: €${totalCompensation.toFixed(2)}</div>
+                </div>
+                <div class="agibilita-actions">
+                    <button class="btn btn-primary btn-sm" onclick="editAgibilita('${agibilita.codice}')">📝 Modifica</button>
+                    <button class="btn btn-success btn-sm" onclick="duplicateAgibilita('${agibilita.codice}')">📋 Duplica</button>
+                    <button class="btn btn-danger btn-sm" onclick="cancelAgibilita('${agibilita.codice}')">❌ Annulla</button>
+                </div>
             </div>
         `;
-        listDiv.appendChild(item);
-    });
+    }).join('');
+
+    listDiv.innerHTML = agibilitaHTML;
 }
 
 function filterAgibilita() {
@@ -1422,6 +1225,7 @@ function editAgibilita(codice) {
     agibilitaData.isModifica = true;
     agibilitaData.codiceAgibilita = codice;
 
+    // Carica artisti
     selectedArtists = [];
     agibilita.artisti.forEach(artData => {
         const artist = artistsDB.find(a => a.codiceFiscale === artData.cf);
@@ -1429,11 +1233,14 @@ function editAgibilita(codice) {
             selectedArtists.push({
                 ...artist,
                 ruolo: artData.ruolo,
-                compenso: artData.compenso
+                compenso: artData.compenso,
+                tipoRapporto: artData.tipoRapporto || determineTipoRapporto(artist),
+                matricolaEnpals: artData.matricolaEnpals
             });
         }
     });
 
+    // Carica dati form
     document.getElementById('dataInizio').value = agibilita.dataInizio;
     document.getElementById('dataFine').value = agibilita.dataFine;
     document.getElementById('descrizioneLocale').value = agibilita.locale.descrizione;
@@ -1442,8 +1249,16 @@ function editAgibilita(codice) {
     document.getElementById('cap').value = agibilita.locale.cap;
     document.getElementById('provincia').value = agibilita.locale.provincia;
 
+    // Carica dati fatturazione se presenti
+    if (agibilita.fatturazione) {
+        document.getElementById('ragioneSociale').value = agibilita.fatturazione.ragioneSociale || '';
+        document.getElementById('piva').value = agibilita.fatturazione.piva || '';
+        document.getElementById('codiceFiscale').value = agibilita.fatturazione.codiceFiscale || '';
+        document.getElementById('codiceSDI').value = agibilita.fatturazione.codiceSDI || '';
+    }
+
     updateArtistsList();
-    document.getElementById('editListSection').style.display = 'none';
+    hideElement('editListSection');
     showSection('step1');
 }
 
@@ -1451,67 +1266,86 @@ function duplicateAgibilita(codice) {
     const agibilita = agibilitaDB.find(a => a.codice === codice);
     if (!agibilita) return;
 
+    // Carica come nuova agibilità
+    editAgibilita(codice);
+    
+    // Reset per nuova agibilità
     agibilitaData.isModifica = false;
     agibilitaData.codiceAgibilita = null;
-
-    selectedArtists = [];
-    agibilita.artisti.forEach(artData => {
-        const artist = artistsDB.find(a => a.codiceFiscale === artData.cf);
-        if (artist) {
-            selectedArtists.push({
-                ...artist,
-                ruolo: artData.ruolo,
-                compenso: artData.compenso
-            });
-        }
-    });
-
+    
+    // Reset date
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('dataInizio').value = today;
     document.getElementById('dataFine').value = '';
-
-    document.getElementById('descrizioneLocale').value = agibilita.locale.descrizione;
-    document.getElementById('indirizzo').value = agibilita.locale.indirizzo;
-    document.getElementById('citta').value = agibilita.locale.citta;
-    document.getElementById('cap').value = agibilita.locale.cap;
-    document.getElementById('provincia').value = agibilita.locale.provincia;
-
-    updateArtistsList();
-    document.getElementById('editListSection').style.display = 'none';
-    showSection('step1');
 }
 
 function cancelAgibilita(codice) {
-    if (confirm(`Sei sicuro di voler annullare l'agibilità ${codice}?`)) {
-        const index = agibilitaDB.findIndex(a => a.codice === codice);
-        if (index !== -1) {
-            agibilitaDB.splice(index, 1);
-            localStorage.setItem('agibilitaDB', JSON.stringify(agibilitaDB));
-
-            showExistingAgibilita();
-
-            const listDiv = document.getElementById('agibilitaList');
-            const msg = document.createElement('div');
-            msg.className = 'alert alert-success';
-            msg.style.marginBottom = '1rem';
-            msg.textContent = `Agibilità ${codice} annullata con successo`;
+    if (!confirm(`Sei sicuro di voler annullare l'agibilità ${codice}?`)) return;
+    
+    const index = agibilitaDB.findIndex(a => a.codice === codice);
+    if (index !== -1) {
+        agibilitaDB.splice(index, 1);
+        localStorage.setItem('agibilitaDB', JSON.stringify(agibilitaDB));
+        
+        showExistingAgibilita();
+        
+        // Mostra messaggio successo
+        const msg = document.createElement('div');
+        msg.className = 'alert alert-success';
+        msg.textContent = `Agibilità ${codice} annullata con successo`;
+        
+        const listDiv = document.getElementById('agibilitaList');
+        if (listDiv) {
             listDiv.insertBefore(msg, listDiv.firstChild);
-
             setTimeout(() => msg.remove(), 3000);
         }
     }
 }
 
-// EVENT LISTENERS GLOBALI
+// ==================== FUNZIONI UTILITÀ ====================
+function clearAllForms() {
+    selectedArtists = [];
+    updateArtistsList();
 
-window.onclick = function(event) {
+    // Reset date
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('dataInizio').value = today;
+    document.getElementById('dataFine').value = '';
+
+    // Reset locale
+    const localeFields = ['descrizioneLocale', 'indirizzo', 'citta', 'cap', 'provincia', 'noteLocale'];
+    localeFields.forEach(fieldId => {
+        const field = document.getElementById(fieldId);
+        if (field) field.value = '';
+    });
+
+    // Reset fatturazione
+    clearInvoiceFields();
+
+    // Reset UI
+    hideElement('editListSection');
+    hideElement('dateInfo');
+}
+
+function showElement(elementId) {
+    const element = document.getElementById(elementId);
+    if (element) element.style.display = 'block';
+}
+
+function hideElement(elementId) {
+    const element = document.getElementById(elementId);
+    if (element) element.style.display = 'none';
+}
+
+function handleModalClick(event) {
     const modal = document.getElementById('addArtistModal');
-
-    if (event.target == modal) {
+    if (event.target === modal) {
         closeModal();
     }
-
+    
+    // Chiudi dropdown venue se click fuori
     if (!event.target.matches('#descrizioneLocale')) {
-        document.getElementById('venueDropdown').style.display = 'none';
+        const dropdown = document.getElementById('venueDropdown');
+        if (dropdown) dropdown.style.display = 'none';
     }
 }
