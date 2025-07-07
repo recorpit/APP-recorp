@@ -457,18 +457,23 @@ function loadCAP(codiceIstat) {
         const selectedOption = document.querySelector(`#citta option[value="${codiceIstat}"]`);
         if (!selectedOption) {
             console.warn('❌ Opzione città non trovata per codice:', codiceIstat);
+            capSelect.innerHTML = '<option value="">Errore caricamento CAP</option>';
             return;
         }
         
         const comuneData = JSON.parse(selectedOption.getAttribute('data-comune'));
         console.log('- Dati comune selezionato:', comuneData);
         
-        // Cerca i CAP per questo comune
-        const capList = capData
-            .filter(item => item.codice_istat === codiceIstat)
-            .map(item => item.cap)
-            .filter((cap, index, self) => cap && self.indexOf(cap) === index)
-            .sort();
+        // Cerca i CAP per questo comune - DICHIARA capList PRIMA DI USARLA
+        let capList = [];
+        
+        if (capData && capData.length > 0) {
+            capList = capData
+                .filter(item => item.codice_istat === codiceIstat)
+                .map(item => item.cap)
+                .filter((cap, index, self) => cap && self.indexOf(cap) === index)
+                .sort();
+        }
         
         console.log(`✅ CAP trovati per ${codiceIstat}:`, capList);
         
@@ -478,13 +483,14 @@ function loadCAP(codiceIstat) {
             // Fallback: prova con il CAP del comune se disponibile
             if (comuneData.cap) {
                 console.log('📮 Uso CAP di fallback dal comune:', comuneData.cap);
-                capList.push(comuneData.cap);
+                capList = [comuneData.cap];
             } else {
                 capSelect.innerHTML = '<option value="">CAP non trovato</option>';
                 return;
             }
         }
         
+        // Popola la select con i CAP trovati
         capSelect.innerHTML = '<option value="">Seleziona CAP...</option>';
         
         // Se c'è un solo CAP, selezionalo automaticamente
