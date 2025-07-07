@@ -146,6 +146,42 @@ window.GIDatabase.getComuneByCap = function(cap) {
     );
 };
 
+window.GIDatabase.getComuneByCodiceBelfiore = function(codiceBelfiore) {
+    if (!window.GIDatabase.data.comuniValidita) {
+        console.warn('⚠️ File gi_comuni_validita non caricato');
+        return null;
+    }
+    
+    console.log('🔍 Cerco codice Belfiore:', codiceBelfiore);
+    
+    // Cerca nel file gi_comuni_validita
+    // Prima cerca tra i comuni attivi
+    let found = window.GIDatabase.data.comuniValidita.find(item => 
+        item.codice_belfiore === codiceBelfiore && 
+        (item.stato_validita === 'Attivo' || !item.data_fine_validita)
+    );
+    
+    // Se non trova tra gli attivi, cerca tra tutti (per date di nascita nel passato)
+    if (!found) {
+        found = window.GIDatabase.data.comuniValidita.find(item => 
+            item.codice_belfiore === codiceBelfiore
+        );
+    }
+    
+    if (found) {
+        console.log('✅ Trovato:', found);
+        return {
+            nome: found.denominazione_ita,
+            provincia: found.sigla_provincia,
+            codiceIstat: found.codice_istat,
+            statoValidita: found.stato_validita
+        };
+    }
+    
+    console.log('❌ Non trovato codice:', codiceBelfiore);
+    return null;
+};
+
 window.GIDatabase.getProvince = function() {
     if (!window.GIDatabase.data.province) return [];
     
