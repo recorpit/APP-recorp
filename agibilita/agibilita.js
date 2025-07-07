@@ -273,6 +273,37 @@ function closeModal() {
     }
 }
 
+// Rendi la funzione addArtistToList accessibile globalmente
+window.addArtistToList = function(artistId) {
+    const artist = artistsDB.find(a => a.id === parseInt(artistId));
+    if (!artist) {
+        console.error('Artista non trovato con ID:', artistId);
+        return;
+    }
+
+    // Controlla se già presente
+    const existingIndex = selectedArtists.findIndex(a => a.codiceFiscale === artist.codiceFiscale);
+    if (existingIndex !== -1) {
+        alert('Questo artista è già stato aggiunto!');
+        return;
+    }
+
+    // Determina tipo rapporto
+    const tipoRapporto = determineTipoRapporto(artist);
+
+    // Aggiungi artista
+    selectedArtists.push({
+        ...artist,
+        ruolo: artist.mansione || '',
+        compenso: 0,
+        matricolaEnpals: artist.matricolaENPALS || generateMatricolaEnpals(),
+        tipoRapporto: tipoRapporto
+    });
+
+    updateArtistsList();
+    closeModal();
+};
+
 function searchArtists() {
     const searchTerm = document.getElementById('artistSearch').value.toLowerCase();
     
@@ -301,23 +332,13 @@ function searchArtists() {
         `;
     } else {
         resultsDiv.innerHTML = results.map(artist => `
-            <div class="search-result" onclick="addArtistToList(${artist.id})">
+            <div class="search-result" onclick="window.addArtistToList(${artist.id})" style="cursor: pointer;">
                 <strong>${artist.nome} ${artist.cognome}${artist.nomeArte ? ' - ' + artist.nomeArte : ''}</strong><br>
                 <small>CF: ${artist.codiceFiscale} | ${artist.mansione || 'Non specificata'}</small>
             </div>
         `).join('');
     }
 }
-
-function addArtistToList(artistId) {
-    const artist = artistsDB.find(a => a.id === artistId);
-    if (!artist) return;
-
-    // Controlla se già presente
-    const existingIndex = selectedArtists.findIndex(a => a.codiceFiscale === artist.codiceFiscale);
-    if (existingIndex !== -1) {
-        alert('Questo artista è già stato aggiunto!');
-        return;
     }
 
     // Determina tipo rapporto
