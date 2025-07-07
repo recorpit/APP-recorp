@@ -421,7 +421,7 @@ function loadCitta(provincia) {
         // Popola il select
         comuni.forEach(comune => {
             const option = document.createElement('option');
-            option.value = comune.codice_istat || comune.codiceIstat;
+            option.value = comune.codice_istat || comune.codiceIstat || comune.codice;
             option.textContent = comune.denominazione_ita || comune.denominazione || comune.nome;
             option.setAttribute('data-comune', JSON.stringify(comune));
             cittaSelect.appendChild(option);
@@ -440,25 +440,44 @@ function loadCAP(codiceIstat) {
     capSelect.innerHTML = '<option value="">Caricamento CAP...</option>';
     
     try {
+        // DEBUG: Verifica stato database
+        console.log('🔍 DEBUG loadCAP:');
+        console.log('- Codice ISTAT cercato:', codiceIstat);
+        console.log('- Database caricato?', window.GIDatabase?.isLoaded());
+        
+        // USA gi_cap.json INVECE DI gi_comuni_cap.json!
+        const capData = window.GIDatabase?.getData()?.cap || [];
+        console.log('- File gi_cap.json contiene:', capData.length, 'elementi');
+        
+        // Verifica formato dati
+        if (capData.length > 0) {
+            console.log('- Struttura primo elemento:', capData[0]);
+        }
+        
         const selectedOption = document.querySelector(`#citta option[value="${codiceIstat}"]`);
         if (!selectedOption) {
-            console.warn('Opzione città non trovata');
+            console.warn('❌ Opzione città non trovata per codice:', codiceIstat);
             return;
         }
         
         const comuneData = JSON.parse(selectedOption.getAttribute('data-comune'));
-        const capData = window.GIDatabase?.getData()?.cap || [];
+        console.log('- Dati comune selezionato:', comuneData);
         
-        // Cerca i CAP per questo comune usando codice_istat
-const capList = comuniCapData
-    .filter(item => item.codice_istat === codiceIstat)
-    .map(item => item.cap)
+        // Cerca i CAP per questo comune
+        const capList = capData
+            .filter(item => item.codice_istat === codiceIstat)
+            .map(item => item.cap)
+            .filter((cap, index, self) => cap && self.indexOf(cap) === index)
+            .sort();
         
-        console.log(`🔍 CAP trovati per codice ${codiceIstat}:`, capList);
+        console.log(`✅ CAP trovati per ${codiceIstat}:`, capList);
         
         if (capList.length === 0) {
+            console.warn('❌ Nessun CAP trovato nel file gi_cap.json');
+            
             // Fallback: prova con il CAP del comune se disponibile
             if (comuneData.cap) {
+                console.log('📮 Uso CAP di fallback dal comune:', comuneData.cap);
                 capList.push(comuneData.cap);
             } else {
                 capSelect.innerHTML = '<option value="">CAP non trovato</option>';
@@ -486,7 +505,8 @@ const capList = comuniCapData
         }
         
     } catch (error) {
-        console.error('Errore caricamento CAP:', error);
+        console.error('❌ Errore in loadCAP:', error);
+        console.error('Stack trace:', error.stack);
         capSelect.innerHTML = '<option value="">Errore caricamento CAP</option>';
     }
 }
