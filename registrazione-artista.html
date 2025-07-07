@@ -58,6 +58,15 @@
                                        required 
                                        placeholder="RSSMRA85T10A562S">
                                 <small class="form-text">Il codice fiscale deve essere inserito per primo - la data di nascita verrà compilata automaticamente</small>
+                            <div class="form-group">
+                                <label class="form-label" for="nomeArte">
+                                    Nome d'Arte
+                                </label>
+                                <input type="text" 
+                                       class="form-control" 
+                                       id="nomeArte" 
+                                       name="nomeArte" 
+                                       placeholder="Opzionale">
                             </div>
                             
                             <div class="form-row">
@@ -100,6 +109,47 @@
                                 </div>
                                 
                                 <div class="form-group">
+                                    <label class="form-label" for="sesso">
+                                        Sesso
+                                    </label>
+                                    <select class="form-control" id="sesso" name="sesso">
+                                        <option value="">Seleziona...</option>
+                                        <option value="M">Maschio</option>
+                                        <option value="F">Femmina</option>
+                                    </select>
+                                    <small class="form-text">Estratto automaticamente dal codice fiscale</small>
+                                </div>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label" for="luogoNascita">
+                                        Luogo di Nascita
+                                    </label>
+                                    <input type="text" 
+                                           class="form-control" 
+                                           id="luogoNascita" 
+                                           name="luogoNascita" 
+                                           placeholder="Comune o stato estero">
+                                    <small class="form-text">Estratto automaticamente dal codice fiscale quando possibile</small>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label" for="provinciaNascita">
+                                        Provincia di Nascita
+                                    </label>
+                                    <input type="text" 
+                                           class="form-control uppercase-field" 
+                                           id="provinciaNascita" 
+                                           name="provinciaNascita" 
+                                           maxlength="2"
+                                           placeholder="XX">
+                                    <small class="form-text">Sigla provincia (se nato in Italia)</small>
+                                </div>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
                                     <label class="form-label" for="matricolaENPALS">
                                         Matricola ENPALS
                                     </label>
@@ -109,9 +159,7 @@
                                            name="matricolaENPALS" 
                                            placeholder="123456">
                                 </div>
-                            </div>
-                            
-                            <div class="form-row">
+                                
                                 <div class="form-group">
                                     <label class="form-label" for="nazionalita">
                                         Nazionalità <span class="required">*</span>
@@ -123,7 +171,9 @@
                                         <option value="EX">Extracomunitaria</option>
                                     </select>
                                 </div>
-                                
+                            </div>
+                            
+                            <div class="form-row">
                                 <div class="form-group">
                                     <label class="form-label" for="telefono">
                                         Telefono
@@ -134,9 +184,7 @@
                                            name="telefono" 
                                            placeholder="+39 333 1234567">
                                 </div>
-                            </div>
-                            
-                            <div class="form-row">
+                                
                                 <div class="form-group">
                                     <label class="form-label" for="email">
                                         Email
@@ -146,17 +194,6 @@
                                            id="email" 
                                            name="email" 
                                            placeholder="artista@esempio.it">
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label class="form-label" for="nomeArte">
-                                        Nome d'Arte
-                                    </label>
-                                    <input type="text" 
-                                           class="form-control" 
-                                           id="nomeArte" 
-                                           name="nomeArte" 
-                                           placeholder="Opzionale">
                                 </div>
                             </div>
                         </div>
@@ -246,17 +283,43 @@
                                 </div>
                                 
                                 <div class="form-group">
-                                    <label class="form-label" for="compensoGiornaliero">
-                                        Compenso Giornaliero Standard (€)
+                                    <label class="form-label" for="hasPartitaIva">
+                                        Ha Partita IVA? <span class="required">*</span>
                                     </label>
-                                    <input type="number" 
-                                           class="form-control" 
-                                           id="compensoGiornaliero" 
-                                           name="compensoGiornaliero" 
-                                           step="0.01" 
-                                           min="0" 
-                                           placeholder="100.00">
+                                    <select class="form-control" id="hasPartitaIva" name="hasPartitaIva" required>
+                                        <option value="">Seleziona...</option>
+                                        <option value="no">No</option>
+                                        <option value="si">Sì</option>
+                                    </select>
                                 </div>
+                            </div>
+                            
+                            <div class="form-group" id="partitaIvaGroup" style="display: none;">
+                                <label class="form-label" for="partitaIva">
+                                    Partita IVA <span class="required">*</span>
+                                </label>
+                                <input type="text" 
+                                       class="form-control" 
+                                       id="partitaIva" 
+                                       name="partitaIva" 
+                                       maxlength="11" 
+                                       pattern="[0-9]{11}" 
+                                       placeholder="12345678901">
+                                <small class="form-text">Inserire 11 cifre della partita IVA</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label" for="iban">
+                                    IBAN <span class="required">*</span>
+                                </label>
+                                <input type="text" 
+                                       class="form-control uppercase-field" 
+                                       id="iban" 
+                                       name="iban" 
+                                       maxlength="27" 
+                                       required
+                                       placeholder="IT60X0542811101000000123456">
+                                <small class="form-text">IBAN italiano (27 caratteri) per i pagamenti</small>
                             </div>
                             
                             <div class="form-group">
