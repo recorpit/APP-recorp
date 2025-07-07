@@ -304,22 +304,26 @@
                         </div>
                     </div>
                     <div class="form-row">
-                        <div class="form-group" style="position: relative;">
-                            <label class="form-label">Città *</label>
-                            <input type="text" class="form-control" id="citta" name="citta" required>
-                            <div class="location-helper-text">Inizia a digitare per cercare la città</div>
-                        </div>
-                        <div class="form-group" style="position: relative;">
-                            <label class="form-label">CAP *</label>
-                            <input type="text" class="form-control" id="cap" name="cap" 
-                                   pattern="[0-9]{5}" maxlength="5" required placeholder="00100">
-                            <div class="location-helper-text">Inserisci il CAP a 5 cifre</div>
-                        </div>
                         <div class="form-group">
                             <label class="form-label">Provincia *</label>
-                            <input type="text" class="form-control" id="provincia" name="provincia" 
-                                   maxlength="2" required placeholder="RM" style="text-transform: uppercase;">
-                            <div class="location-helper-text">Codice provincia (es: VI, VE, PD)</div>
+                            <select class="form-control" id="provincia" name="provincia" required onchange="loadCitiesForProvince()">
+                                <option value="">Seleziona provincia...</option>
+                            </select>
+                            <div class="location-helper-text">Seleziona prima la provincia</div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Città *</label>
+                            <select class="form-control" id="citta" name="citta" required onchange="loadCAPsForCity()" disabled>
+                                <option value="">Prima seleziona la provincia</option>
+                            </select>
+                            <div class="location-helper-text">Seleziona la città</div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">CAP *</label>
+                            <select class="form-control" id="cap" name="cap" required disabled>
+                                <option value="">Prima seleziona città</option>
+                            </select>
+                            <div class="location-helper-text">Seleziona il CAP</div>
                         </div>
                     </div>
                 </div>
@@ -486,179 +490,170 @@
             });
         });
 
-        // SETUP AUTOCOMPLETE LOCALITÀ
+        // SETUP LOCALITÀ CON MENU A TENDINA
         function setupLocationAutocomplete() {
-            const cittaInput = document.getElementById('citta');
-            const capInput = document.getElementById('cap');
-            const provinciaInput = document.getElementById('provincia');
-            
-            if (!cittaInput || !capInput || !provinciaInput) {
-                console.warn('⚠️ Campi località non trovati');
+            // Carica le province nel dropdown
+            loadProvinces();
+        }
+
+        // Carica tutte le province disponibili
+        function loadProvinces() {
+            if (!window.GIDatabase || !window.GIDatabase.isLoaded()) {
+                console.warn('Database GI non ancora caricato');
                 return;
             }
+
+            const provinciaSelect = document.getElementById('provincia');
+            if (!provinciaSelect) return;
+
+            // Ottieni tutte le province dal database
+            const allComuni = window.GIDatabase.getData().comuni || [];
+            const provinces = new Set();
             
-            // Autocomplete città
-            cittaInput.addEventListener('input', function() {
-                showCityAutocompleteGI(this.value);
-            });
-            
-            // Autocomplete CAP
-            capInput.addEventListener('input', function() {
-                if (this.value.length === 5) {
-                    autoFillFromCAPGI(this.value);
-                } else if (this.value.length === 0) {
-                    resetLocationValidation();
+            allComuni.forEach(comune => {
+                const provincia = comune.siglaProvincialeSedeMunicipio || comune.provincia;
+                if (provincia) {
+                    provinces.add(provincia);
                 }
             });
-            
-            // Validazione provincia
-            provinciaInput.addEventListener('change', function() {
-                validateProvinciaAndCAPGI();
+
+            // Ordina le province alfabeticamente
+            const sortedProvinces = Array.from(provinces).sort();
+
+            // Popola il dropdown
+            provinciaSelect.innerHTML = '<option value="">Seleziona provincia...</option>';
+            sortedProvinces.forEach(provincia => {
+                const option = document.createElement('option');
+                option.value = provincia;
+                option.textContent = `${provincia} - ${getProvinciaNameByCode(provincia)}`;
+                provinciaSelect.appendChild(option);
             });
+
+            console.log(`✅ Caricate ${sortedProvinces.length} province`);
         }
 
-        // Mostra autocomplete città con database GI
-        function showCityAutocompleteGI(searchTerm) {
-            if (searchTerm.length < 2) {
-                hideCityAutocomplete();
-                return;
-            }
+        // Carica le città per la provincia selezionata
+        function loadCitiesForProvince() {
+            const provinciaSelect = document.getElementById('provincia');
+            const cittaSelect = document.getElementById('citta');
+            const capSelect = document.getElementById('cap');
             
+            const selectedProvincia = provinciaSelect.value;
+            
+            // Reset campi successivi
+            cittaSelect.innerHTML = '<option value="">Seleziona città...</option>';
+            cittaSelect.disabled = !selectedProvincia;
+            
+            capSelect.innerHTML = '<option value="">Prima seleziona città</option>';
+            capSelect.disabled = true;
+
+            if (!selectedProvincia) return;
+
             if (!window.GIDatabase || !window.GIDatabase.isLoaded()) {
-                showLoadingInAutocomplete();
+                cittaSelect.innerHTML = '<option value="">Database non disponibile</option>';
                 return;
             }
+
+            // Ottieni tutti i comuni della provincia
+            const comuni = window.GIDatabase.getComuniByProvincia(selectedProvincia);
             
-            const results = window.GIDatabase.searchComuni(searchTerm);
-            
-            if (results.length === 0) {
-                showNoResultsInAutocomplete();
+            if (comuni.length === 0) {
+                cittaSelect.innerHTML = '<option value="">Nessuna città trovata</option>';
                 return;
             }
-            
-            let dropdown = document.getElementById('cityAutocompleteDropdown');
-            if (!dropdown) {
-                dropdown = createAutocompleteDropdown('cityAutocompleteDropdown', 'citta');
-            }
-            
-            dropdown.innerHTML = results.map(comune => {
-                const highlighted = highlightSearchTerm(comune.nome, searchTerm);
-                return `
-                    <div class="autocomplete-item" onclick="selectCityGI('${comune.nome}', '${comune.cap || ''}', '${comune.provincia}', '${comune.codice}')">
-                        <strong>${highlighted}</strong>
-                        <span class="province-badge">${comune.provincia}</span><br>
-                        <small>CAP: ${comune.cap || 'N/D'} - ${getProvinciaNameByCode(comune.provincia)}</small>
-                    </div>
-                `;
-            }).join('');
-            
-            dropdown.style.display = 'block';
+
+            // Ordina i comuni alfabeticamente
+            const sortedComuni = comuni.sort((a, b) => a.nome.localeCompare(b.nome));
+
+            // Popola il dropdown città
+            sortedComuni.forEach(comune => {
+                const option = document.createElement('option');
+                option.value = comune.nome;
+                option.dataset.codice = comune.codice;
+                option.dataset.cap = comune.cap;
+                option.textContent = comune.nome;
+                cittaSelect.appendChild(option);
+            });
+
+            cittaSelect.disabled = false;
+            console.log(`✅ Caricate ${sortedComuni.length} città per ${selectedProvincia}`);
         }
 
-        // Auto-riempimento da CAP
-        function autoFillFromCAPGI(cap) {
+        // Carica i CAP per la città selezionata
+        function loadCAPsForCity() {
+            const cittaSelect = document.getElementById('citta');
+            const capSelect = document.getElementById('cap');
+            
+            const selectedCitta = cittaSelect.value;
+            const selectedOption = cittaSelect.options[cittaSelect.selectedIndex];
+            
+            // Reset CAP
+            capSelect.innerHTML = '<option value="">Seleziona CAP...</option>';
+            capSelect.disabled = !selectedCitta;
+
+            if (!selectedCitta) return;
+
             if (!window.GIDatabase || !window.GIDatabase.isLoaded()) {
-                showCAPError('Database non caricato');
+                capSelect.innerHTML = '<option value="">Database non disponibile</option>';
                 return;
             }
-            
-            const results = window.GIDatabase.searchByCAP(cap);
-            
-            if (results.length === 0) {
-                showCAPError('CAP non trovato');
+
+            // Ottieni il codice comune dalla option selezionata
+            const codiceComune = selectedOption.dataset.codice;
+            if (!codiceComune) return;
+
+            // Cerca tutti i CAP per questo comune
+            const capsForComune = window.GIDatabase.getData().comuniCap?.filter(
+                cap => cap.comune === codiceComune
+            ) || [];
+
+            if (capsForComune.length === 0) {
+                capSelect.innerHTML = '<option value="">Nessun CAP trovato</option>';
                 return;
             }
-            
-            if (results.length === 1) {
-                const result = results[0];
-                const comune = window.GIDatabase.getComuneByCodice(result.comune);
+
+            if (capsForComune.length === 1) {
+                // Un solo CAP, selezionalo automaticamente
+                const cap = capsForComune[0].cap;
+                capSelect.innerHTML = `<option value="${cap}" selected>${cap}</option>`;
                 
-                if (comune) {
-                    document.getElementById('citta').value = comune.nome;
-                    document.getElementById('provincia').value = comune.provincia;
-                    document.getElementById('citta').dataset.codiceIstat = comune.codice;
-                    
-                    validateLocationDataGI();
-                }
+                // Salva il codice ISTAT
+                document.getElementById('citta').dataset.codiceIstat = codiceComune;
+                
+                // Valida automaticamente
+                validateLocationDataGI();
             } else {
-                showCAPMultipleResultsGI(results);
+                // Più CAP, mostra tutti
+                capsForComune.forEach(capData => {
+                    const option = document.createElement('option');
+                    option.value = capData.cap;
+                    option.textContent = capData.cap;
+                    capSelect.appendChild(option);
+                });
             }
+
+            capSelect.disabled = false;
+            
+            // Salva il codice ISTAT quando si seleziona la città
+            document.getElementById('citta').dataset.codiceIstat = codiceComune;
+            
+            console.log(`✅ Caricati ${capsForComune.length} CAP per ${selectedCitta}`);
         }
 
-        // Mostra risultati multipli per CAP
-        function showCAPMultipleResultsGI(results) {
-            let dropdown = document.getElementById('capMultipleDropdown');
-            if (!dropdown) {
-                dropdown = createAutocompleteDropdown('capMultipleDropdown', 'cap');
-            }
-            
-            dropdown.innerHTML = `
-                <div class="autocomplete-header">
-                    Più comuni con questo CAP:
-                </div>
-                ${results.map(result => {
-                    const comune = window.GIDatabase.getComuneByCodice(result.comune);
-                    if (!comune) return '';
-                    
-                    return `
-                        <div class="autocomplete-item" onclick="selectCityGI('${comune.nome}', '${result.cap}', '${comune.provincia}', '${comune.codice}')">
-                            <strong>${comune.nome}</strong>
-                            <span class="province-badge">${comune.provincia}</span><br>
-                            <small>${getProvinciaNameByCode(comune.provincia)}</small>
-                        </div>
-                    `;
-                }).join('')}
-            `;
-            
-            dropdown.style.display = 'block';
-            
-            setTimeout(() => {
-                if (dropdown) dropdown.style.display = 'none';
-            }, 15000);
-        }
-
-        // Seleziona città dall'autocomplete
-        function selectCityGI(nome, cap, provincia, codiceIstat) {
-            document.getElementById('citta').value = nome;
-            document.getElementById('cap').value = cap;
-            document.getElementById('provincia').value = provincia;
-            
-            document.getElementById('citta').dataset.codiceIstat = codiceIstat;
-            
-            hideCityAutocomplete();
-            hideMultipleDropdowns();
-            
-            validateLocationDataGI();
-        }
-
-        // Valida dati località
+        // Valida dati località (versione semplificata per dropdown)
         function validateLocationDataGI() {
+            const provincia = document.getElementById('provincia').value;
             const citta = document.getElementById('citta').value;
             const cap = document.getElementById('cap').value;
-            const provincia = document.getElementById('provincia').value;
             
-            if (!citta || !cap || !provincia) return;
+            if (!provincia || !citta || !cap) return;
             
-            if (!window.GIDatabase || !window.GIDatabase.isLoaded()) {
-                return;
-            }
+            // Se arriviamo qui dai dropdown, i dati sono sempre validi
+            setFieldValidation('provincia', true);
+            setFieldValidation('citta', true);
+            setFieldValidation('cap', true);
             
-            const isValid = window.GIDatabase.validateCAP(cap, provincia);
-            
-            if (isValid) {
-                setFieldValidation('citta', true);
-                setFieldValidation('cap', true);
-                setFieldValidation('provincia', true);
-                
-                showValidationMessage('✅ Dati località validati', 'success');
-            } else {
-                setFieldValidation('cap', false);
-                showValidationMessage('⚠️ CAP e provincia potrebbero non essere coerenti', 'warning');
-            }
-        }
-
-        function validateProvinciaAndCAPGI() {
-            validateLocationDataGI();
+            showValidationMessage('✅ Dati località validati', 'success');
         }
 
         // Ottieni nome provincia da codice
@@ -671,67 +666,7 @@
             return provincia ? provincia.nome : codice;
         }
 
-        // FUNZIONI UTILITÀ UI
-        function createAutocompleteDropdown(id, parentInputId) {
-            const dropdown = document.createElement('div');
-            dropdown.id = id;
-            dropdown.className = 'autocomplete-dropdown';
-            
-            const parentInput = document.getElementById(parentInputId);
-            parentInput.parentNode.style.position = 'relative';
-            parentInput.parentNode.appendChild(dropdown);
-            
-            return dropdown;
-        }
-
-        function highlightSearchTerm(text, searchTerm) {
-            if (!searchTerm) return text;
-            
-            const regex = new RegExp(`(${escapeRegExp(searchTerm)})`, 'gi');
-            return text.replace(regex, '<span class="highlight">$1</span>');
-        }
-
-        function escapeRegExp(string) {
-            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        }
-
-        function showLoadingInAutocomplete() {
-            let dropdown = document.getElementById('cityAutocompleteDropdown');
-            if (!dropdown) {
-                dropdown = createAutocompleteDropdown('cityAutocompleteDropdown', 'citta');
-            }
-            
-            dropdown.innerHTML = '<div class="autocomplete-loading">Caricamento database...</div>';
-            dropdown.style.display = 'block';
-        }
-
-        function showNoResultsInAutocomplete() {
-            let dropdown = document.getElementById('cityAutocompleteDropdown');
-            if (!dropdown) {
-                dropdown = createAutocompleteDropdown('cityAutocompleteDropdown', 'citta');
-            }
-            
-            dropdown.innerHTML = '<div class="autocomplete-no-results">Nessun comune trovato</div>';
-            dropdown.style.display = 'block';
-        }
-
-        function hideCityAutocomplete() {
-            const dropdown = document.getElementById('cityAutocompleteDropdown');
-            if (dropdown) {
-                dropdown.style.display = 'none';
-            }
-        }
-
-        function hideMultipleDropdowns() {
-            const dropdowns = ['capMultipleDropdown'];
-            dropdowns.forEach(id => {
-                const dropdown = document.getElementById(id);
-                if (dropdown) {
-                    dropdown.style.display = 'none';
-                }
-            });
-        }
-
+        // Utility per validazione campi
         function setFieldValidation(fieldId, isValid) {
             const field = document.getElementById(fieldId);
             if (!field) return;
@@ -748,30 +683,10 @@
             messageDiv.className = `alert alert-${type} validation-message`;
             messageDiv.textContent = message;
             
-            const provinciaInput = document.getElementById('provincia');
-            provinciaInput.parentNode.appendChild(messageDiv);
+            const capInput = document.getElementById('cap');
+            capInput.parentNode.appendChild(messageDiv);
             
             setTimeout(() => messageDiv.remove(), 3000);
-        }
-
-        function showCAPError(message) {
-            const capInput = document.getElementById('cap');
-            setFieldValidation('cap', false);
-            
-            showValidationMessage(`❌ ${message}`, 'error');
-        }
-
-        function resetLocationValidation() {
-            ['citta', 'cap', 'provincia'].forEach(id => {
-                const field = document.getElementById(id);
-                if (field) {
-                    field.classList.remove('valid', 'invalid');
-                    field.style.borderColor = '';
-                }
-            });
-            
-            const messages = document.querySelectorAll('.validation-message');
-            messages.forEach(msg => msg.remove());
         }
 
         // VALIDAZIONI ORIGINALI
@@ -890,9 +805,6 @@
                 return true;
             }
         }
-
-        // SUBMIT FORM
-        function submitForm(event) {
             event.preventDefault();
             
             if (!validateAge() || !validateCF() || !validateIBAN() || !checkDateCFMatch()) {
@@ -910,7 +822,7 @@
                 nomeArte: formData.get('nomeArte'),
                 via: formData.get('via'),
                 citta: formData.get('citta'),
-                provincia: formData.get('provincia').toUpperCase(),
+                provincia: formData.get('provincia'),
                 cap: formData.get('cap'),
                 piva: formData.get('piva') === 'si',
                 mansione: formData.get('mansione'),
