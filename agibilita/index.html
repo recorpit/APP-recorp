@@ -526,20 +526,26 @@
                     <input type="text" class="form-control" id="indirizzo" required>
                 </div>
                 <div class="form-row">
-                    <div class="form-group" style="position: relative;">
-                        <label class="form-label">Città *</label>
-                        <input type="text" class="form-control" id="citta" required>
-                        <div class="location-helper-text">Inizia a digitare per cercare la città</div>
-                    </div>
-                    <div class="form-group" style="position: relative;">
-                        <label class="form-label">CAP *</label>
-                        <input type="text" class="form-control" id="cap" pattern="[0-9]{5}" maxlength="5" required>
-                        <div class="location-helper-text">Inserisci il CAP a 5 cifre</div>
-                    </div>
                     <div class="form-group">
                         <label class="form-label">Provincia *</label>
-                        <input type="text" class="form-control" id="provincia" maxlength="2" required style="text-transform: uppercase;">
-                        <div class="location-helper-text">Codice provincia (es: VI, VE, PD)</div>
+                        <select class="form-control" id="provincia" required onchange="loadCitiesForProvince()">
+                            <option value="">Seleziona provincia...</option>
+                        </select>
+                        <div class="location-helper-text">Seleziona prima la provincia</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Città *</label>
+                        <select class="form-control" id="citta" required onchange="loadCAPsForCity()" disabled>
+                            <option value="">Prima seleziona la provincia</option>
+                        </select>
+                        <div class="location-helper-text">Seleziona la città</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">CAP *</label>
+                        <select class="form-control" id="cap" required disabled>
+                            <option value="">Prima seleziona città</option>
+                        </select>
+                        <div class="location-helper-text">Seleziona il CAP</div>
                     </div>
                 </div>
                 <div class="form-group">
@@ -632,7 +638,7 @@
     </div>
 
     <!-- Scripts -->
-    <script src="comuni-loader.js"></script>
+    <script src="../comuni-loader.js"></script>
     <script src="agibilita.js"></script>
 </body>
 </html>
