@@ -1,4 +1,4 @@
-// agibilita.js - Sistema Gestione Agibilità RECORP con Database GI
+// agibilita.js - Sistema Gestione Agibilità RECORP
 
 // ==================== VARIABILI GLOBALI ====================
 let selectedArtists = [];
@@ -13,178 +13,57 @@ let agibilitaDB = [];
 let venuesDB = [];
 let invoiceDB = [];
 
-// ==================== INIZIALIZZAZIONE DATABASE ====================
-function initializeDatabase() {
+// ==================== INIZIALIZZAZIONE ====================
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Inizializzazione sistema agibilità...');
+    
+    // Carica database
     try {
         artistsDB = JSON.parse(localStorage.getItem('artistsDB')) || [];
         agibilitaDB = JSON.parse(localStorage.getItem('agibilitaDB')) || [];
         venuesDB = JSON.parse(localStorage.getItem('venuesDB')) || [];
         invoiceDB = JSON.parse(localStorage.getItem('invoiceDB')) || [];
+        console.log('Database caricati:', {
+            artisti: artistsDB.length,
+            agibilita: agibilitaDB.length,
+            venues: venuesDB.length
+        });
     } catch (error) {
         console.error('Errore caricamento database:', error);
-        artistsDB = [];
-        agibilitaDB = [];
-        venuesDB = [];
-        invoiceDB = [];
     }
-}
 
-// ==================== INIZIALIZZAZIONE PAGINA ====================
-document.addEventListener('DOMContentLoaded', function() {
-    initializeDatabase();
-    initializeGIDatabase();
-    initializeDateFields();
-    checkSessionData();
-    setupEventListeners();
-});
-
-function initializeGIDatabase() {
+    // Inizializza Database GI
     if (typeof window.GIDatabase !== 'undefined') {
         window.GIDatabase.init().then(() => {
             console.log('✅ Database GI inizializzato');
             setupLocationDropdowns();
         }).catch(error => {
             console.error('❌ Errore inizializzazione Database GI:', error);
-            setupLocationDropdowns();
         });
-    } else {
-        console.warn('⚠️ Database GI non disponibile');
-        setTimeout(setupLocationDropdowns, 1000);
     }
-}
 
-function initializeDateFields() {
+    // Inizializza date
     const today = new Date().toISOString().split('T')[0];
     const dataInizio = document.getElementById('dataInizio');
     if (dataInizio) {
         dataInizio.value = today;
         dataInizio.min = today;
     }
-    
     const dataFine = document.getElementById('dataFine');
     if (dataFine) {
         dataFine.min = today;
     }
-}
 
-function checkSessionData() {
-    // Check se viene dalla ricerca artista
-    const selectedArtistId = sessionStorage.getItem('selectedArtistId');
-    if (selectedArtistId) {
-        handleArtistFromSearch(selectedArtistId);
-    }
+    // Setup event listeners
+    setupEventListeners();
+});
 
-    // Check se viene dalla registrazione
-    const newArtistId = sessionStorage.getItem('newArtistId');
-    if (newArtistId) {
-        handleNewArtistRegistration(newArtistId);
-    }
-
-    // Check se viene dalla chat
-    const quickAgibilita = sessionStorage.getItem('quickAgibilita');
-    if (quickAgibilita) {
-        handleQuickAgibilita(quickAgibilita);
-    }
-}
-
-function setupEventListeners() {
-    // Date validation
-    const dataInizio = document.getElementById('dataInizio');
-    const dataFine = document.getElementById('dataFine');
-    if (dataInizio) dataInizio.addEventListener('change', validateDates);
-    if (dataFine) dataFine.addEventListener('change', validateDates);
-
-    // Venue search
-    const descrizioneLocale = document.getElementById('descrizioneLocale');
-    if (descrizioneLocale) {
-        descrizioneLocale.addEventListener('input', searchVenue);
-    }
-
-    // Location dropdowns
-    const provincia = document.getElementById('provincia');
-    if (provincia) provincia.addEventListener('change', loadCitiesForProvince);
-    
-    const citta = document.getElementById('citta');
-    if (citta) citta.addEventListener('change', loadCAPsForCity);
-
-    // Modal close on outside click
-    window.addEventListener('click', handleModalClick);
-}
-
-// ==================== GESTIONE SESSIONE ====================
-function handleArtistFromSearch(artistId) {
-    sessionStorage.removeItem('selectedArtistId');
-    startNewAgibilita();
-    
-    setTimeout(() => {
-        const artist = artistsDB.find(a => a.id === parseInt(artistId));
-        if (artist) {
-            addArtistToList(parseInt(artistId));
-        }
-    }, 100);
-}
-
-function handleNewArtistRegistration(newArtistId) {
-    sessionStorage.removeItem('newArtistId');
-    const newArtist = artistsDB.find(a => a.id == newArtistId);
-    
-    if (newArtist) {
-        startNewAgibilita();
-        setTimeout(() => {
-            showAddArtistModal();
-            addArtistToList(parseInt(newArtistId));
-        }, 500);
-    }
-}
-
-function handleQuickAgibilita(quickAgibilitaData) {
-    sessionStorage.removeItem('quickAgibilita');
-    const data = JSON.parse(quickAgibilitaData);
-    
-    startNewAgibilita();
-    
-    setTimeout(() => {
-        // Aggiungi artisti
-        data.artisti.forEach(artistData => {
-            const artist = artistsDB.find(a => a.codiceFiscale === artistData.cf);
-            if (artist) {
-                const tipoRapporto = determineTipoRapporto(artist);
-                selectedArtists.push({
-                    ...artist,
-                    ruolo: artistData.ruolo,
-                    compenso: artistData.compenso,
-                    tipoRapporto: tipoRapporto,
-                    matricolaEnpals: artist.matricolaENPALS || generateMatricolaEnpals()
-                });
-            }
-        });
-        
-        updateArtistsList();
-        
-        // Compila campi
-        if (data.dataInizio) document.getElementById('dataInizio').value = data.dataInizio;
-        if (data.dataFine) document.getElementById('dataFine').value = data.dataFine;
-        
-        if (data.locale) {
-            document.getElementById('descrizioneLocale').value = data.locale.nome;
-            document.getElementById('indirizzo').value = data.locale.indirizzo;
-            document.getElementById('citta').value = data.locale.citta;
-            document.getElementById('cap').value = data.locale.cap;
-            document.getElementById('provincia').value = data.locale.provincia;
-        }
-        
-        if (selectedArtists.length > 0) {
-            setTimeout(() => goToStep2(), 500);
-        }
-    }, 200);
-}
-
-// ==================== NAVIGAZIONE ====================
+// ==================== FUNZIONI NAVIGAZIONE ====================
 function showSection(sectionId) {
+    console.log('Showing section:', sectionId);
     document.querySelectorAll('.step-section').forEach(section => {
         section.classList.remove('active');
     });
-    
     const targetSection = document.getElementById(sectionId);
     if (targetSection) {
         targetSection.classList.add('active');
@@ -192,6 +71,7 @@ function showSection(sectionId) {
 }
 
 function startNewAgibilita() {
+    console.log('Starting new agibilità');
     agibilitaData.isModifica = false;
     agibilitaData.codiceAgibilita = null;
     selectedArtists = [];
@@ -200,6 +80,7 @@ function startNewAgibilita() {
 }
 
 function showEditAgibilita() {
+    console.log('Showing edit agibilità');
     const editListSection = document.getElementById('editListSection');
     if (editListSection) {
         editListSection.style.display = 'block';
@@ -236,33 +117,21 @@ function goToStep3() {
         return;
     }
 
-    // Salva venue se nuovo
     saveVenueIfNew();
-    
-    // Salva dati fatturazione
     saveInvoiceData();
-    
-    // Aggiorna riepiloghi
     updateSummaries();
     generateXMLPreview();
-    
     showSection('step3');
 }
 
 // ==================== GESTIONE ARTISTI ====================
 function showAddArtistModal() {
+    console.log('Opening artist modal');
     const modal = document.getElementById('addArtistModal');
     if (modal) {
         modal.style.display = 'block';
-        const searchInput = document.getElementById('artistSearch');
-        if (searchInput) {
-            searchInput.value = '';
-            searchInput.focus();
-        }
-        const searchResults = document.getElementById('searchResults');
-        if (searchResults) {
-            searchResults.innerHTML = '';
-        }
+        document.getElementById('artistSearch').value = '';
+        document.getElementById('searchResults').innerHTML = '';
     }
 }
 
@@ -272,37 +141,6 @@ function closeModal() {
         modal.style.display = 'none';
     }
 }
-
-// Rendi la funzione addArtistToList accessibile globalmente
-window.addArtistToList = function(artistId) {
-    const artist = artistsDB.find(a => a.id === parseInt(artistId));
-    if (!artist) {
-        console.error('Artista non trovato con ID:', artistId);
-        return;
-    }
-
-    // Controlla se già presente
-    const existingIndex = selectedArtists.findIndex(a => a.codiceFiscale === artist.codiceFiscale);
-    if (existingIndex !== -1) {
-        alert('Questo artista è già stato aggiunto!');
-        return;
-    }
-
-    // Determina tipo rapporto
-    const tipoRapporto = determineTipoRapporto(artist);
-
-    // Aggiungi artista
-    selectedArtists.push({
-        ...artist,
-        ruolo: artist.mansione || '',
-        compenso: 0,
-        matricolaEnpals: artist.matricolaENPALS || generateMatricolaEnpals(),
-        tipoRapporto: tipoRapporto
-    });
-
-    updateArtistsList();
-    closeModal();
-};
 
 function searchArtists() {
     const searchTerm = document.getElementById('artistSearch').value.toLowerCase();
@@ -332,19 +170,30 @@ function searchArtists() {
         `;
     } else {
         resultsDiv.innerHTML = results.map(artist => `
-            <div class="search-result" onclick="window.addArtistToList(${artist.id})" style="cursor: pointer;">
+            <div class="search-result" onclick="addArtistToList(${artist.id})" style="cursor: pointer;">
                 <strong>${artist.nome} ${artist.cognome}${artist.nomeArte ? ' - ' + artist.nomeArte : ''}</strong><br>
                 <small>CF: ${artist.codiceFiscale} | ${artist.mansione || 'Non specificata'}</small>
             </div>
         `).join('');
     }
 }
+
+function addArtistToList(artistId) {
+    console.log('Adding artist:', artistId);
+    const artist = artistsDB.find(a => a.id === parseInt(artistId));
+    if (!artist) {
+        console.error('Artist not found');
+        return;
     }
 
-    // Determina tipo rapporto
+    const existingIndex = selectedArtists.findIndex(a => a.codiceFiscale === artist.codiceFiscale);
+    if (existingIndex !== -1) {
+        alert('Questo artista è già stato aggiunto!');
+        return;
+    }
+
     const tipoRapporto = determineTipoRapporto(artist);
 
-    // Aggiungi artista
     selectedArtists.push({
         ...artist,
         ruolo: artist.mansione || '',
@@ -373,8 +222,8 @@ function updateArtistsList() {
 
     if (selectedArtists.length === 0) {
         listDiv.innerHTML = '<p class="no-artists-message">Nessun artista selezionato</p>';
-        hideElement('summaryBox');
-        hideElement('btnNext1');
+        document.getElementById('summaryBox').style.display = 'none';
+        document.getElementById('btnNext1').style.display = 'none';
     } else {
         listDiv.innerHTML = selectedArtists.map((artist, index) => `
             <div class="artist-item">
@@ -387,7 +236,12 @@ function updateArtistsList() {
                 <div class="artist-role-compensation">
                     <select class="form-control" required onchange="updateArtistRole(${index}, this.value)">
                         <option value="">Seleziona ruolo...</option>
-                        ${getRuoliOptions(artist.ruolo)}
+                        <option value="DJ" ${artist.ruolo === 'DJ' ? 'selected' : ''}>DJ (032)</option>
+                        <option value="Vocalist" ${artist.ruolo === 'Vocalist' ? 'selected' : ''}>Vocalist (031)</option>
+                        <option value="Ballerino/a" ${artist.ruolo === 'Ballerino/a' ? 'selected' : ''}>Ballerino/a (092)</option>
+                        <option value="Tecnico" ${artist.ruolo === 'Tecnico' ? 'selected' : ''}>Tecnico (117)</option>
+                        <option value="Fotografo" ${artist.ruolo === 'Fotografo' ? 'selected' : ''}>Fotografo (126)</option>
+                        <option value="Truccatore" ${artist.ruolo === 'Truccatore' ? 'selected' : ''}>Truccatore (141)</option>
                     </select>
                     <input type="number" class="form-control compensation-input" 
                            placeholder="Compenso €" 
@@ -400,25 +254,10 @@ function updateArtistsList() {
             </div>
         `).join('');
 
-        showElement('summaryBox');
+        document.getElementById('summaryBox').style.display = 'block';
         updateTotalCompensation();
         checkCanProceed();
     }
-}
-
-function getRuoliOptions(selectedRuolo) {
-    const ruoli = [
-        { value: 'DJ', label: 'DJ (032)' },
-        { value: 'Vocalist', label: 'Vocalist (031)' },
-        { value: 'Ballerino/a', label: 'Ballerino/a (092)' },
-        { value: 'Tecnico', label: 'Tecnico (117)' },
-        { value: 'Fotografo', label: 'Fotografo (126)' },
-        { value: 'Truccatore', label: 'Truccatore (141)' }
-    ];
-    
-    return ruoli.map(ruolo => 
-        `<option value="${ruolo.value}" ${selectedRuolo === ruolo.value ? 'selected' : ''}>${ruolo.label}</option>`
-    ).join('');
 }
 
 function getTipoRapportoLabel(tipo) {
@@ -453,22 +292,15 @@ function removeArtist(index) {
 
 function updateTotalCompensation() {
     const total = selectedArtists.reduce((sum, artist) => sum + (artist.compenso || 0), 0);
-    
-    const totalArtistsEl = document.getElementById('totalArtists');
-    if (totalArtistsEl) totalArtistsEl.textContent = selectedArtists.length;
-    
-    const totalCompensationEl = document.getElementById('totalCompensation');
-    if (totalCompensationEl) totalCompensationEl.textContent = total.toFixed(2);
+    document.getElementById('totalArtists').textContent = selectedArtists.length;
+    document.getElementById('totalCompensation').textContent = total.toFixed(2);
 }
 
 function checkCanProceed() {
     const canProceed = selectedArtists.length > 0 && 
         selectedArtists.every(a => a.ruolo && a.compenso > 0);
     
-    const btnNext = document.getElementById('btnNext1');
-    if (btnNext) {
-        btnNext.style.display = canProceed ? 'inline-block' : 'none';
-    }
+    document.getElementById('btnNext1').style.display = canProceed ? 'inline-block' : 'none';
 }
 
 function goToRegistration() {
@@ -503,23 +335,13 @@ function validateDates() {
 
 // ==================== GESTIONE LOCALITÀ ====================
 function setupLocationDropdowns() {
-    if (window.GIDatabase && window.GIDatabase.isLoaded()) {
-        loadProvinces();
-    } else {
-        setTimeout(() => {
-            if (window.GIDatabase && window.GIDatabase.isLoaded()) {
-                loadProvinces();
-            } else {
-                console.warn('Database GI non pronto');
-                loadFallbackProvinces();
-            }
-        }, 1000);
-    }
+    loadProvinces();
 }
 
 function loadProvinces() {
     if (!window.GIDatabase || !window.GIDatabase.isLoaded()) {
         console.warn('Database GI non ancora caricato');
+        setTimeout(loadProvinces, 1000);
         return;
     }
 
@@ -538,8 +360,8 @@ function loadProvinces() {
         provinciaSelect.innerHTML = '<option value="">Seleziona provincia...</option>';
         
         sortedProvinces.forEach(provincia => {
-            const sigla = provincia.sigla_provincia || provincia.sigla || provincia.codice;
-            const nome = provincia.denominazione_provincia || provincia.denominazione || provincia.nome;
+            const sigla = provincia.sigla_provincia || provincia.sigla;
+            const nome = provincia.denominazione_provincia || provincia.denominazione;
             
             if (sigla) {
                 const option = document.createElement('option');
@@ -550,33 +372,7 @@ function loadProvinces() {
         });
 
         console.log(`✅ Caricate ${sortedProvinces.length} province`);
-    } else {
-        loadProvincesFromComuni();
     }
-}
-
-function loadProvincesFromComuni() {
-    const allComuni = window.GIDatabase.getData().comuni || [];
-    const provinces = new Map();
-    
-    allComuni.forEach(comune => {
-        const provincia = comune.sigla_provincia || comune.provincia;
-        if (provincia && provincia.length === 2 && !provinces.has(provincia)) {
-            provinces.set(provincia, provincia);
-        }
-    });
-
-    const sortedProvinces = Array.from(provinces.keys()).sort();
-    const provinciaSelect = document.getElementById('provincia');
-    
-    provinciaSelect.innerHTML = '<option value="">Seleziona provincia...</option>';
-    
-    sortedProvinces.forEach(provincia => {
-        const option = document.createElement('option');
-        option.value = provincia;
-        option.textContent = provincia;
-        provinciaSelect.appendChild(option);
-    });
 }
 
 function loadCitiesForProvince() {
@@ -586,19 +382,13 @@ function loadCitiesForProvince() {
     
     const selectedProvincia = provinciaSelect.value;
     
-    // Reset campi
     cittaSelect.innerHTML = '<option value="">Seleziona città...</option>';
     cittaSelect.disabled = !selectedProvincia;
     
     capSelect.innerHTML = '<option value="">Prima seleziona città</option>';
     capSelect.disabled = true;
 
-    if (!selectedProvincia) return;
-
-    if (!window.GIDatabase || !window.GIDatabase.isLoaded()) {
-        cittaSelect.innerHTML = '<option value="">Database non disponibile</option>';
-        return;
-    }
+    if (!selectedProvincia || !window.GIDatabase) return;
 
     const comuni = window.GIDatabase.getComuniByProvincia(selectedProvincia);
     
@@ -615,7 +405,7 @@ function loadCitiesForProvince() {
 
     sortedComuni.forEach(comune => {
         const option = document.createElement('option');
-        const nomeComune = comune.denominazione_ita || comune.denominazione || comune.nome;
+        const nomeComune = comune.denominazione_ita || comune.denominazione;
         const codiceIstat = comune.codice_istat || comune.codiceIstat;
         
         option.value = nomeComune;
@@ -638,31 +428,22 @@ function loadCAPsForCity() {
     capSelect.disabled = false;
 
     const codiceComune = selectedOption.dataset.codice;
-    if (!codiceComune) return;
+    if (!codiceComune || !window.GIDatabase) return;
 
-    if (window.GIDatabase && window.GIDatabase.isLoaded()) {
-        const caps = window.GIDatabase.getCapByComune(codiceComune);
-        
-        if (caps && caps.length > 0) {
-            if (caps.length === 1) {
-                capSelect.innerHTML = `<option value="${caps[0]}" selected>${caps[0]}</option>`;
-            } else {
-                caps.forEach(cap => {
-                    const option = document.createElement('option');
-                    option.value = cap;
-                    option.textContent = cap;
-                    capSelect.appendChild(option);
-                });
-            }
+    const caps = window.GIDatabase.getCapByComune(codiceComune);
+    
+    if (caps && caps.length > 0) {
+        if (caps.length === 1) {
+            capSelect.innerHTML = `<option value="${caps[0]}" selected>${caps[0]}</option>`;
         } else {
-            capSelect.innerHTML = '<option value="">Nessun CAP trovato</option>';
+            caps.forEach(cap => {
+                const option = document.createElement('option');
+                option.value = cap;
+                option.textContent = cap;
+                capSelect.appendChild(option);
+            });
         }
     }
-}
-
-function loadFallbackProvinces() {
-    // Implementazione fallback se necessaria
-    console.warn('Usando province di fallback');
 }
 
 // ==================== GESTIONE VENUE ====================
@@ -682,7 +463,7 @@ function searchVenue() {
 
     if (matches.length > 0) {
         dropdown.innerHTML = matches.map(venue => `
-            <div class="autocomplete-item" onclick="selectVenue(${venue.id})">
+            <div class="autocomplete-item" onclick="selectVenue('${venue.nome}', '${venue.indirizzo}', '${venue.citta}', '${venue.cap}', '${venue.provincia}')">
                 <strong>${venue.nome}</strong><br>
                 <small>${venue.citta} - ${venue.provincia}</small>
             </div>
@@ -693,19 +474,15 @@ function searchVenue() {
     }
 }
 
-function selectVenue(venueId) {
-    const venue = venuesDB.find(v => v.id === venueId);
-    if (!venue) return;
-    
-    document.getElementById('descrizioneLocale').value = venue.nome;
-    document.getElementById('indirizzo').value = venue.indirizzo;
-    document.getElementById('citta').value = venue.citta;
-    document.getElementById('cap').value = venue.cap;
-    document.getElementById('provincia').value = venue.provincia;
+function selectVenue(nome, indirizzo, citta, cap, provincia) {
+    document.getElementById('descrizioneLocale').value = nome;
+    document.getElementById('indirizzo').value = indirizzo;
+    document.getElementById('citta').value = citta;
+    document.getElementById('cap').value = cap;
+    document.getElementById('provincia').value = provincia;
     document.getElementById('venueDropdown').style.display = 'none';
     
-    // Carica dati fatturazione associati
-    loadInvoiceDataForVenue(venue.nome);
+    loadInvoiceDataForVenue(nome);
 }
 
 function saveVenueIfNew() {
@@ -794,80 +571,61 @@ function copyVenueAddress() {
 
 // ==================== GESTIONE RIEPILOGO ====================
 function updateSummaries() {
-    updateArtistsSummary();
-    updateDatesSummary();
-    updateLocationSummary();
-    updateInvoiceSummary();
-}
+    // Artisti
+    const summaryArtists = document.getElementById('summaryArtists');
+    if (summaryArtists) {
+        summaryArtists.innerHTML = selectedArtists.map(artist => 
+            `<p><strong>${artist.nome} ${artist.cognome}</strong> - ${artist.ruolo} - €${artist.compenso.toFixed(2)} - ${getTipoRapportoLabel(artist.tipoRapporto)}</p>`
+        ).join('');
+    }
 
-function updateArtistsSummary() {
-    const summaryDiv = document.getElementById('summaryArtists');
-    if (!summaryDiv) return;
-    
-    const artistsHtml = selectedArtists.map(artist => 
-        `<p><strong>${artist.nome} ${artist.cognome}</strong> - ${artist.ruolo} - €${artist.compenso.toFixed(2)} - ${getTipoRapportoLabel(artist.tipoRapporto)}</p>`
-    ).join('');
-    
-    summaryDiv.innerHTML = artistsHtml;
-}
+    // Date
+    const summaryDates = document.getElementById('summaryDates');
+    if (summaryDates) {
+        const startDate = new Date(document.getElementById('dataInizio').value);
+        const endDate = new Date(document.getElementById('dataFine').value);
+        summaryDates.innerHTML = `
+            <p>Dal: ${startDate.toLocaleDateString('it-IT')}</p>
+            <p>Al: ${endDate.toLocaleDateString('it-IT')}</p>
+        `;
+    }
 
-function updateDatesSummary() {
-    const summaryDiv = document.getElementById('summaryDates');
-    if (!summaryDiv) return;
-    
-    const startDate = new Date(document.getElementById('dataInizio').value);
-    const endDate = new Date(document.getElementById('dataFine').value);
-    
-    summaryDiv.innerHTML = `
-        <p>Dal: ${startDate.toLocaleDateString('it-IT')}</p>
-        <p>Al: ${endDate.toLocaleDateString('it-IT')}</p>
-    `;
-}
+    // Luogo
+    const summaryLocation = document.getElementById('summaryLocation');
+    if (summaryLocation) {
+        summaryLocation.innerHTML = `
+            <p><strong>${document.getElementById('descrizioneLocale').value}</strong></p>
+            <p>${document.getElementById('indirizzo').value}</p>
+            <p>${document.getElementById('cap').value} ${document.getElementById('citta').value} (${document.getElementById('provincia').value})</p>
+        `;
+    }
 
-function updateLocationSummary() {
-    const summaryDiv = document.getElementById('summaryLocation');
-    if (!summaryDiv) return;
-    
-    summaryDiv.innerHTML = `
-        <p><strong>${document.getElementById('descrizioneLocale').value}</strong></p>
-        <p>${document.getElementById('indirizzo').value}</p>
-        <p>${document.getElementById('cap').value} ${document.getElementById('citta').value} (${document.getElementById('provincia').value})</p>
-    `;
-}
-
-function updateInvoiceSummary() {
-    const summaryDiv = document.getElementById('summaryInvoice');
-    if (!summaryDiv) return;
-    
-    const ragioneSociale = document.getElementById('ragioneSociale').value;
-    const piva = document.getElementById('piva').value;
-    const codiceSDI = document.getElementById('codiceSDI').value;
-    
-    summaryDiv.innerHTML = `
-        <p><strong>${ragioneSociale || 'Non specificata'}</strong></p>
-        <p>P.IVA: ${piva || 'Non specificata'}</p>
-        ${codiceSDI ? `<p>Codice SDI: ${codiceSDI}</p>` : ''}
-    `;
+    // Fatturazione
+    const summaryInvoice = document.getElementById('summaryInvoice');
+    if (summaryInvoice) {
+        const ragioneSociale = document.getElementById('ragioneSociale').value;
+        const piva = document.getElementById('piva').value;
+        summaryInvoice.innerHTML = `
+            <p><strong>${ragioneSociale || 'Non specificata'}</strong></p>
+            <p>P.IVA: ${piva || 'Non specificata'}</p>
+        `;
+    }
 }
 
 // ==================== GESTIONE TAB ====================
 function showTab(tabName) {
-    // Rimuovi active da tutti i tab
     document.querySelectorAll('.tab').forEach(tab => {
         tab.classList.remove('active');
     });
     
-    // Aggiungi active al tab cliccato
     if (event && event.target) {
         event.target.classList.add('active');
     }
     
-    // Nascondi tutti i contenuti
     document.querySelectorAll('.tab-content').forEach(content => {
         content.classList.remove('active');
     });
     
-    // Mostra il contenuto selezionato
     const tabId = 'tab' + tabName.charAt(0).toUpperCase() + tabName.slice(1);
     const tabContent = document.getElementById(tabId);
     if (tabContent) {
@@ -951,16 +709,12 @@ function generateXMLPreview() {
         const validation = validateINPSXML(xml);
         
         let preview = xml.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        
-        // Colorazione sintassi
         preview = preview.replace(/(&lt;\/?[^&gt;]+&gt;)/g, '<span class="xml-tag">$1</span>');
-        preview = preview.replace(/(&lt;!\[CDATA\[.*?\]\]&gt;)/g, '<span class="xml-cdata">$1</span>');
         
         const previewDiv = document.getElementById('xmlPreview');
         if (previewDiv) {
             previewDiv.innerHTML = `<pre class="xml-code">${preview}</pre>`;
             
-            // Aggiungi status validazione
             const statusDiv = document.createElement('div');
             statusDiv.className = validation.isValid ? 'alert alert-success' : 'alert alert-error';
             statusDiv.innerHTML = validation.isValid 
@@ -970,10 +724,7 @@ function generateXMLPreview() {
             previewDiv.parentNode.appendChild(statusDiv);
         }
     } catch (error) {
-        const previewDiv = document.getElementById('xmlPreview');
-        if (previewDiv) {
-            previewDiv.innerHTML = `<span class="error-message">Errore nella generazione XML: ${error.message}</span>`;
-        }
+        console.error('Errore generazione XML:', error);
     }
 }
 
@@ -1008,11 +759,9 @@ function generateMatricolaEnpals() {
     return Math.floor(1000000 + Math.random() * 9000000).toString();
 }
 
-// ==================== VALIDAZIONE XML ====================
 function validateINPSXML(xmlString) {
     const errors = [];
     
-    // Validazioni base
     if (!xmlString.includes('<ImportAgibilita>')) {
         errors.push('Tag principale ImportAgibilita mancante');
     }
@@ -1021,19 +770,7 @@ function validateINPSXML(xmlString) {
         errors.push('Tag ElencoAgibilita mancante');
     }
     
-    if (!xmlString.includes('<Occupazioni>')) {
-        errors.push('Sezione Occupazioni mancante');
-    }
-    
-    // Campi obbligatori
-    const requiredFields = [
-        'CodiceFiscaleAzienda',
-        'Matricola', 
-        'Descrizione',
-        'CodiceComune',
-        'Provincia',
-        'Cap'
-    ];
+    const requiredFields = ['CodiceFiscaleAzienda', 'Matricola', 'Descrizione', 'CodiceComune', 'Provincia', 'Cap'];
     
     requiredFields.forEach(field => {
         if (!xmlString.includes(`<${field}>`)) {
@@ -1041,13 +778,6 @@ function validateINPSXML(xmlString) {
         }
     });
     
-    // Validazione date
-    const datePattern = /\d{4}-\d{2}-\d{2}/;
-    if (!datePattern.test(xmlString)) {
-        errors.push('Formato date non valido (deve essere YYYY-MM-DD)');
-    }
-    
-    // Validazione codici fiscali
     selectedArtists.forEach(artist => {
         if (!validaCodiceFiscale(artist.codiceFiscale)) {
             errors.push(`Codice fiscale non valido per ${artist.nome} ${artist.cognome}`);
@@ -1088,11 +818,9 @@ function downloadAndSave() {
     downloadXML(xmlContent);
     saveAgibilitaToDatabase(xmlContent);
 
-    // Aggiorna UI
-    hideElement('btnConfirm');
-    showElement('btnNewAgibilita');
+    document.getElementById('btnConfirm').style.display = 'none';
+    document.getElementById('btnNewAgibilita').style.display = 'inline-block';
 
-    // Mostra messaggio successo
     const successMsg = document.createElement('div');
     successMsg.className = 'alert alert-success';
     successMsg.textContent = 'XML scaricato e agibilità salvata con successo!';
@@ -1142,11 +870,7 @@ function saveAgibilitaToDatabase(xmlContent) {
     agibilitaDB.push(agibilita);
     localStorage.setItem('agibilitaDB', JSON.stringify(agibilitaDB));
 
-    // Aggiorna anche i dati degli artisti
-    updateArtistsData(agibilita);
-}
-
-function updateArtistsData(agibilita) {
+    // Aggiorna dati artisti
     selectedArtists.forEach(artist => {
         const artistIndex = artistsDB.findIndex(a => a.codiceFiscale === artist.codiceFiscale);
         if (artistIndex !== -1) {
@@ -1180,8 +904,8 @@ function newAgibilita() {
     agibilitaData.codiceAgibilita = null;
     selectedArtists = [];
 
-    showElement('btnConfirm');
-    hideElement('btnNewAgibilita');
+    document.getElementById('btnConfirm').style.display = 'inline-block';
+    document.getElementById('btnNewAgibilita').style.display = 'none';
 
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('dataInizio').value = today;
@@ -1246,7 +970,6 @@ function editAgibilita(codice) {
     agibilitaData.isModifica = true;
     agibilitaData.codiceAgibilita = codice;
 
-    // Carica artisti
     selectedArtists = [];
     agibilita.artisti.forEach(artData => {
         const artist = artistsDB.find(a => a.codiceFiscale === artData.cf);
@@ -1261,7 +984,6 @@ function editAgibilita(codice) {
         }
     });
 
-    // Carica dati form
     document.getElementById('dataInizio').value = agibilita.dataInizio;
     document.getElementById('dataFine').value = agibilita.dataFine;
     document.getElementById('descrizioneLocale').value = agibilita.locale.descrizione;
@@ -1270,7 +992,6 @@ function editAgibilita(codice) {
     document.getElementById('cap').value = agibilita.locale.cap;
     document.getElementById('provincia').value = agibilita.locale.provincia;
 
-    // Carica dati fatturazione se presenti
     if (agibilita.fatturazione) {
         document.getElementById('ragioneSociale').value = agibilita.fatturazione.ragioneSociale || '';
         document.getElementById('piva').value = agibilita.fatturazione.piva || '';
@@ -1279,7 +1000,7 @@ function editAgibilita(codice) {
     }
 
     updateArtistsList();
-    hideElement('editListSection');
+    document.getElementById('editListSection').style.display = 'none';
     showSection('step1');
 }
 
@@ -1287,14 +1008,11 @@ function duplicateAgibilita(codice) {
     const agibilita = agibilitaDB.find(a => a.codice === codice);
     if (!agibilita) return;
 
-    // Carica come nuova agibilità
     editAgibilita(codice);
     
-    // Reset per nuova agibilità
     agibilitaData.isModifica = false;
     agibilitaData.codiceAgibilita = null;
     
-    // Reset date
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('dataInizio').value = today;
     document.getElementById('dataFine').value = '';
@@ -1310,7 +1028,6 @@ function cancelAgibilita(codice) {
         
         showExistingAgibilita();
         
-        // Mostra messaggio successo
         const msg = document.createElement('div');
         msg.className = 'alert alert-success';
         msg.textContent = `Agibilità ${codice} annullata con successo`;
@@ -1328,45 +1045,87 @@ function clearAllForms() {
     selectedArtists = [];
     updateArtistsList();
 
-    // Reset date
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('dataInizio').value = today;
     document.getElementById('dataFine').value = '';
 
-    // Reset locale
-    const localeFields = ['descrizioneLocale', 'indirizzo', 'citta', 'cap', 'provincia', 'noteLocale'];
-    localeFields.forEach(fieldId => {
+    const fields = ['descrizioneLocale', 'indirizzo', 'citta', 'cap', 'provincia', 'noteLocale'];
+    fields.forEach(fieldId => {
         const field = document.getElementById(fieldId);
         if (field) field.value = '';
     });
 
-    // Reset fatturazione
     clearInvoiceFields();
 
-    // Reset UI
-    hideElement('editListSection');
-    hideElement('dateInfo');
+    document.getElementById('editListSection').style.display = 'none';
+    const dateInfo = document.getElementById('dateInfo');
+    if (dateInfo) dateInfo.style.display = 'none';
 }
 
-function showElement(elementId) {
-    const element = document.getElementById(elementId);
-    if (element) element.style.display = 'block';
-}
-
-function hideElement(elementId) {
-    const element = document.getElementById(elementId);
-    if (element) element.style.display = 'none';
-}
-
-function handleModalClick(event) {
-    const modal = document.getElementById('addArtistModal');
-    if (event.target === modal) {
-        closeModal();
-    }
+function setupEventListeners() {
+    // Date validation
+    const dataInizio = document.getElementById('dataInizio');
+    if (dataInizio) dataInizio.addEventListener('change', validateDates);
     
-    // Chiudi dropdown venue se click fuori
-    if (!event.target.matches('#descrizioneLocale')) {
-        const dropdown = document.getElementById('venueDropdown');
-        if (dropdown) dropdown.style.display = 'none';
+    const dataFine = document.getElementById('dataFine');
+    if (dataFine) dataFine.addEventListener('change', validateDates);
+
+    // Venue search
+    const descrizioneLocale = document.getElementById('descrizioneLocale');
+    if (descrizioneLocale) {
+        descrizioneLocale.addEventListener('input', searchVenue);
     }
+
+    // Location dropdowns
+    const provincia = document.getElementById('provincia');
+    if (provincia) provincia.addEventListener('change', loadCitiesForProvince);
+    
+    const citta = document.getElementById('citta');
+    if (citta) citta.addEventListener('change', loadCAPsForCity);
+
+    // Modal close on outside click
+    window.addEventListener('click', function(event) {
+        const modal = document.getElementById('addArtistModal');
+        if (event.target === modal) {
+            closeModal();
+        }
+        
+        if (!event.target.matches('#descrizioneLocale')) {
+            const dropdown = document.getElementById('venueDropdown');
+            if (dropdown) dropdown.style.display = 'none';
+        }
+    });
 }
+
+// ==================== ESPORTA FUNZIONI GLOBALI ====================
+// Rendi le funzioni accessibili dall'HTML
+window.startNewAgibilita = startNewAgibilita;
+window.showEditAgibilita = showEditAgibilita;
+window.showAddArtistModal = showAddArtistModal;
+window.closeModal = closeModal;
+window.searchArtists = searchArtists;
+window.addArtistToList = addArtistToList;
+window.updateArtistRole = updateArtistRole;
+window.updateArtistCompensation = updateArtistCompensation;
+window.removeArtist = removeArtist;
+window.goToRegistration = goToRegistration;
+window.goToStep2 = goToStep2;
+window.goToStep3 = goToStep3;
+window.showSection = showSection;
+window.validateDates = validateDates;
+window.loadCitiesForProvince = loadCitiesForProvince;
+window.loadCAPsForCity = loadCAPsForCity;
+window.searchVenue = searchVenue;
+window.selectVenue = selectVenue;
+window.copyVenueAddress = copyVenueAddress;
+window.showTab = showTab;
+window.downloadAndSave = downloadAndSave;
+window.confirmAndProceed = confirmAndProceed;
+window.newAgibilita = newAgibilita;
+window.saveDraft = saveDraft;
+window.filterAgibilita = filterAgibilita;
+window.editAgibilita = editAgibilita;
+window.duplicateAgibilita = duplicateAgibilita;
+window.cancelAgibilita = cancelAgibilita;
+
+console.log('agibilita.js caricato completamente');
