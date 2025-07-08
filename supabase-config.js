@@ -3,8 +3,8 @@
 
 // ==================== CONFIGURAZIONE ====================
 // Sostituisci questi valori con le tue credenziali Supabase reali
-const SUPABASE_URL = 'https://nommiumuwioddhauju.supabase.co'; // IL TUO URL QUI
-const SUPABASE_ANON_KEY = 'LA_TUA_CHIAVE_API_CORRETTA_QUI'; // LA TUA CHIAVE QUI
+const SUPABASE_URL = 'https://nommluymuwioddhaujxu.supabase.co'; // IL TUO URL QUI
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5vbW1sdXltdXdpb2RkaGF1anh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE5ODA5MjgsImV4cCI6MjA2NzU1NjkyOH0.oaF5uaNe21W8NU67n1HjngngMUClkss2achTQ7BZ5tE'; // LA TUA CHIAVE QUI
 
 // Import Supabase
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
