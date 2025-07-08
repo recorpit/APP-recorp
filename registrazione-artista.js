@@ -1,3 +1,79 @@
+/**
+ * registrazione-artista.js - VERSIONE SUPABASE CORRETTA
+ * 
+ * Script per la gestione della registrazione artisti nel sistema RECORP ALL-IN-ONE.
+ * 
+ * Funzionalità principali:
+ * - Caricamento dinamico di province, città e CAP italiani
+ * - Validazione in tempo reale dei campi del form
+ * - Estrazione automatica data di nascita dal codice fiscale
+ * - Controllo età minima 18 anni
+ * - Controllo duplicati tramite codice fiscale
+ * - Verifica corrispondenza CF-data di nascita
+ * - Salvataggio artisti su Supabase
+ * 
+ * @author RECORP ALL-IN-ONE
+ * @version 2.0 - Supabase Edition
+ */
+
+// Import Supabase DatabaseService
+import { DatabaseService } from './supabase-config.js';
+
+// Inizializzazione sistema registrazione artista
+document.addEventListener('DOMContentLoaded', async function() {
+    console.log('🚀 Inizializzazione sistema registrazione...');
+    
+    // Mostra indicatore caricamento
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    if (loadingIndicator) {
+        loadingIndicator.style.display = 'block';
+        loadingIndicator.textContent = '⌛ Inizializzazione sistema e database...';
+    }
+    
+    // Inizializza sistema con Supabase
+    const systemReady = await initializeRegistrationSystem();
+    
+    if (!systemReady) {
+        if (loadingIndicator) {
+            loadingIndicator.style.display = 'block';
+            loadingIndicator.textContent = '❌ Errore connessione database';
+            loadingIndicator.style.backgroundColor = '#fee2e2';
+            loadingIndicator.style.color = '#991b1b';
+        }
+        return;
+    }
+    
+    // Aspetta che il database GI sia caricato
+    setTimeout(() => {
+        if (loadingIndicator) {
+            loadingIndicator.style.display = 'none';
+        }
+        loadProvinces();
+        setupEventListeners();
+        
+        // Focus sul codice fiscale all'avvio
+        const cfField = document.getElementById('codiceFiscale');
+        if (cfField) cfField.focus();
+    }, 1500);
+});
+
+// Inizializzazione con Supabase
+async function initializeRegistrationSystem() {
+    try {
+        console.log('🔗 Test connessione database...');
+        
+        // Test connessione
+        const testResult = await DatabaseService.getArtisti();
+        console.log('✅ Sistema registrazione pronto! Database contiene:', testResult.length, 'artisti');
+        
+        return true;
+    } catch (error) {
+        console.error('❌ Errore inizializzazione sistema registrazione:', error);
+        showError('Errore di connessione al database. Controlla la configurazione.');
+        return false;
+    }
+}
+
 // Cerca comune per codice catastale/Belfiore
 function findComuneByCodCatastaleReg(codice) {
     console.log('🔍 Ricerca comune con codice Belfiore:', codice);
@@ -11,7 +87,6 @@ function findComuneByCodCatastaleReg(codice) {
     }
     
     // Se non trovato, potrebbe essere uno stato estero
-    // Codici degli stati esteri iniziano con Z
     if (codice.startsWith('Z')) {
         console.log('🌍 Codice stato estero rilevato');
         // Lista stati esteri più comuni
@@ -113,77 +188,14 @@ function findComuneByCodCatastaleReg(codice) {
     
     console.log('❌ Comune non trovato per codice:', codice);
     return null;
-}/**
- * registrazione-artista.js
- * 
- * Script per la gestione della registrazione artisti nel sistema RECORP ALL-IN-ONE.
- * 
- * Funzionalità principali:
- * - Caricamento dinamico di province, città e CAP italiani
- * - Validazione in tempo reale dei campi del form
- * - Estrazione automatica data di nascita dal codice fiscale
- * - Controllo età minima 18 anni
- * - Controllo duplicati tramite codice fiscale
- * - Verifica corrispondenza CF-data di nascita
- * - Salvataggio artisti nel localStorage
- * 
- * NOTA SUL CODICE FISCALE:
- * Il sistema estrae automaticamente dal codice fiscale:
- * - Data di nascita (anno dalle posizioni 7-8, mese dalla 9, giorno dalle 10-11)
- * - Sesso (giorno > 40 = Femmina, altrimenti Maschio)
- * 
- * La data estratta viene automaticamente inserita nel campo data di nascita.
- * Se l'utente modifica manualmente la data, viene verificata la corrispondenza
- * con il CF e mostrato un avviso in caso di discrepanza.
- * 
- * Dipendenze:
- * - comuni-loader.js (database località italiane)
- * 
- * @author RECORP ALL-IN-ONE
- * @version 1.2
- */
-
-// Inizializzazione sistema registrazione artista
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('Database GI inizializzato per registrazione');
-    
-    // Mostra indicatore caricamento
-    const loadingIndicator = document.getElementById('loadingIndicator');
-    loadingIndicator.style.display = 'block';
-    
-    // Aspetta che il database sia caricato
-    setTimeout(() => {
-        loadingIndicator.style.display = 'none';
-        loadProvinces();
-        setupEventListeners();
-        
-        // Focus sul codice fiscale all'avvio
-        document.getElementById('codiceFiscale').focus();
-        // Validazione IBAN
-    document.getElementById('iban').addEventListener('input', function(e) {
-        // Converte in maiuscolo e rimuove spazi
-        e.target.value = e.target.value.toUpperCase().replace(/\s/g, '');
-        
-        // Validazione visiva
-        if (e.target.value.length >= 15) { // IBAN minimo
-            if (validateIBAN(e.target.value)) {
-                e.target.classList.remove('invalid');
-                e.target.classList.add('valid');
-            } else {
-                e.target.classList.remove('valid');
-                e.target.classList.add('invalid');
-            }
-        } else {
-            e.target.classList.remove('valid', 'invalid');
-        }
-    });
-}, 1500);
-});
+}
 
 // Funzioni per menu a tendina cascata
 function loadProvinces() {
     try {
         const provinceSelect = document.getElementById('provincia');
+        if (!provinceSelect) return;
+        
         provinceSelect.innerHTML = '<option value="">Seleziona provincia...</option>';
         
         // Usa la funzione helper dal comuni-loader
@@ -215,294 +227,315 @@ function loadProvinces() {
     } catch (error) {
         console.error('Errore caricamento province:', error);
         const provinceSelect = document.getElementById('provincia');
-        provinceSelect.innerHTML = '<option value="">Errore caricamento province</option>';
+        if (provinceSelect) {
+            provinceSelect.innerHTML = '<option value="">Errore caricamento province</option>';
+        }
         showError('Errore nel caricamento delle province.');
     }
 }
 
 function setupEventListeners() {
     // Event listener per cambio provincia
-    document.getElementById('provincia').addEventListener('change', function() {
-        const selectedProvincia = this.value;
-        const cittaSelect = document.getElementById('citta');
-        const capSelect = document.getElementById('cap');
-        
-        if (selectedProvincia) {
-            cittaSelect.disabled = false;
-            loadCitta(selectedProvincia);
-        } else {
-            cittaSelect.disabled = true;
-            cittaSelect.innerHTML = '<option value="">Prima seleziona la provincia</option>';
-            capSelect.disabled = true;
-            capSelect.innerHTML = '<option value="">Prima seleziona la città</option>';
-        }
-    });
+    const provincia = document.getElementById('provincia');
+    if (provincia) {
+        provincia.addEventListener('change', function() {
+            const selectedProvincia = this.value;
+            const cittaSelect = document.getElementById('citta');
+            const capSelect = document.getElementById('cap');
+            
+            if (selectedProvincia) {
+                cittaSelect.disabled = false;
+                loadCitta(selectedProvincia);
+            } else {
+                cittaSelect.disabled = true;
+                cittaSelect.innerHTML = '<option value="">Prima seleziona la provincia</option>';
+                capSelect.disabled = true;
+                capSelect.innerHTML = '<option value="">Prima seleziona la città</option>';
+            }
+        });
+    }
     
     // Event listener per cambio città
-    document.getElementById('citta').addEventListener('change', function() {
-        const selectedCitta = this.value;
-        const capSelect = document.getElementById('cap');
-        
-        if (selectedCitta) {
-            capSelect.disabled = false;
-            loadCAP(selectedCitta);
-        } else {
-            capSelect.disabled = true;
-            capSelect.innerHTML = '<option value="">Prima seleziona la città</option>';
-        }
-    });
+    const citta = document.getElementById('citta');
+    if (citta) {
+        citta.addEventListener('change', function() {
+            const selectedCitta = this.value;
+            const capSelect = document.getElementById('cap');
+            
+            if (selectedCitta) {
+                capSelect.disabled = false;
+                loadCAP(selectedCitta);
+            } else {
+                capSelect.disabled = true;
+                capSelect.innerHTML = '<option value="">Prima seleziona la città</option>';
+            }
+        });
+    }
     
     // Event listener per il form
-    document.getElementById('registrationForm').addEventListener('submit', handleFormSubmit);
+    const form = document.getElementById('registrationForm');
+    if (form) {
+        form.addEventListener('submit', handleFormSubmit);
+    }
     
     // Auto-format telefono
-    document.getElementById('telefono').addEventListener('input', function(e) {
-        let value = e.target.value.replace(/[^\d+]/g, '');
-        // Limita a +39 seguito da 10 cifre
-        if (value.startsWith('+39')) {
-            value = value.substring(0, 13); // +39 + 10 cifre
-        } else {
-            value = value.substring(0, 10); // Solo 10 cifre
-        }
-        e.target.value = value;
-    });
+    const telefono = document.getElementById('telefono');
+    if (telefono) {
+        telefono.addEventListener('input', function(e) {
+            let value = e.target.value.replace(/[^\d+]/g, '');
+            // Limita a +39 seguito da 10 cifre
+            if (value.startsWith('+39')) {
+                value = value.substring(0, 13); // +39 + 10 cifre
+            } else {
+                value = value.substring(0, 10); // Solo 10 cifre
+            }
+            e.target.value = value;
+        });
+    }
     
-    // Auto-uppercase per codice fiscale
-    document.getElementById('codiceFiscale').addEventListener('input', function(e) {
-        e.target.value = e.target.value.toUpperCase();
-        
-        // Validazione real-time
-        if (e.target.value.length === 16) {
-            if (validateCodiceFiscale(e.target.value)) {
-                e.target.classList.remove('invalid');
-                e.target.classList.add('valid');
-                
-                // Estrai e compila automaticamente i dati dal CF
-                const extractedData = extractDataFromCF(e.target.value);
-                if (extractedData) {
-                    // Compila data di nascita
-                    if (extractedData.dataNascita) {
-                        const dataNascitaField = document.getElementById('dataNascita');
-                        dataNascitaField.value = extractedData.dataNascita;
-                        dataNascitaField.dispatchEvent(new Event('change'));
+    // Auto-uppercase per codice fiscale e validazione
+    const codiceFiscale = document.getElementById('codiceFiscale');
+    if (codiceFiscale) {
+        codiceFiscale.addEventListener('input', function(e) {
+            e.target.value = e.target.value.toUpperCase();
+            
+            // Validazione real-time
+            if (e.target.value.length === 16) {
+                if (validateCodiceFiscale(e.target.value)) {
+                    e.target.classList.remove('invalid');
+                    e.target.classList.add('valid');
+                    
+                    // Estrai e compila automaticamente i dati dal CF
+                    const extractedData = extractDataFromCF(e.target.value);
+                    if (extractedData) {
+                        // Compila data di nascita
+                        if (extractedData.dataNascita) {
+                            const dataNascitaField = document.getElementById('dataNascita');
+                            if (dataNascitaField) {
+                                dataNascitaField.value = extractedData.dataNascita;
+                                dataNascitaField.dispatchEvent(new Event('change'));
+                                
+                                // Rimuovi eventuali alert di mancata corrispondenza
+                                const existingAlert = dataNascitaField.parentElement.querySelector('.cf-mismatch-alert');
+                                if (existingAlert) existingAlert.remove();
+                            }
+                        }
                         
-                        // Rimuovi eventuali alert di mancata corrispondenza
-                        const existingAlert = dataNascitaField.parentElement.querySelector('.cf-mismatch-alert');
-                        if (existingAlert) existingAlert.remove();
+                        // Compila sesso
+                        if (extractedData.sesso) {
+                            const sessoField = document.getElementById('sesso');
+                            if (sessoField) sessoField.value = extractedData.sesso;
+                        }
+                        
+                        // Compila luogo di nascita se trovato
+                        if (extractedData.luogoNascita) {
+                            const luogoField = document.getElementById('luogoNascita');
+                            if (luogoField) luogoField.value = extractedData.luogoNascita;
+                        }
+                        
+                        // Compila provincia di nascita se trovata
+                        if (extractedData.provinciaNascita) {
+                            const provField = document.getElementById('provinciaNascita');
+                            if (provField) provField.value = extractedData.provinciaNascita;
+                        }
+                        
+                        // Mostra info estratte
+                        showExtractedInfo(extractedData);
                     }
-                    
-                    // Compila sesso
-                    if (extractedData.sesso) {
-                        document.getElementById('sesso').value = extractedData.sesso;
-                    }
-                    
-                    // Compila luogo di nascita se trovato
-                    if (extractedData.luogoNascita) {
-                        document.getElementById('luogoNascita').value = extractedData.luogoNascita;
-                    }
-                    
-                    // Compila provincia di nascita se trovata
-                    if (extractedData.provinciaNascita) {
-                        document.getElementById('provinciaNascita').value = extractedData.provinciaNascita;
-                    }
-                    
-                    // Mostra info estratte
-                    showExtractedInfo(extractedData);
+                } else {
+                    e.target.classList.remove('valid');
+                    e.target.classList.add('invalid');
+                    // Rimuovi span delle info se presente
+                    const existingInfo = e.target.parentElement.querySelector('.cf-info-display');
+                    if (existingInfo) existingInfo.remove();
                 }
             } else {
-                e.target.classList.remove('valid');
-                e.target.classList.add('invalid');
+                e.target.classList.remove('valid', 'invalid');
                 // Rimuovi span delle info se presente
                 const existingInfo = e.target.parentElement.querySelector('.cf-info-display');
                 if (existingInfo) existingInfo.remove();
             }
-        } else {
-            e.target.classList.remove('valid', 'invalid');
-            // Rimuovi span delle info se presente
-            const existingInfo = e.target.parentElement.querySelector('.cf-info-display');
-            if (existingInfo) existingInfo.remove();
-        }
-    });
+        });
+    }
     
     // Auto-uppercase per matricola ENPALS
-    document.getElementById('matricolaENPALS').addEventListener('input', function(e) {
-        e.target.value = e.target.value.toUpperCase();
-    });
+    const matricola = document.getElementById('matricolaENPALS');
+    if (matricola) {
+        matricola.addEventListener('input', function(e) {
+            e.target.value = e.target.value.toUpperCase();
+        });
+    }
     
     // Event listener per mostrare/nascondere campo partita IVA e tipo rapporto
-    document.getElementById('hasPartitaIva').addEventListener('change', function(e) {
-        const partitaIvaGroup = document.getElementById('partitaIvaGroup');
-        const partitaIvaField = document.getElementById('partitaIva');
-        const tipoRapportoGroup = document.getElementById('tipoRapportoGroup');
-        const tipoRapportoField = document.getElementById('tipoRapporto');
-        
-        if (e.target.value === 'si') {
-            // Ha partita IVA: mostra campo P.IVA, nascondi tipo rapporto
-            partitaIvaGroup.style.display = 'block';
-            partitaIvaField.required = true;
-            tipoRapportoGroup.style.display = 'none';
-            tipoRapportoField.required = false;
-            tipoRapportoField.value = ''; // Reset il valore
-        } else if (e.target.value === 'no') {
-            // Non ha partita IVA: nascondi P.IVA, mostra tipo rapporto
-            partitaIvaGroup.style.display = 'none';
-            partitaIvaField.required = false;
-            partitaIvaField.value = '';
-            tipoRapportoGroup.style.display = 'block';
-            tipoRapportoField.required = true;
-            tipoRapportoField.value = 'occasionale'; // Default a prestazione occasionale
-        } else {
-            // Nessuna selezione: nascondi entrambi
-            partitaIvaGroup.style.display = 'none';
-            partitaIvaField.required = false;
-            partitaIvaField.value = '';
-            tipoRapportoGroup.style.display = 'none';
-            tipoRapportoField.required = false;
-            tipoRapportoField.value = '';
-        }
-    });
-    
-    // Validazione partita IVA
-    document.getElementById('partitaIva').addEventListener('input', function(e) {
-        // Accetta solo numeri
-        e.target.value = e.target.value.replace(/[^0-9]/g, '');
-        
-        // Validazione visiva
-        if (e.target.value.length === 11) {
-            if (validatePartitaIva(e.target.value)) {
-                e.target.classList.remove('invalid');
-                e.target.classList.add('valid');
-            } else {
-                e.target.classList.remove('valid');
-                e.target.classList.add('invalid');
-            }
-        } else {
-            e.target.classList.remove('valid', 'invalid');
-        }
-    });
-    
-    // Validazione real-time email
-    document.getElementById('email').addEventListener('blur', function(e) {
-        if (e.target.value) {
-            if (validateEmail(e.target.value)) {
-                e.target.classList.remove('invalid');
-                e.target.classList.add('valid');
-            } else {
-                e.target.classList.remove('valid');
-                e.target.classList.add('invalid');
-            }
-        } else {
-            e.target.classList.remove('valid', 'invalid');
-        }
-    });
-    
-    // Event listener per mostrare/nascondere campo partita IVA
-    document.getElementById('hasPartitaIva').addEventListener('change', function(e) {
-        const partitaIvaGroup = document.getElementById('partitaIvaGroup');
-        const partitaIvaField = document.getElementById('partitaIva');
-        
-        if (e.target.value === 'si') {
-            partitaIvaGroup.style.display = 'block';
-            partitaIvaField.required = true;
-        } else {
-            partitaIvaGroup.style.display = 'none';
-            partitaIvaField.required = false;
-            partitaIvaField.value = '';
-        }
-    });
-    
-    // Validazione partita IVA
-    document.getElementById('partitaIva').addEventListener('input', function(e) {
-        // Accetta solo numeri
-        e.target.value = e.target.value.replace(/[^0-9]/g, '');
-        
-        // Validazione visiva
-        if (e.target.value.length === 11) {
-            if (validatePartitaIva(e.target.value)) {
-                e.target.classList.remove('invalid');
-                e.target.classList.add('valid');
-            } else {
-                e.target.classList.remove('valid');
-                e.target.classList.add('invalid');
-            }
-        } else {
-            e.target.classList.remove('valid', 'invalid');
-        }
-    });
-    
-    // Auto-uppercase per provincia nascita
-    document.getElementById('provinciaNascita').addEventListener('input', function(e) {
-        e.target.value = e.target.value.toUpperCase().substring(0, 2);
-    });
-    
-    // Validazione IBAN
-    document.getElementById('iban').addEventListener('input', function(e) {
-        // Converte in maiuscolo e rimuove spazi
-        e.target.value = e.target.value.toUpperCase().replace(/\s/g, '');
-        
-        // Validazione visiva
-        if (e.target.value.length >= 15) { // IBAN minimo
-            if (validateIBAN(e.target.value)) {
-                e.target.classList.remove('invalid');
-                e.target.classList.add('valid');
-            } else {
-                e.target.classList.remove('valid');
-                e.target.classList.add('invalid');
-            }
-        } else {
-            e.target.classList.remove('valid', 'invalid');
-        }
-    });
-    
-    // Mostra età quando viene selezionata la data di nascita
-    document.getElementById('dataNascita').addEventListener('change', function(e) {
-        if (e.target.value) {
-            const age = calculateAge(e.target.value);
-            const ageText = age >= 18 ? `(${age} anni) ✓` : `(${age} anni) ❌ Minimo 18 anni`;
+    const hasPartitaIva = document.getElementById('hasPartitaIva');
+    if (hasPartitaIva) {
+        hasPartitaIva.addEventListener('change', function(e) {
+            const partitaIvaGroup = document.getElementById('partitaIvaGroup');
+            const partitaIvaField = document.getElementById('partitaIva');
+            const tipoRapportoGroup = document.getElementById('tipoRapportoGroup');
+            const tipoRapportoField = document.getElementById('tipoRapporto');
             
-            // Rimuovi eventuale span esistente
-            const existingSpan = e.target.parentElement.querySelector('.age-display');
-            if (existingSpan) existingSpan.remove();
-            
-            // Aggiungi nuovo span con l'età
-            const ageSpan = document.createElement('span');
-            ageSpan.className = 'age-display';
-            ageSpan.style.marginLeft = '10px';
-            ageSpan.style.color = age >= 18 ? 'var(--success)' : 'var(--danger)';
-            ageSpan.textContent = ageText;
-            e.target.parentElement.appendChild(ageSpan);
-            
-            // Verifica corrispondenza con codice fiscale
-            const cf = document.getElementById('codiceFiscale').value;
-            if (cf.length === 16) {
-                if (!validateCFWithDate(cf, e.target.value)) {
-                    // Rimuovi eventuale alert esistente
-                    const existingAlert = e.target.parentElement.querySelector('.cf-mismatch-alert');
-                    if (existingAlert) existingAlert.remove();
-                    
-                    // Aggiungi alert di mancata corrispondenza
-                    const alertDiv = document.createElement('div');
-                    alertDiv.className = 'cf-mismatch-alert alert alert-warning';
-                    alertDiv.style.marginTop = '0.5rem';
-                    alertDiv.style.padding = '0.5rem';
-                    alertDiv.style.fontSize = '0.875rem';
-                    alertDiv.textContent = '⚠️ La data non corrisponde al codice fiscale';
-                    e.target.parentElement.appendChild(alertDiv);
-                    
-                    e.target.classList.add('invalid');
-                } else {
-                    // Rimuovi alert se presente
-                    const existingAlert = e.target.parentElement.querySelector('.cf-mismatch-alert');
-                    if (existingAlert) existingAlert.remove();
-                    e.target.classList.remove('invalid');
+            if (e.target.value === 'si') {
+                // Ha partita IVA: mostra campo P.IVA, nascondi tipo rapporto
+                if (partitaIvaGroup) partitaIvaGroup.style.display = 'block';
+                if (partitaIvaField) partitaIvaField.required = true;
+                if (tipoRapportoGroup) tipoRapportoGroup.style.display = 'none';
+                if (tipoRapportoField) {
+                    tipoRapportoField.required = false;
+                    tipoRapportoField.value = '';
+                }
+            } else if (e.target.value === 'no') {
+                // Non ha partita IVA: nascondi P.IVA, mostra tipo rapporto
+                if (partitaIvaGroup) partitaIvaGroup.style.display = 'none';
+                if (partitaIvaField) {
+                    partitaIvaField.required = false;
+                    partitaIvaField.value = '';
+                }
+                if (tipoRapportoGroup) tipoRapportoGroup.style.display = 'block';
+                if (tipoRapportoField) {
+                    tipoRapportoField.required = true;
+                    tipoRapportoField.value = 'occasionale';
+                }
+            } else {
+                // Nessuna selezione: nascondi entrambi
+                if (partitaIvaGroup) partitaIvaGroup.style.display = 'none';
+                if (partitaIvaField) {
+                    partitaIvaField.required = false;
+                    partitaIvaField.value = '';
+                }
+                if (tipoRapportoGroup) tipoRapportoGroup.style.display = 'none';
+                if (tipoRapportoField) {
+                    tipoRapportoField.required = false;
+                    tipoRapportoField.value = '';
                 }
             }
-        }
-    });
+        });
+    }
+    
+    // Validazione partita IVA
+    const partitaIva = document.getElementById('partitaIva');
+    if (partitaIva) {
+        partitaIva.addEventListener('input', function(e) {
+            // Accetta solo numeri
+            e.target.value = e.target.value.replace(/[^0-9]/g, '');
+            
+            // Validazione visiva
+            if (e.target.value.length === 11) {
+                if (validatePartitaIva(e.target.value)) {
+                    e.target.classList.remove('invalid');
+                    e.target.classList.add('valid');
+                } else {
+                    e.target.classList.remove('valid');
+                    e.target.classList.add('invalid');
+                }
+            } else {
+                e.target.classList.remove('valid', 'invalid');
+            }
+        });
+    }
+    
+    // Validazione real-time email
+    const email = document.getElementById('email');
+    if (email) {
+        email.addEventListener('blur', function(e) {
+            if (e.target.value) {
+                if (validateEmail(e.target.value)) {
+                    e.target.classList.remove('invalid');
+                    e.target.classList.add('valid');
+                } else {
+                    e.target.classList.remove('valid');
+                    e.target.classList.add('invalid');
+                }
+            } else {
+                e.target.classList.remove('valid', 'invalid');
+            }
+        });
+    }
+    
+    // Auto-uppercase per provincia nascita
+    const provinciaNascita = document.getElementById('provinciaNascita');
+    if (provinciaNascita) {
+        provinciaNascita.addEventListener('input', function(e) {
+            e.target.value = e.target.value.toUpperCase().substring(0, 2);
+        });
+    }
+    
+    // Validazione IBAN
+    const iban = document.getElementById('iban');
+    if (iban) {
+        iban.addEventListener('input', function(e) {
+            // Converte in maiuscolo e rimuove spazi
+            e.target.value = e.target.value.toUpperCase().replace(/\s/g, '');
+            
+            // Validazione visiva
+            if (e.target.value.length >= 15) { // IBAN minimo
+                if (validateIBAN(e.target.value)) {
+                    e.target.classList.remove('invalid');
+                    e.target.classList.add('valid');
+                } else {
+                    e.target.classList.remove('valid');
+                    e.target.classList.add('invalid');
+                }
+            } else {
+                e.target.classList.remove('valid', 'invalid');
+            }
+        });
+    }
+    
+    // Mostra età quando viene selezionata la data di nascita
+    const dataNascita = document.getElementById('dataNascita');
+    if (dataNascita) {
+        dataNascita.addEventListener('change', function(e) {
+            if (e.target.value) {
+                const age = calculateAge(e.target.value);
+                const ageText = age >= 18 ? `(${age} anni) ✓` : `(${age} anni) ❌ Minimo 18 anni`;
+                
+                // Rimuovi eventuale span esistente
+                const existingSpan = e.target.parentElement.querySelector('.age-display');
+                if (existingSpan) existingSpan.remove();
+                
+                // Aggiungi nuovo span con l'età
+                const ageSpan = document.createElement('span');
+                ageSpan.className = 'age-display';
+                ageSpan.style.marginLeft = '10px';
+                ageSpan.style.color = age >= 18 ? 'var(--success)' : 'var(--danger)';
+                ageSpan.textContent = ageText;
+                e.target.parentElement.appendChild(ageSpan);
+                
+                // Verifica corrispondenza con codice fiscale
+                const cf = document.getElementById('codiceFiscale').value;
+                if (cf.length === 16) {
+                    if (!validateCFWithDate(cf, e.target.value)) {
+                        // Rimuovi eventuale alert esistente
+                        const existingAlert = e.target.parentElement.querySelector('.cf-mismatch-alert');
+                        if (existingAlert) existingAlert.remove();
+                        
+                        // Aggiungi alert di mancata corrispondenza
+                        const alertDiv = document.createElement('div');
+                        alertDiv.className = 'cf-mismatch-alert alert alert-warning';
+                        alertDiv.style.marginTop = '0.5rem';
+                        alertDiv.style.padding = '0.5rem';
+                        alertDiv.style.fontSize = '0.875rem';
+                        alertDiv.textContent = '⚠️ La data non corrisponde al codice fiscale';
+                        e.target.parentElement.appendChild(alertDiv);
+                        
+                        e.target.classList.add('invalid');
+                    } else {
+                        // Rimuovi alert se presente
+                        const existingAlert = e.target.parentElement.querySelector('.cf-mismatch-alert');
+                        if (existingAlert) existingAlert.remove();
+                        e.target.classList.remove('invalid');
+                    }
+                }
+            }
+        });
+    }
 }
 
 function loadCitta(provincia) {
     const cittaSelect = document.getElementById('citta');
+    if (!cittaSelect) return;
+    
     cittaSelect.innerHTML = '<option value="">Seleziona città...</option>';
     
     try {
@@ -545,10 +578,11 @@ function loadCitta(provincia) {
 
 function loadCAP(codiceIstat) {
     const capSelect = document.getElementById('cap');
+    if (!capSelect) return;
+    
     capSelect.innerHTML = '<option value="">Caricamento CAP...</option>';
     
     try {
-        // Usa la funzione helper dal comuni-loader
         const capList = window.GIDatabase.getCapByComune(codiceIstat);
         
         console.log(`📮 CAP trovati per ${codiceIstat}:`, capList);
@@ -637,12 +671,12 @@ function handleFormSubmit(e) {
         return;
     }
     
-    if (!validateEmail(artistData.email)) {
+    if (artistData.email && !validateEmail(artistData.email)) {
         showError('Email non valida');
         return;
     }
     
-    if (!validatePhone(artistData.telefono)) {
+    if (artistData.telefono && !validatePhone(artistData.telefono)) {
         showError('Numero di telefono non valido (inserire 10 cifre)');
         return;
     }
@@ -677,9 +711,52 @@ function handleFormSubmit(e) {
         return;
     }
     
-    // Salva nel database locale
+    // Salva su Supabase
     saveArtist(artistData);
 }
+
+// Salvataggio artista su Supabase - VERSIONE CORRETTA
+async function saveArtist(artistData) {
+    try {
+        console.log('💾 Tentativo salvataggio artista:', artistData.nome, artistData.cognome);
+        
+        // Controlla se esiste già un artista con questo CF
+        const exists = await DatabaseService.artistaExists(artistData.codiceFiscale);
+        if (exists) {
+            showError('Esiste già un artista con questo codice fiscale nel database');
+            return;
+        }
+        
+        // Salva in Supabase
+        const savedArtist = await DatabaseService.saveArtista(artistData);
+        console.log('✅ Artista salvato con successo:', savedArtist);
+        
+        // Mostra messaggio di successo
+        showSuccess('Artista registrato con successo! Reindirizzamento...');
+        
+        // Reset form
+        resetForm();
+        
+        // Reindirizza alla dashboard dopo 2 secondi
+        setTimeout(() => {
+            window.location.href = './index.html';
+        }, 2000);
+        
+    } catch (error) {
+        console.error('❌ Errore salvataggio artista:', error);
+        
+        // Gestisci errori specifici
+        if (error.code === '23505') { // Violazione unique constraint
+            showError('Esiste già un artista con questo codice fiscale');
+        } else if (error.message) {
+            showError('Errore durante il salvataggio: ' + error.message);
+        } else {
+            showError('Errore durante il salvataggio. Riprova.');
+        }
+    }
+}
+
+// ==================== FUNZIONI DI VALIDAZIONE ====================
 
 function validateCodiceFiscale(cf) {
     cf = cf.toUpperCase();
@@ -712,7 +789,7 @@ function extractDataFromCF(cf) {
     // Estrai codice catastale del comune
     const codiceCatastale = cf.substring(11, 15);
     
-    // Cerca il comune di nascita (richiede un database dei codici catastali)
+    // Cerca il comune di nascita
     const comuneInfo = findComuneByCodCatastaleReg(codiceCatastale);
     if (comuneInfo) {
         data.luogoNascita = comuneInfo.nome;
@@ -720,177 +797,6 @@ function extractDataFromCF(cf) {
     }
     
     return data;
-}
-
-// Cerca comune per codice catastale
-function findComuneByCodCatastalerEG(codice) {
-    console.log('🔍 Ricerca comune con codice catastale:', codice);
-    
-    // Verifica se abbiamo i dati dei comuni
-    const comuni = window.GIDatabase?.getData()?.comuni || [];
-    console.log('📊 Totale comuni nel database:', comuni.length);
-    
-    // Debug: mostra i campi disponibili nel primo comune
-    if (comuni.length > 0) {
-        console.log('🔍 Campi disponibili nel primo comune:', Object.keys(comuni[0]));
-    }
-    
-    // Cerca il comune con il codice catastale corrispondente
-    const comune = comuni.find(c => {
-        return c.codice_catastale === codice || 
-               c.codiceCatastale === codice ||
-               c.codice_belfiore === codice ||
-               c.codiceBelfiore === codice ||
-               c.belfiore === codice ||
-               c.cod_catastale === codice;
-    });
-    
-    if (comune) {
-        console.log('✅ Comune trovato:', comune);
-        return {
-            nome: comune.denominazione_ita || comune.denominazione || comune.nome,
-            provincia: comune.sigla_provincia || comune.provincia || comune.siglaProvincia
-        };
-    }
-    
-    // Se non trovato nei comuni italiani, potrebbe essere uno stato estero
-    // Codici degli stati esteri iniziano con Z
-    if (codice.startsWith('Z')) {
-        console.log('🌍 Codice stato estero rilevato');
-        // Lista stati esteri più comuni
-        const statiEsteri = {
-            'Z100': 'ALBANIA',
-            'Z101': 'ANDORRA',
-            'Z102': 'AUSTRIA',
-            'Z103': 'BELGIO',
-            'Z104': 'BULGARIA',
-            'Z107': 'DANIMARCA',
-            'Z110': 'FINLANDIA',
-            'Z111': 'FRANCIA',
-            'Z112': 'GERMANIA',
-            'Z113': 'REGNO UNITO',
-            'Z114': 'GRECIA',
-            'Z115': 'IRLANDA',
-            'Z116': 'ISLANDA',
-            'Z118': 'LUSSEMBURGO',
-            'Z119': 'MALTA',
-            'Z120': 'MONACO',
-            'Z121': 'NORVEGIA',
-            'Z122': 'PAESI BASSI',
-            'Z123': 'POLONIA',
-            'Z124': 'PORTOGALLO',
-            'Z125': 'ROMANIA',
-            'Z126': 'SAN MARINO',
-            'Z127': 'SPAGNA',
-            'Z128': 'SVEZIA',
-            'Z129': 'SVIZZERA',
-            'Z130': 'UCRAINA',
-            'Z131': 'UNGHERIA',
-            'Z132': 'RUSSIA',
-            'Z133': 'TURCHIA',
-            'Z134': 'REP. CECA',
-            'Z135': 'SLOVACCHIA',
-            'Z138': 'CITTÀ DEL VATICANO',
-            'Z139': 'SLOVENIA',
-            'Z140': 'CROAZIA',
-            'Z148': 'BOSNIA-ERZEGOVINA',
-            'Z149': 'MACEDONIA',
-            'Z153': 'ESTONIA',
-            'Z154': 'LETTONIA',
-            'Z155': 'LITUANIA',
-            'Z156': 'SERBIA',
-            'Z157': 'MONTENEGRO',
-            'Z158': 'KOSOVO',
-            'Z201': 'ALGERIA',
-            'Z202': 'ANGOLA',
-            'Z210': 'EGITTO',
-            'Z217': 'ETIOPIA',
-            'Z226': 'LIBIA',
-            'Z229': 'MAROCCO',
-            'Z243': 'NIGERIA',
-            'Z248': 'SEYCHELLES',
-            'Z251': 'SOMALIA',
-            'Z252': 'SUDAFRICA',
-            'Z256': 'TUNISIA',
-            'Z301': 'AFGHANISTAN',
-            'Z302': 'ARABIA SAUDITA',
-            'Z304': 'BAHREIN',
-            'Z305': 'BANGLADESH',
-            'Z306': 'BHUTAN',
-            'Z309': 'BRUNEI',
-            'Z310': 'CAMBOGIA',
-            'Z311': 'CINA',
-            'Z312': 'CIPRO',
-            'Z313': 'COREA DEL NORD',
-            'Z314': 'COREA DEL SUD',
-            'Z315': 'EMIRATI ARABI UNITI',
-            'Z316': 'FILIPPINE',
-            'Z318': 'GEORGIA',
-            'Z319': 'GIAPPONE',
-            'Z320': 'GIORDANIA',
-            'Z322': 'HONG KONG',
-            'Z323': 'INDIA',
-            'Z324': 'INDONESIA',
-            'Z325': 'IRAN',
-            'Z326': 'IRAQ',
-            'Z327': 'ISRAELE',
-            'Z330': 'KUWAIT',
-            'Z331': 'LAOS',
-            'Z332': 'LIBANO',
-            'Z335': 'MALDIVE',
-            'Z336': 'MALAYSIA',
-            'Z338': 'MONGOLIA',
-            'Z339': 'MYANMAR',
-            'Z340': 'NEPAL',
-            'Z341': 'OMAN',
-            'Z342': 'PAKISTAN',
-            'Z343': 'PALESTINA',
-            'Z344': 'QATAR',
-            'Z345': 'SINGAPORE',
-            'Z346': 'SIRIA',
-            'Z347': 'SRI LANKA',
-            'Z348': 'TAIWAN',
-            'Z349': 'THAILANDIA',
-            'Z351': 'UZBEKISTAN',
-            'Z352': 'VIETNAM',
-            'Z353': 'YEMEN',
-            'Z401': 'ARGENTINA',
-            'Z402': 'BOLIVIA',
-            'Z403': 'BRASILE',
-            'Z404': 'CANADA',
-            'Z405': 'CILE',
-            'Z406': 'COLOMBIA',
-            'Z409': 'CUBA',
-            'Z410': 'DOMINICA',
-            'Z411': 'ECUADOR',
-            'Z413': 'GIAMAICA',
-            'Z415': 'GUATEMALA',
-            'Z419': 'HAITI',
-            'Z421': 'HONDURAS',
-            'Z422': 'MESSICO',
-            'Z426': 'PANAMA',
-            'Z427': 'PARAGUAY',
-            'Z428': 'PERÙ',
-            'Z430': 'PORTO RICO',
-            'Z431': 'REP. DOMINICANA',
-            'Z434': 'SALVADOR',
-            'Z436': 'STATI UNITI',
-            'Z440': 'URUGUAY',
-            'Z441': 'VENEZUELA',
-            'Z501': 'AUSTRALIA',
-            'Z515': 'NUOVA ZELANDA'
-        };
-        
-        if (statiEsteri[codice]) {
-            return {
-                nome: statiEsteri[codice],
-                provincia: 'EE' // EE = Estero
-            };
-        }
-    }
-    
-    console.log('❌ Comune non trovato per codice:', codice);
-    return null;
 }
 
 // Mostra le informazioni estratte dal CF
@@ -1099,66 +1005,34 @@ function calculateAge(birthDate) {
     return age;
 }
 
-function saveArtist(artistData) {
-    // Carica database esistente
-    let artistsDB = [];
-    try {
-        const saved = localStorage.getItem('artistsDB');
-        if (saved) {
-            artistsDB = JSON.parse(saved);
-        }
-    } catch (error) {
-        console.error('Errore caricamento database artisti:', error);
-    }
-    
-    // Controlla se esiste già un artista con questo codice fiscale
-    const existingArtist = artistsDB.find(a => a.codiceFiscale === artistData.codiceFiscale);
-    if (existingArtist) {
-        showError('Esiste già un artista con questo codice fiscale nel database');
-        return;
-    }
-    
-    // Aggiungi nuovo artista
-    artistData.id = Date.now().toString();
-    artistsDB.push(artistData);
-    
-    // Salva database aggiornato
-    try {
-        localStorage.setItem('artistsDB', JSON.stringify(artistsDB));
-        console.log('✅ Artista salvato:', artistData);
-        
-        // Mostra messaggio di successo
-        showSuccess('Artista registrato con successo! Reindirizzamento...');
-        
-        // Reset form
-        resetForm();
-        
-        // Reindirizza alla dashboard dopo 2 secondi
-        setTimeout(() => {
-            window.location.href = './index.html';
-        }, 2000);
-    } catch (error) {
-        console.error('Errore salvataggio artista:', error);
-        showError('Errore durante il salvataggio');
-    }
-}
+// ==================== FUNZIONI DI UTILITÀ ====================
 
 function showSuccess(message) {
     const successDiv = document.getElementById('successMessage');
-    successDiv.textContent = message;
-    successDiv.style.display = 'block';
-    setTimeout(() => {
-        successDiv.style.display = 'none';
-    }, 3000);
+    if (successDiv) {
+        successDiv.textContent = message;
+        successDiv.style.display = 'block';
+        setTimeout(() => {
+            successDiv.style.display = 'none';
+        }, 3000);
+    } else {
+        // Fallback se non trova l'elemento
+        alert('✅ ' + message);
+    }
 }
 
 function showError(message) {
     const errorDiv = document.getElementById('errorMessage');
-    errorDiv.textContent = message;
-    errorDiv.style.display = 'block';
-    setTimeout(() => {
-        errorDiv.style.display = 'none';
-    }, 3000);
+    if (errorDiv) {
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+        setTimeout(() => {
+            errorDiv.style.display = 'none';
+        }, 5000);
+    } else {
+        // Fallback se non trova l'elemento
+        alert('❌ ' + message);
+    }
 }
 
 // Funzione per annullare la registrazione
@@ -1173,24 +1047,38 @@ window.cancelRegistration = cancelRegistration;
 
 // Funzione per resettare il form
 function resetForm() {
-    document.getElementById('registrationForm').reset();
-    document.getElementById('citta').disabled = true;
-    document.getElementById('cap').disabled = true;
-    document.getElementById('citta').innerHTML = '<option value="">Prima seleziona la provincia</option>';
-    document.getElementById('cap').innerHTML = '<option value="">Prima seleziona la città</option>';
-    
-    // Rimuovi eventuali span di età, sesso e alert
-    const ageDisplay = document.querySelector('.age-display');
-    if (ageDisplay) ageDisplay.remove();
-    
-    const genderDisplay = document.querySelector('.gender-display');
-    if (genderDisplay) genderDisplay.remove();
-    
-    const cfAlert = document.querySelector('.cf-mismatch-alert');
-    if (cfAlert) cfAlert.remove();
-    
-    // Rimuovi classi di validazione
-    document.querySelectorAll('.form-control').forEach(input => {
-        input.classList.remove('valid', 'invalid');
-    });
+    const form = document.getElementById('registrationForm');
+    if (form) {
+        form.reset();
+        
+        const cittaSelect = document.getElementById('citta');
+        const capSelect = document.getElementById('cap');
+        
+        if (cittaSelect) {
+            cittaSelect.disabled = true;
+            cittaSelect.innerHTML = '<option value="">Prima seleziona la provincia</option>';
+        }
+        
+        if (capSelect) {
+            capSelect.disabled = true;
+            capSelect.innerHTML = '<option value="">Prima seleziona la città</option>';
+        }
+        
+        // Rimuovi eventuali span di età e alert
+        const ageDisplay = document.querySelector('.age-display');
+        if (ageDisplay) ageDisplay.remove();
+        
+        const cfAlert = document.querySelector('.cf-mismatch-alert');
+        if (cfAlert) cfAlert.remove();
+        
+        const cfInfo = document.querySelector('.cf-info-display');
+        if (cfInfo) cfInfo.remove();
+        
+        // Rimuovi classi di validazione
+        document.querySelectorAll('.form-control').forEach(input => {
+            input.classList.remove('valid', 'invalid');
+        });
+    }
 }
+
+console.log('📝 Sistema registrazione artisti aggiornato per Supabase!');
