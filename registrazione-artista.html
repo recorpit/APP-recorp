@@ -3,8 +3,118 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registrazione Artista - RECORP ALL-IN-ONE</title>
+    <title>Gestione Artisti - RECORP ALL-IN-ONE</title>
     <link rel="stylesheet" href="./assets/style.css">
+    <style>
+        .mode-selection {
+            margin: 2rem 0;
+        }
+        
+        .mode-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .mode-card {
+            background: var(--bg-card, #ffffff);
+            border: 2px solid var(--border-color, #e5e7eb);
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .mode-card:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.15);
+            transform: translateY(-2px);
+        }
+        
+        .mode-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+        
+        .mode-card h3 {
+            color: var(--text-primary, #1f2937);
+            margin-bottom: 0.5rem;
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+        
+        .mode-card p {
+            color: var(--text-secondary, #6b7280);
+            font-size: 0.9rem;
+            margin: 0;
+        }
+        
+        .artist-selection {
+            margin: 2rem 0;
+        }
+        
+        .search-artist {
+            margin-bottom: 1.5rem;
+        }
+        
+        .search-artist input {
+            width: 100%;
+            padding: 1rem;
+            border: 1px solid var(--border-color, #e5e7eb);
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+        
+        .artists-list {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid var(--border-color, #e5e7eb);
+            border-radius: 8px;
+            background: var(--bg-secondary, #f8f9fa);
+        }
+        
+        .artist-item {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color, #e5e7eb);
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+        
+        .artist-item:hover {
+            background: #e0f2fe;
+        }
+        
+        .artist-item:last-child {
+            border-bottom: none;
+        }
+        
+        .artist-name {
+            font-weight: 600;
+            color: var(--text-primary, #1f2937);
+            margin-bottom: 0.25rem;
+        }
+        
+        .artist-details {
+            font-size: 0.9rem;
+            color: var(--text-secondary, #6b7280);
+        }
+        
+        .no-artists {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-secondary, #6b7280);
+        }
+        
+        @media (max-width: 768px) {
+            .mode-cards {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
 </head>
 <body>
     <!-- Navbar -->
@@ -21,8 +131,48 @@
         <div class="container">
             <div class="registration-container">
                 <div class="header text-center">
-                    <h1 class="page-title">Registrazione Nuovo Artista</h1>
-                    <p class="page-subtitle">Inserisci i dati dell'artista per aggiungerlo al database</p>
+                    <h1 class="page-title" id="pageTitle">Gestione Artisti</h1>
+                    <p class="page-subtitle" id="pageSubtitle">Scegli un'azione da eseguire</p>
+                </div>
+                
+                <!-- Selezione Modalità -->
+                <div class="mode-selection" id="modeSelection">
+                    <div class="mode-cards">
+                        <div class="mode-card" onclick="selectMode('new')">
+                            <div class="mode-icon">👤</div>
+                            <h3>Nuova Registrazione</h3>
+                            <p>Aggiungi un nuovo artista al database</p>
+                        </div>
+                        <div class="mode-card" onclick="selectMode('edit')">
+                            <div class="mode-icon">✏️</div>
+                            <h3>Modifica Esistente</h3>
+                            <p>Modifica i dati di un artista già registrato</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Selezione Artista per Modifica -->
+                <div class="artist-selection" id="artistSelection" style="display: none;">
+                    <div class="form-section">
+                        <div class="section-header">
+                            <h2 class="section-title">Seleziona Artista da Modificare</h2>
+                            <p class="section-subtitle">Cerca e seleziona l'artista che vuoi modificare</p>
+                        </div>
+                        <div class="form-content">
+                            <div class="search-artist">
+                                <input type="text" id="searchArtistInput" class="form-control" 
+                                       placeholder="Cerca per nome, cognome o codice fiscale...">
+                            </div>
+                            <div class="artists-list" id="artistsListContainer">
+                                <!-- Lista artisti caricata dinamicamente -->
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="goBackToModeSelection()">
+                            <span class="btn-icon">⬅️</span> Torna Indietro
+                        </button>
+                    </div>
                 </div>
                 
                 <div class="loading-indicator" id="loadingIndicator">
@@ -37,7 +187,7 @@
                     Errore durante la registrazione. Riprova.
                 </div>
                 
-                <form class="registration-form" id="registrationForm">
+                <form class="registration-form" id="registrationForm" style="display: none;">
                     <!-- Sezione Dati Anagrafici -->
                     <div class="form-section">
                         <div class="section-header">
@@ -58,6 +208,7 @@
                                        required 
                                        placeholder="RSSMRA85T10A562S">
                                 <small class="form-text">Il codice fiscale deve essere inserito per primo - la data di nascita verrà compilata automaticamente</small>
+                            </div>
                             <div class="form-group">
                                 <label class="form-label" for="nomeArte">
                                     Nome d'Arte
@@ -320,6 +471,19 @@
                                 <small class="form-text">Tipo di contratto per chi non ha partita IVA</small>
                             </div>
                             
+                            <div class="form-group" id="codiceComunicazioneGroup" style="display: none;">
+                                <label class="form-label" for="codiceComunicazione">
+                                    Codice Comunicazione INPS <span class="required">*</span>
+                                </label>
+                                <input type="text" 
+                                       class="form-control" 
+                                       id="codiceComunicazione" 
+                                       name="codiceComunicazione" 
+                                       placeholder="Es. 2100024201368860"
+                                       maxlength="20">
+                                <small class="form-text">Codice necessario per le comunicazioni INPS per contratti a chiamata</small>
+                            </div>
+                            
                             <div class="form-group">
                                 <label class="form-label" for="iban">
                                     IBAN <span class="required">*</span>
@@ -349,8 +513,8 @@
                     
                     <!-- Azioni Form -->
                     <div class="form-actions">
-                        <button type="submit" class="btn btn-primary btn-lg">
-                            <span class="btn-icon">💾</span> Registra Artista
+                        <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
+                            <span class="btn-icon">💾</span> <span id="submitText">Registra Artista</span>
                         </button>
                         <button type="button" class="btn btn-secondary btn-lg" onclick="cancelRegistration()">
                             <span class="btn-icon">❌</span> Annulla
