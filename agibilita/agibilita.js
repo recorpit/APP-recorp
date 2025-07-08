@@ -1320,8 +1320,8 @@ window.goToStep2 = goToStep2;
 window.goToStep3 = goToStep3;
 window.showSection = showSection;
 window.validateDates = validateDates;
-window.loadCitiesForProvince = loadCitiesForProvince;
-window.loadCAPsForCity = loadCAPsForCity;
+window.loadCitta = loadCitta; // ← AGGIUNTO
+window.loadCAP = loadCAP; // ← AGGIUNTO
 window.searchVenue = searchVenue;
 window.selectVenue = selectVenue;
 window.copyVenueAddress = copyVenueAddress;
@@ -1334,5 +1334,6 @@ window.filterAgibilita = filterAgibilita;
 window.editAgibilita = editAgibilita;
 window.duplicateAgibilita = duplicateAgibilita;
 window.cancelAgibilita = cancelAgibilita;
+window.isLegalRepresentative = isLegalRepresentative; // ← AGGIUNTO per debug
 
 console.log('agibilita.js CORRETTO caricato completamente');
