@@ -749,7 +749,18 @@ function generateXML() {
     let xml = `<?xml version="1.0" encoding="UTF-8"?>
 <ImportAgibilita>
     <ElencoAgibilita>
-        <Agibilita>
+        <Agibilita>`;
+
+    // CORREZIONE 1: Aggiungi IdentificativoAgibilita per modifiche
+    if (agibilitaData.isModifica && agibilitaData.codiceAgibilita) {
+        const agibilita = agibilitaDB.find(a => a.codice === agibilitaData.codiceAgibilita);
+        if (agibilita && agibilita.identificativoINPS) {
+            xml += `
+            <IdentificativoAgibilita>${agibilita.identificativoINPS}</IdentificativoAgibilita>`;
+        }
+    }
+
+    xml += `
             <Tipo>${tipo}</Tipo>
             <CodiceFiscaleAzienda>04433920248</CodiceFiscaleAzienda>
             <Matricola>9112806447</Matricola>
@@ -763,7 +774,7 @@ function generateXML() {
                     <Tipo>O</Tipo>
                     <TipoRetribuzione>G</TipoRetribuzione>
                     <Luogo>${cittaNome}</Luogo>
-                    <Descrizione>Evento per ${selectedArtists.length} artist${selectedArtists.length > 1 ? 'i' : 'a'}</Descrizione>
+                    <Descrizione>${descrizioneLocale}</Descrizione>
                     <Indirizzo>${indirizzo}</Indirizzo>
                     <CodiceComune>${codiceComune}</CodiceComune>
                     <Provincia>${provincia}</Provincia>
@@ -776,9 +787,12 @@ function generateXML() {
                     </Periodi>
                     <Lavoratori>`;
 
-    // CORREZIONE PRINCIPALE: tutti gli artisti nella STESSA occupazione
+    // CORREZIONE 3: tutti gli artisti nella STESSA occupazione con legale rappresentante corretto
     selectedArtists.forEach(artist => {
         const codiceQualifica = getQualificaCode(artist.ruolo);
+        
+        // CORREZIONE 2: Determina se è legale rappresentante
+        const isLegaleRappresentante = isLegalRepresentative(artist);
         
         xml += `
                         <Lavoratore>
@@ -786,7 +800,7 @@ function generateXML() {
                             <MatricolaEnpals>${artist.matricolaEnpals || generateMatricolaEnpals()}</MatricolaEnpals>
                             <Cognome>${artist.cognome.toUpperCase()}</Cognome>
                             <Nome>${artist.nome.toUpperCase()}</Nome>
-                            <LegaleRappresentante>NO</LegaleRappresentante>
+                            <LegaleRappresentante>${isLegaleRappresentante ? 'SI' : 'NO'}</LegaleRappresentante>
                             <CodiceQualifica>${codiceQualifica}</CodiceQualifica>
                             <Retribuzione>${formatRetribuzione(artist.compenso)}</Retribuzione>
                         </Lavoratore>`;
@@ -850,7 +864,19 @@ function getCodicebelfioreFromCity() {
     return 'L736'; // Default Venezia
 }
 
-function getQualificaCode(ruolo) {
+// NUOVA FUNZIONE: Determina se un artista è legale rappresentante
+function isLegalRepresentative(artist) {
+    // Lista dei legali rappresentanti
+    const legalRepresentatives = [
+        { nome: 'OSCAR', cognome: 'ZALTRON' },
+        { nome: 'CRISTIANO', cognome: 'TOMASI' }
+    ];
+    
+    return legalRepresentatives.some(rep => 
+        artist.nome.toUpperCase() === rep.nome && 
+        artist.cognome.toUpperCase() === rep.cognome
+    );
+}
     const qualificaMap = {
         'DJ': '032',
         'Vocalist': '031',
@@ -995,7 +1021,9 @@ function saveAgibilitaToDatabase(xmlContent) {
         })),
         xml: xmlContent,
         isModifica: agibilitaData.isModifica,
-        codiceOriginale: agibilitaData.codiceAgibilita
+        codiceOriginale: agibilitaData.codiceAgibilita,
+        // AGGIUNTO: campo per salvare l'ID INPS per future modifiche
+        identificativoINPS: null // Da aggiornare manualmente quando si riceve risposta INPS
     };
 
     agibilitaDB.push(agibilita);
