@@ -1,4 +1,4 @@
-// agibilita.js - Sistema Gestione Agibilità RECORP - VERSIONE SUPABASE
+// agibilita.js - Sistema Gestione Agibilità RECORP con Comunicazioni Intermittenti
 
 // Import Supabase DatabaseService
 import { DatabaseService } from '../supabase-config.js';
@@ -138,7 +138,6 @@ function goToStep3() {
     saveVenueIfNew();
     saveInvoiceData();
     updateSummaries();
-    generateXMLPreview();
     showSection('step3');
 }
 
@@ -237,9 +236,109 @@ function determineTipoRapporto(artist) {
     if (artist.has_partita_iva) {
         return 'partitaiva';
     } else if (artist.tipo_rapporto) {
+        if (artist.tipo_rapporto === 'Contratto a chiamata') {
+            return 'chiamata';
+        }
         return artist.tipo_rapporto;
     } else {
         return 'occasionale';
+    }
+}
+
+// ==================== NUOVE FUNZIONI PER COMUNICAZIONI INTERMITTENTI ====================
+function getArtistiAChiamata() {
+    return selectedArtists.filter(artist => 
+        artist.tipoRapporto === 'chiamata' || 
+        artist.tipo_rapporto === 'Contratto a chiamata'
+    );
+}
+
+function generateXMLIntermittenti(artistiAChiamata) {
+    if (artistiAChiamata.length === 0) return null;
+    
+    const dataInizio = document.getElementById('dataInizio').value;
+    const dataFine = document.getElementById('dataFine').value;
+    
+    // Formatta date in DD/MM/YYYY
+    const formatDate = (dateStr) => {
+        const date = new Date(dateStr);
+        const dd = String(date.getDate()).padStart(2, '0');
+        const mm = String(date.getMonth() + 1).padStart(2, '0');
+        const yyyy = date.getFullYear();
+        return `${dd}/${mm}/${yyyy}`;
+    };
+    
+    const dataInizioFormatted = formatDate(dataInizio);
+    const dataFineFormatted = formatDate(dataFine);
+    
+    let xml = `<?xml version="1.0" encoding="UTF-8"?>
+<moduloIntermittenti xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/">
+<Campi>
+<CFdatorelavoro>04433920248</CFdatorelavoro>
+<EMmail>amministrazione@recorp.it</EMmail>`;
+
+    // Aggiungi fino a 10 lavoratori a chiamata
+    artistiAChiamata.slice(0, 10).forEach((artist, index) => {
+        const num = index + 1;
+        const codComunicazione = artist.codice_comunicazione || generateCodiceComunicazione();
+        
+        xml += `
+<CFlavoratore${num}>${artist.codice_fiscale}</CFlavoratore${num}>
+<CCcodcomunicazione${num}>${codComunicazione}</CCcodcomunicazione${num}>
+<DTdatainizio${num}>${dataInizioFormatted}</DTdatainizio${num}>
+<DTdatafine${num}>${dataFineFormatted}</DTdatafine${num}>`;
+    });
+    
+    xml += `
+</Campi>
+</moduloIntermittenti>`;
+    
+    return xml;
+}
+
+function generateCodiceComunicazione() {
+    // Genera un codice temporaneo se non presente nel database
+    const timestamp = Date.now();
+    return `2100024${timestamp.toString().slice(-9)}`;
+}
+
+function downloadXMLIntermittenti(xmlContent, artistiCount) {
+    const blob = new Blob([xmlContent], { type: 'text/xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    
+    // Nome file con data
+    const today = new Date().toISOString().slice(0,10).replace(/-/g, '_');
+    a.download = `comunicazione_intermittenti_${today}.xml`;
+    
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function showIntermittentiSummary(artistiAChiamata) {
+    const summaryHtml = `
+        <div class="alert alert-info" style="margin-top: 1rem;">
+            <h4>📞 Comunicazioni Intermittenti Generate</h4>
+            <p>I seguenti artisti sono stati inclusi nel file XML per le comunicazioni intermittenti:</p>
+            <ul>
+                ${artistiAChiamata.map(artist => `
+                    <li>
+                        <strong>${artist.nome} ${artist.cognome}</strong> 
+                        - CF: ${artist.codice_fiscale}
+                        ${artist.codice_comunicazione ? ` - Cod. INPS: ${artist.codice_comunicazione}` : ' - Cod. INPS: Generato automaticamente'}
+                    </li>
+                `).join('')}
+            </ul>
+            <p class="mb-0"><small>Il file XML è stato scaricato automaticamente nella cartella download.</small></p>
+        </div>
+    `;
+    
+    const tabInvio = document.getElementById('tabInvio');
+    if (tabInvio) {
+        const div = document.createElement('div');
+        div.innerHTML = summaryHtml;
+        tabInvio.appendChild(div);
     }
 }
 
@@ -252,13 +351,17 @@ function updateArtistsList() {
         document.getElementById('summaryBox').style.display = 'none';
         document.getElementById('btnNext1').style.display = 'none';
     } else {
-        listDiv.innerHTML = selectedArtists.map((artist, index) => `
-            <div class="artist-item">
+        listDiv.innerHTML = selectedArtists.map((artist, index) => {
+            const isAChiamata = artist.tipoRapporto === 'chiamata' || artist.tipo_rapporto === 'Contratto a chiamata';
+            
+            return `
+            <div class="artist-item ${isAChiamata ? 'artist-chiamata' : ''}">
                 <div class="artist-info">
                     <strong>${artist.nome} ${artist.cognome}${artist.nome_arte ? ' - ' + artist.nome_arte : ''}</strong><br>
                     <small>CF: ${artist.codice_fiscale}</small>
                     ${artist.matricolaEnpals ? `<br><small>Matricola ENPALS: ${artist.matricolaEnpals}</small>` : ''}
                     <br><span class="tipo-rapporto-badge tipo-${artist.tipoRapporto}">${getTipoRapportoLabel(artist.tipoRapporto)}</span>
+                    ${isAChiamata && artist.codice_comunicazione ? `<br><small class="codice-inps">📞 Cod. INPS: ${artist.codice_comunicazione}</small>` : ''}
                 </div>
                 <div class="artist-role-compensation">
                     <select class="form-control" required onchange="updateArtistRole(${index}, this.value)">
@@ -287,7 +390,16 @@ function updateArtistsList() {
                     <button class="btn btn-danger btn-sm" onclick="removeArtist(${index})">Rimuovi</button>
                 </div>
             </div>
-        `).join('');
+        `}).join('');
+
+        // Mostra conteggio artisti a chiamata
+        const artistiAChiamata = getArtistiAChiamata();
+        if (artistiAChiamata.length > 0) {
+            const infoDiv = document.createElement('div');
+            infoDiv.className = 'alert alert-info mt-3';
+            infoDiv.innerHTML = `📞 ${artistiAChiamata.length} artisti con contratto a chiamata - Verrà generato anche XML comunicazioni intermittenti`;
+            listDiv.appendChild(infoDiv);
+        }
 
         document.getElementById('summaryBox').style.display = 'block';
         updateTotalCompensation();
@@ -806,31 +918,6 @@ function generateXML() {
     return xml;
 }
 
-function generateXMLPreview() {
-    try {
-        const xml = generateXML();
-        const validation = validateINPSXML(xml);
-        
-        let preview = xml.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        preview = preview.replace(/(&lt;\/?[^&gt;]+&gt;)/g, '<span class="xml-tag">$1</span>');
-        
-        const previewDiv = document.getElementById('xmlPreview');
-        if (previewDiv) {
-            previewDiv.innerHTML = `<pre class="xml-code">${preview}</pre>`;
-            
-            const statusDiv = document.createElement('div');
-            statusDiv.className = validation.isValid ? 'alert alert-success' : 'alert alert-error';
-            statusDiv.innerHTML = validation.isValid 
-                ? '✅ XML valido e pronto per l\'invio INPS'
-                : `❌ Errori di validazione:<br>${validation.errors.map(error => `• ${error}`).join('<br>')}`;
-            
-            previewDiv.parentNode.appendChild(statusDiv);
-        }
-    } catch (error) {
-        console.error('Errore generazione XML:', error);
-    }
-}
-
 function getCodicebelfioreFromCity() {
     const cittaSelect = document.getElementById('citta');
     const selectedOption = cittaSelect.options[cittaSelect.selectedIndex];
@@ -920,7 +1007,7 @@ function validaCodiceFiscale(cf) {
     return regex.test(cf.toUpperCase());
 }
 
-// ==================== DOWNLOAD E SALVATAGGIO SU SUPABASE ====================
+// ==================== DOWNLOAD E SALVATAGGIO SU SUPABASE (MODIFICATO) ====================
 function downloadXML(xmlContent) {
     const blob = new Blob([xmlContent], { type: 'text/xml' });
     const url = URL.createObjectURL(blob);
@@ -940,15 +1027,38 @@ async function downloadAndSave() {
         return;
     }
 
+    // Scarica XML agibilità
     downloadXML(xmlContent);
+    
+    // Salva agibilità nel database
     await saveAgibilitaToDatabase(xmlContent);
+    
+    // NUOVO: Genera e scarica XML intermittenti se ci sono artisti a chiamata
+    const artistiAChiamata = getArtistiAChiamata();
+    if (artistiAChiamata.length > 0) {
+        const xmlIntermittenti = generateXMLIntermittenti(artistiAChiamata);
+        if (xmlIntermittenti) {
+            // Mostra messaggio di conferma
+            setTimeout(() => {
+                if (confirm(`Sono stati trovati ${artistiAChiamata.length} artisti con contratto a chiamata.\n\nVuoi scaricare anche il file XML per le comunicazioni intermittenti?`)) {
+                    downloadXMLIntermittenti(xmlIntermittenti, artistiAChiamata.length);
+                    
+                    // Mostra riepilogo artisti a chiamata
+                    showIntermittentiSummary(artistiAChiamata);
+                }
+            }, 500);
+        }
+    }
 
     document.getElementById('btnConfirm').style.display = 'none';
     document.getElementById('btnNewAgibilita').style.display = 'inline-block';
 
     const successMsg = document.createElement('div');
     successMsg.className = 'alert alert-success';
-    successMsg.textContent = 'XML scaricato e agibilità salvata con successo!';
+    successMsg.innerHTML = `
+        ✅ XML agibilità scaricato e salvato con successo!
+        ${artistiAChiamata.length > 0 ? `<br>📞 ${artistiAChiamata.length} artisti con contratto a chiamata rilevati` : ''}
+    `;
     
     const tabInvio = document.getElementById('tabInvio');
     if (tabInvio) {
@@ -986,269 +1096,270 @@ async function saveAgibilitaToDatabase(xmlContent) {
                 cf: a.codice_fiscale,
                 nome: a.nome,
                 cognome: a.cognome,
-                nome_arte: a.nome_arte,
-                ruolo: a.ruolo,
-                compenso: a.compenso,
-                matricola_enpals: a.matricolaEnpals,
-                tipo_rapporto: a.tipoRapporto
-            })),
-            xml_content: xmlContent,
-            is_modifica: agibilitaData.isModifica,
-            codice_originale: agibilitaData.codiceAgibilita,
-            identificativo_inps: null
-        };
+               nome_arte: a.nome_arte,
+               ruolo: a.ruolo,
+               compenso: a.compenso,
+               matricola_enpals: a.matricolaEnpals,
+               tipo_rapporto: a.tipoRapporto,
+               codice_comunicazione: a.codice_comunicazione || null
+           })),
+           xml_content: xmlContent,
+           is_modifica: agibilitaData.isModifica,
+           codice_originale: agibilitaData.codiceAgibilita,
+           identificativo_inps: null
+       };
 
-        const savedAgibilita = await DatabaseService.saveAgibilita(agibilita);
-        agibilitaDB.push(savedAgibilita);
-        
-        console.log('✅ Agibilità salvata su Supabase:', savedAgibilita);
-        
-    } catch (error) {
-        console.error('❌ Errore salvataggio agibilità:', error);
-        alert('Errore durante il salvataggio su database: ' + error.message);
-    }
+       const savedAgibilita = await DatabaseService.saveAgibilita(agibilita);
+       agibilitaDB.push(savedAgibilita);
+       
+       console.log('✅ Agibilità salvata su Supabase:', savedAgibilita);
+       
+   } catch (error) {
+       console.error('❌ Errore salvataggio agibilità:', error);
+       alert('Errore durante il salvataggio su database: ' + error.message);
+   }
 }
 
 function confirmAndProceed() {
-    downloadAndSave();
+   downloadAndSave();
 }
 
 function newAgibilita() {
-    clearAllForms();
-    agibilitaData.isModifica = false;
-    agibilitaData.codiceAgibilita = null;
-    selectedArtists = [];
+   clearAllForms();
+   agibilitaData.isModifica = false;
+   agibilitaData.codiceAgibilita = null;
+   selectedArtists = [];
 
-    document.getElementById('btnConfirm').style.display = 'inline-block';
-    document.getElementById('btnNewAgibilita').style.display = 'none';
+   document.getElementById('btnConfirm').style.display = 'inline-block';
+   document.getElementById('btnNewAgibilita').style.display = 'none';
 
-    const today = new Date().toISOString().split('T')[0];
-    document.getElementById('dataInizio').value = today;
+   const today = new Date().toISOString().split('T')[0];
+   document.getElementById('dataInizio').value = today;
 
-    showSection('tipoSection');
+   showSection('tipoSection');
 }
 
 function saveDraft() {
-    alert('Funzionalità bozza in sviluppo');
+   alert('Funzionalità bozza in sviluppo');
 }
 
 // ==================== GESTIONE AGIBILITÀ ESISTENTI ====================
 function showExistingAgibilita() {
-    const listDiv = document.getElementById('agibilitaList');
-    if (!listDiv) return;
+   const listDiv = document.getElementById('agibilitaList');
+   if (!listDiv) return;
 
-    if (agibilitaDB.length === 0) {
-        listDiv.innerHTML = '<p class="no-data-message">Nessuna agibilità trovata</p>';
-        return;
-    }
+   if (agibilitaDB.length === 0) {
+       listDiv.innerHTML = '<p class="no-data-message">Nessuna agibilità trovata</p>';
+       return;
+   }
 
-    const agibilitaHTML = agibilitaDB.map(agibilita => {
-        const totalCompensation = agibilita.artisti.reduce((sum, a) => sum + (a.compenso || 0), 0);
-        const artistsList = agibilita.artisti.map(a => 
-            `${a.nome} ${a.cognome} (${a.ruolo})`
-        ).join(', ');
+   const agibilitaHTML = agibilitaDB.map(agibilita => {
+       const totalCompensation = agibilita.artisti.reduce((sum, a) => sum + (a.compenso || 0), 0);
+       const artistsList = agibilita.artisti.map(a => 
+           `${a.nome} ${a.cognome} (${a.ruolo})`
+       ).join(', ');
 
-        const cittaDisplay = agibilita.locale.citta_nome || agibilita.locale.citta || 'Città non specificata';
+       const cittaDisplay = agibilita.locale.citta_nome || agibilita.locale.citta || 'Città non specificata';
 
-        return `
-            <div class="agibilita-item">
-                <div class="agibilita-info">
-                    <div class="agibilita-code">[${agibilita.codice}]</div>
-                    <div class="agibilita-dates">${agibilita.data_inizio} - ${agibilita.data_fine}</div>
-                    <div class="agibilita-location">${agibilita.locale.descrizione} - ${cittaDisplay}</div>
-                    <div class="agibilita-artists">Artisti: ${artistsList} - Totale: €${totalCompensation.toFixed(2)}</div>
-                </div>
-                <div class="agibilita-actions">
-                    <button class="btn btn-primary btn-sm" onclick="editAgibilita('${agibilita.codice}')">📝 Modifica</button>
-                    <button class="btn btn-success btn-sm" onclick="duplicateAgibilita('${agibilita.codice}')">📋 Duplica</button>
-                    <button class="btn btn-danger btn-sm" onclick="cancelAgibilita('${agibilita.codice}')">❌ Annulla</button>
-                </div>
-            </div>
-        `;
-    }).join('');
+       return `
+           <div class="agibilita-item">
+               <div class="agibilita-info">
+                   <div class="agibilita-code">[${agibilita.codice}]</div>
+                   <div class="agibilita-dates">${agibilita.data_inizio} - ${agibilita.data_fine}</div>
+                   <div class="agibilita-location">${agibilita.locale.descrizione} - ${cittaDisplay}</div>
+                   <div class="agibilita-artists">Artisti: ${artistsList} - Totale: €${totalCompensation.toFixed(2)}</div>
+               </div>
+               <div class="agibilita-actions">
+                   <button class="btn btn-primary btn-sm" onclick="editAgibilita('${agibilita.codice}')">📝 Modifica</button>
+                   <button class="btn btn-success btn-sm" onclick="duplicateAgibilita('${agibilita.codice}')">📋 Duplica</button>
+                   <button class="btn btn-danger btn-sm" onclick="cancelAgibilita('${agibilita.codice}')">❌ Annulla</button>
+               </div>
+           </div>
+       `;
+   }).join('');
 
-    listDiv.innerHTML = agibilitaHTML;
+   listDiv.innerHTML = agibilitaHTML;
 }
 
 function filterAgibilita() {
-    const searchTerm = document.getElementById('searchAgibilita').value.toLowerCase();
-    const items = document.querySelectorAll('.agibilita-item');
+   const searchTerm = document.getElementById('searchAgibilita').value.toLowerCase();
+   const items = document.querySelectorAll('.agibilita-item');
 
-    items.forEach(item => {
-        const text = item.textContent.toLowerCase();
-        item.style.display = text.includes(searchTerm) ? 'block' : 'none';
-    });
+   items.forEach(item => {
+       const text = item.textContent.toLowerCase();
+       item.style.display = text.includes(searchTerm) ? 'block' : 'none';
+   });
 }
 
 function editAgibilita(codice) {
-    const agibilita = agibilitaDB.find(a => a.codice === codice);
-    if (!agibilita) return;
+   const agibilita = agibilitaDB.find(a => a.codice === codice);
+   if (!agibilita) return;
 
-    agibilitaData.isModifica = true;
-    agibilitaData.codiceAgibilita = codice;
+   agibilitaData.isModifica = true;
+   agibilitaData.codiceAgibilita = codice;
 
-    selectedArtists = [];
-    agibilita.artisti.forEach(artData => {
-        const artist = artistsDB.find(a => a.codice_fiscale === artData.cf);
-        if (artist) {
-            selectedArtists.push({
-                ...artist,
-                ruolo: artData.ruolo,
-                compenso: artData.compenso,
-                tipoRapporto: artData.tipo_rapporto || determineTipoRapporto(artist),
-                matricolaEnpals: artData.matricola_enpals
-            });
-        }
-    });
+   selectedArtists = [];
+   agibilita.artisti.forEach(artData => {
+       const artist = artistsDB.find(a => a.codice_fiscale === artData.cf);
+       if (artist) {
+           selectedArtists.push({
+               ...artist,
+               ruolo: artData.ruolo,
+               compenso: artData.compenso,
+               tipoRapporto: artData.tipo_rapporto || determineTipoRapporto(artist),
+               matricolaEnpals: artData.matricola_enpals
+           });
+       }
+   });
 
-    document.getElementById('dataInizio').value = agibilita.data_inizio;
-    document.getElementById('dataFine').value = agibilita.data_fine;
-    document.getElementById('descrizioneLocale').value = agibilita.locale.descrizione;
-    document.getElementById('indirizzo').value = agibilita.locale.indirizzo;
-    
-    document.getElementById('provincia').value = agibilita.locale.provincia;
-    loadCitta(agibilita.locale.provincia);
-    
-    setTimeout(() => {
-        document.getElementById('citta').value = agibilita.locale.citta_codice || agibilita.locale.citta;
-        loadCAP(agibilita.locale.citta_codice || agibilita.locale.citta);
-        
-        setTimeout(() => {
-            document.getElementById('cap').value = agibilita.locale.cap;
-        }, 100);
-    }, 100);
+   document.getElementById('dataInizio').value = agibilita.data_inizio;
+   document.getElementById('dataFine').value = agibilita.data_fine;
+   document.getElementById('descrizioneLocale').value = agibilita.locale.descrizione;
+   document.getElementById('indirizzo').value = agibilita.locale.indirizzo;
+   
+   document.getElementById('provincia').value = agibilita.locale.provincia;
+   loadCitta(agibilita.locale.provincia);
+   
+   setTimeout(() => {
+       document.getElementById('citta').value = agibilita.locale.citta_codice || agibilita.locale.citta;
+       loadCAP(agibilita.locale.citta_codice || agibilita.locale.citta);
+       
+       setTimeout(() => {
+           document.getElementById('cap').value = agibilita.locale.cap;
+       }, 100);
+   }, 100);
 
-    if (agibilita.fatturazione) {
-        document.getElementById('ragioneSociale').value = agibilita.fatturazione.ragione_sociale || '';
-        document.getElementById('piva').value = agibilita.fatturazione.piva || '';
-        document.getElementById('codiceFiscale').value = agibilita.fatturazione.codice_fiscale || '';
-        document.getElementById('codiceSDI').value = agibilita.fatturazione.codice_sdi || '';
-    }
+   if (agibilita.fatturazione) {
+       document.getElementById('ragioneSociale').value = agibilita.fatturazione.ragione_sociale || '';
+       document.getElementById('piva').value = agibilita.fatturazione.piva || '';
+       document.getElementById('codiceFiscale').value = agibilita.fatturazione.codice_fiscale || '';
+       document.getElementById('codiceSDI').value = agibilita.fatturazione.codice_sdi || '';
+   }
 
-    updateArtistsList();
-    document.getElementById('editListSection').style.display = 'none';
-    showSection('step1');
+   updateArtistsList();
+   document.getElementById('editListSection').style.display = 'none';
+   showSection('step1');
 }
 
 function duplicateAgibilita(codice) {
-    const agibilita = agibilitaDB.find(a => a.codice === codice);
-    if (!agibilita) return;
+   const agibilita = agibilitaDB.find(a => a.codice === codice);
+   if (!agibilita) return;
 
-    editAgibilita(codice);
-    
-    agibilitaData.isModifica = false;
-    agibilitaData.codiceAgibilita = null;
-    
-    const today = new Date().toISOString().split('T')[0];
-    document.getElementById('dataInizio').value = today;
-    document.getElementById('dataFine').value = '';
+   editAgibilita(codice);
+   
+   agibilitaData.isModifica = false;
+   agibilitaData.codiceAgibilita = null;
+   
+   const today = new Date().toISOString().split('T')[0];
+   document.getElementById('dataInizio').value = today;
+   document.getElementById('dataFine').value = '';
 }
 
 function cancelAgibilita(codice) {
-    if (!confirm(`Sei sicuro di voler annullare l'agibilità ${codice}?`)) return;
-    
-    const index = agibilitaDB.findIndex(a => a.codice === codice);
-    if (index !== -1) {
-        agibilitaDB.splice(index, 1);
-        showExistingAgibilita();
-        
-        const msg = document.createElement('div');
-        msg.className = 'alert alert-success';
-        msg.textContent = `Agibilità ${codice} annullata con successo`;
-        
-        const listDiv = document.getElementById('agibilitaList');
-        if (listDiv) {
-            listDiv.insertBefore(msg, listDiv.firstChild);
-            setTimeout(() => msg.remove(), 3000);
-        }
-    }
+   if (!confirm(`Sei sicuro di voler annullare l'agibilità ${codice}?`)) return;
+   
+   const index = agibilitaDB.findIndex(a => a.codice === codice);
+   if (index !== -1) {
+       agibilitaDB.splice(index, 1);
+       showExistingAgibilita();
+       
+       const msg = document.createElement('div');
+       msg.className = 'alert alert-success';
+       msg.textContent = `Agibilità ${codice} annullata con successo`;
+       
+       const listDiv = document.getElementById('agibilitaList');
+       if (listDiv) {
+           listDiv.insertBefore(msg, listDiv.firstChild);
+           setTimeout(() => msg.remove(), 3000);
+       }
+   }
 }
 
 // ==================== FUNZIONI UTILITÀ ====================
 function clearAllForms() {
-    selectedArtists = [];
-    updateArtistsList();
+   selectedArtists = [];
+   updateArtistsList();
 
-    const today = new Date().toISOString().split('T')[0];
-    document.getElementById('dataInizio').value = today;
-    document.getElementById('dataFine').value = '';
+   const today = new Date().toISOString().split('T')[0];
+   document.getElementById('dataInizio').value = today;
+   document.getElementById('dataFine').value = '';
 
-    const fields = ['descrizioneLocale', 'indirizzo', 'citta', 'cap', 'provincia', 'noteLocale'];
-    fields.forEach(fieldId => {
-        const field = document.getElementById(fieldId);
-        if (field) field.value = '';
-    });
+   const fields = ['descrizioneLocale', 'indirizzo', 'citta', 'cap', 'provincia', 'noteLocale'];
+   fields.forEach(fieldId => {
+       const field = document.getElementById(fieldId);
+       if (field) field.value = '';
+   });
 
-    clearInvoiceFields();
+   clearInvoiceFields();
 
-    document.getElementById('editListSection').style.display = 'none';
-    const dateInfo = document.getElementById('dateInfo');
-    if (dateInfo) dateInfo.style.display = 'none';
-    
-    document.getElementById('citta').disabled = true;
-    document.getElementById('cap').disabled = true;
-    document.getElementById('citta').innerHTML = '<option value="">Prima seleziona la provincia</option>';
-    document.getElementById('cap').innerHTML = '<option value="">Prima seleziona la città</option>';
+   document.getElementById('editListSection').style.display = 'none';
+   const dateInfo = document.getElementById('dateInfo');
+   if (dateInfo) dateInfo.style.display = 'none';
+   
+   document.getElementById('citta').disabled = true;
+   document.getElementById('cap').disabled = true;
+   document.getElementById('citta').innerHTML = '<option value="">Prima seleziona la provincia</option>';
+   document.getElementById('cap').innerHTML = '<option value="">Prima seleziona la città</option>';
 }
 
 function setupEventListeners() {
-    const dataInizio = document.getElementById('dataInizio');
-    if (dataInizio) dataInizio.addEventListener('change', validateDates);
-    
-    const dataFine = document.getElementById('dataFine');
-    if (dataFine) dataFine.addEventListener('change', validateDates);
+   const dataInizio = document.getElementById('dataInizio');
+   if (dataInizio) dataInizio.addEventListener('change', validateDates);
+   
+   const dataFine = document.getElementById('dataFine');
+   if (dataFine) dataFine.addEventListener('change', validateDates);
 
-    const descrizioneLocale = document.getElementById('descrizioneLocale');
-    if (descrizioneLocale) {
-        descrizioneLocale.addEventListener('input', searchVenue);
-    }
+   const descrizioneLocale = document.getElementById('descrizioneLocale');
+   if (descrizioneLocale) {
+       descrizioneLocale.addEventListener('input', searchVenue);
+   }
 
-    const provincia = document.getElementById('provincia');
-    if (provincia) {
-        provincia.addEventListener('change', function() {
-            const selectedProvincia = this.value;
-            const cittaSelect = document.getElementById('citta');
-            const capSelect = document.getElementById('cap');
-            
-            if (selectedProvincia) {
-                cittaSelect.disabled = false;
-                loadCitta(selectedProvincia);
-            } else {
-                cittaSelect.disabled = true;
-                cittaSelect.innerHTML = '<option value="">Prima seleziona la provincia</option>';
-                capSelect.disabled = true;
-                capSelect.innerHTML = '<option value="">Prima seleziona la città</option>';
-            }
-        });
-    }
-    
-    const citta = document.getElementById('citta');
-    if (citta) {
-        citta.addEventListener('change', function() {
-            const selectedCitta = this.value;
-            const capSelect = document.getElementById('cap');
-            
-            if (selectedCitta) {
-                capSelect.disabled = false;
-                loadCAP(selectedCitta);
-            } else {
-                capSelect.disabled = true;
-                capSelect.innerHTML = '<option value="">Prima seleziona la città</option>';
-            }
-        });
-    }
+   const provincia = document.getElementById('provincia');
+   if (provincia) {
+       provincia.addEventListener('change', function() {
+           const selectedProvincia = this.value;
+           const cittaSelect = document.getElementById('citta');
+           const capSelect = document.getElementById('cap');
+           
+           if (selectedProvincia) {
+               cittaSelect.disabled = false;
+               loadCitta(selectedProvincia);
+           } else {
+               cittaSelect.disabled = true;
+               cittaSelect.innerHTML = '<option value="">Prima seleziona la provincia</option>';
+               capSelect.disabled = true;
+               capSelect.innerHTML = '<option value="">Prima seleziona la città</option>';
+           }
+       });
+   }
+   
+   const citta = document.getElementById('citta');
+   if (citta) {
+       citta.addEventListener('change', function() {
+           const selectedCitta = this.value;
+           const capSelect = document.getElementById('cap');
+           
+           if (selectedCitta) {
+               capSelect.disabled = false;
+               loadCAP(selectedCitta);
+           } else {
+               capSelect.disabled = true;
+               capSelect.innerHTML = '<option value="">Prima seleziona la città</option>';
+           }
+       });
+   }
 
-    window.addEventListener('click', function(event) {
-        const modal = document.getElementById('addArtistModal');
-        if (event.target === modal) {
-            closeModal();
-        }
-        
-        if (!event.target.matches('#descrizioneLocale')) {
-            const dropdown = document.getElementById('venueDropdown');
-            if (dropdown) dropdown.style.display = 'none';
-        }
-    });
+   window.addEventListener('click', function(event) {
+       const modal = document.getElementById('addArtistModal');
+       if (event.target === modal) {
+           closeModal();
+       }
+       
+       if (!event.target.matches('#descrizioneLocale')) {
+           const dropdown = document.getElementById('venueDropdown');
+           if (dropdown) dropdown.style.display = 'none';
+       }
+   });
 }
 
 // ==================== ESPORTA FUNZIONI GLOBALI ====================
@@ -1280,5 +1391,17 @@ window.filterAgibilita = filterAgibilita;
 window.editAgibilita = editAgibilita;
 window.duplicateAgibilita = duplicateAgibilita;
 window.cancelAgibilita = cancelAgibilita;
+window.loadCitiesForProvince = function() {
+   const provincia = document.getElementById('provincia').value;
+   if (provincia) {
+       loadCitta(provincia);
+   }
+};
+window.loadCAPsForCity = function() {
+   const citta = document.getElementById('citta').value;
+   if (citta) {
+       loadCAP(citta);
+   }
+};
 
-console.log('🎭 Sistema agibilità SUPABASE caricato completamente!');
+console.log('🎭 Sistema agibilità SUPABASE con COMUNICAZIONI INTERMITTENTI caricato completamente!');
