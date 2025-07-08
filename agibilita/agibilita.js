@@ -170,9 +170,10 @@ function searchArtists() {
         `;
     } else {
         resultsDiv.innerHTML = results.map(artist => `
-            <div class="search-result" onclick="addArtistToList(${artist.id})" style="cursor: pointer;">
+            <div class="search-result" onclick="addArtistToList('${artist.id}')" style="cursor: pointer;">
                 <strong>${artist.nome} ${artist.cognome}${artist.nomeArte ? ' - ' + artist.nomeArte : ''}</strong><br>
                 <small>CF: ${artist.codiceFiscale} | ${artist.mansione || 'Non specificata'}</small>
+                <small style="display: block; color: #666;">ID: ${artist.id}</small>
             </div>
         `).join('');
     }
@@ -180,9 +181,21 @@ function searchArtists() {
 
 function addArtistToList(artistId) {
     console.log('Adding artist:', artistId);
-    const artist = artistsDB.find(a => a.id === parseInt(artistId));
+    console.log('Available artists:', artistsDB.map(a => ({ id: a.id, nome: a.nome, cognome: a.cognome })));
+    
+    // Prova prima con ID come stringa, poi come numero
+    let artist = artistsDB.find(a => a.id === artistId);
     if (!artist) {
-        console.error('Artist not found');
+        artist = artistsDB.find(a => a.id === parseInt(artistId));
+    }
+    if (!artist) {
+        artist = artistsDB.find(a => a.id === artistId.toString());
+    }
+    
+    if (!artist) {
+        console.error('Artist not found. Searched ID:', artistId, 'Type:', typeof artistId);
+        console.error('Available IDs:', artistsDB.map(a => ({ id: a.id, type: typeof a.id })));
+        alert('Artista non trovato nel database');
         return;
     }
 
