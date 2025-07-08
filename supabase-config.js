@@ -6,7 +6,7 @@ const SUPABASE_URL = 'https://nommiumuwioddhauju.supabase.co'
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5vbW1sdXltdXdpb2RkaGF1anh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE5ODA5MjgsImV4cCI6MjA2NzU1NjkyOH0.oaF5uaNe21W8NU67n1HjngngMUClkss2achTQ7BZ5tE' // Sostituisci con la tua chiave completa
 
 // Import Supabase da CDN (funziona senza npm)
-import { createClient } from 'https://cdn.skypack.dev/@supabase/supabase-js@2'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 // Crea client Supabase
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
