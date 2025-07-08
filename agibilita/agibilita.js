@@ -533,10 +533,6 @@ function searchVenue() {
     }
 }
 
-// Rimuovi le vecchie funzioni sostituendole con quelle identiche a registrazione
-// loadCitiesForProvince e loadCAPsForCity sono già state sostituite sopra
-
-// CORREZIONE: sostituisci le chiamate nel codice esistente
 function selectVenue(nome, indirizzo, cittaCodice, cap, provincia) {
     document.getElementById('descrizioneLocale').value = nome;
     document.getElementById('indirizzo').value = indirizzo;
@@ -729,6 +725,20 @@ function showTab(tabName) {
     }
 }
 
+// ==================== NUOVA FUNZIONE: Determina se un artista è legale rappresentante ====================
+function isLegalRepresentative(artist) {
+    // Lista dei legali rappresentanti
+    const legalRepresentatives = [
+        { nome: 'OSCAR', cognome: 'ZALTRON' },
+        { nome: 'CRISTIANO', cognome: 'TOMASI' }
+    ];
+    
+    return legalRepresentatives.some(rep => 
+        artist.nome.toUpperCase() === rep.nome && 
+        artist.cognome.toUpperCase() === rep.cognome
+    );
+}
+
 // ==================== GENERAZIONE XML CORRETTA ====================
 function generateXML() {
     const startDate = document.getElementById('dataInizio').value;
@@ -787,7 +797,7 @@ function generateXML() {
                     </Periodi>
                     <Lavoratori>`;
 
-    // CORREZIONE 3: tutti gli artisti nella STESSA occupazione con legale rappresentante corretto
+    // CORREZIONE: tutti gli artisti nella STESSA occupazione con legale rappresentante corretto
     selectedArtists.forEach(artist => {
         const codiceQualifica = getQualificaCode(artist.ruolo);
         
@@ -864,19 +874,7 @@ function getCodicebelfioreFromCity() {
     return 'L736'; // Default Venezia
 }
 
-// NUOVA FUNZIONE: Determina se un artista è legale rappresentante
-function isLegalRepresentative(artist) {
-    // Lista dei legali rappresentanti
-    const legalRepresentatives = [
-        { nome: 'OSCAR', cognome: 'ZALTRON' },
-        { nome: 'CRISTIANO', cognome: 'TOMASI' }
-    ];
-    
-    return legalRepresentatives.some(rep => 
-        artist.nome.toUpperCase() === rep.nome && 
-        artist.cognome.toUpperCase() === rep.cognome
-    );
-}
+function getQualificaCode(ruolo) {
     const qualificaMap = {
         'DJ': '032',
         'Vocalist': '031',
@@ -1320,8 +1318,8 @@ window.goToStep2 = goToStep2;
 window.goToStep3 = goToStep3;
 window.showSection = showSection;
 window.validateDates = validateDates;
-window.loadCitta = loadCitta; // ← AGGIUNTO
-window.loadCAP = loadCAP; // ← AGGIUNTO
+window.loadCitta = loadCitta; // ← CORRETTO
+window.loadCAP = loadCAP; // ← CORRETTO  
 window.searchVenue = searchVenue;
 window.selectVenue = selectVenue;
 window.copyVenueAddress = copyVenueAddress;
