@@ -1,41 +1,114 @@
-// supabase-config.js - VERSIONE COMPLETA E CORRETTA
-// Configurazione per collegare RECORP a Supabase
+// supabase-config.js - Configurazione completa Supabase per RECORP ALL-IN-ONE
+// Versione completa con tutte le funzionalità
 
-const SUPABASE_URL = 'https://nommluymuwioddhaujxu.supabase.co'
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5vbW1sdXltdXdpb2RkaGF1anh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE5ODA5MjgsImV4cCI6MjA2NzU1NjkyOH0.oaF5uaNe21W8NU67n1HjngngMUClkss2achTQ7BZ5tE' // Sostituisci con la tua chiave completa
+// ==================== CONFIGURAZIONE ====================
+// Sostituisci questi valori con le tue credenziali Supabase reali
+const SUPABASE_URL = 'https://nommiumuwioddhauju.supabase.co'; // IL TUO URL QUI
+const SUPABASE_ANON_KEY = 'LA_TUA_CHIAVE_API_CORRETTA_QUI'; // LA TUA CHIAVE QUI
 
-// Import Supabase da CDN stabile
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+// Import Supabase
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-// Crea client Supabase
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+// Inizializza client Supabase
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// Funzioni helper per il database
+// Test connessione iniziale
+export async function testConnection() {
+    try {
+        const { data, error } = await supabase
+            .from('artisti')
+            .select('id')
+            .limit(1);
+        
+        if (error) throw error;
+        console.log('🟢 Connessione Supabase OK!');
+        return true;
+    } catch (error) {
+        console.error('🔴 Errore connessione Supabase:', error);
+        return false;
+    }
+}
+
+// ==================== DATABASE SERVICE ====================
 export class DatabaseService {
     
     // ==================== ARTISTI ====================
     
     // Ottieni tutti gli artisti
-    static async getArtisti() {
+    static async getAllArtisti() {
         try {
             const { data, error } = await supabase
                 .from('artisti')
                 .select('*')
                 .order('cognome', { ascending: true })
+                .order('nome', { ascending: true });
             
-            if (error) throw error
-            console.log('✅ Artisti caricati:', data?.length || 0)
-            return data || []
+            if (error) throw error;
+            return data || [];
         } catch (error) {
-            console.error('❌ Errore caricamento artisti:', error)
-            throw error
+            console.error('❌ Errore caricamento artisti:', error);
+            throw error;
+        }
+    }
+    
+    // Ottieni artisti con paginazione
+    static async getArtisti(limit = 50, offset = 0) {
+        try {
+            const { data, error } = await supabase
+                .from('artisti')
+                .select('*')
+                .order('cognome', { ascending: true })
+                .order('nome', { ascending: true })
+                .range(offset, offset + limit - 1);
+            
+            if (error) throw error;
+            return data || [];
+        } catch (error) {
+            console.error('❌ Errore caricamento artisti paginati:', error);
+            throw error;
+        }
+    }
+    
+    // Cerca artisti per query
+    static async searchArtisti(query) {
+        try {
+            const { data, error } = await supabase
+                .from('artisti')
+                .select('*')
+                .or(`nome.ilike.%${query}%,cognome.ilike.%${query}%,nome_arte.ilike.%${query}%,codice_fiscale.ilike.%${query}%`)
+                .order('cognome', { ascending: true });
+            
+            if (error) throw error;
+            return data || [];
+        } catch (error) {
+            console.error('❌ Errore ricerca artisti:', error);
+            throw error;
+        }
+    }
+    
+    // Ottieni artista per ID
+    static async getArtistaById(id) {
+        try {
+            const { data, error } = await supabase
+                .from('artisti')
+                .select('*')
+                .eq('id', id)
+                .single();
+            
+            if (error) throw error;
+            return data;
+        } catch (error) {
+            console.error('❌ Errore caricamento artista:', error);
+            throw error;
         }
     }
     
     // Salva nuovo artista
     static async saveArtista(artistData) {
         try {
-            // Converte i campi per il database
+            console.log('💾 Salvataggio artista:', artistData.nome, artistData.cognome);
+            
+            // Prepara i dati per il database
             const dbData = {
                 nome: artistData.nome.toUpperCase(),
                 cognome: artistData.cognome.toUpperCase(),
@@ -58,110 +131,220 @@ export class DatabaseService {
                 has_partita_iva: artistData.hasPartitaIva === 'si',
                 partita_iva: artistData.partitaIva || null,
                 tipo_rapporto: artistData.tipoRapporto || null,
+                codice_comunicazione: artistData.codiceComunicazione || null,
                 iban: artistData.iban.toUpperCase().replace(/\s/g, ''),
                 mansione: artistData.mansione,
                 note: artistData.note || null,
-                data_registrazione: artistData.dataRegistrazione || new Date().toISOString()
-            }
+                data_registrazione: artistData.dataRegistrazione || new Date().toISOString(),
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            };
             
             const { data, error } = await supabase
                 .from('artisti')
                 .insert([dbData])
                 .select()
+                .single();
             
-            if (error) throw error
-            console.log('✅ Artista salvato:', data[0])
-            return data[0]
+            if (error) {
+                console.error('❌ Errore Supabase insert artista:', error);
+                throw error;
+            }
+            
+            console.log('✅ Artista salvato con successo:', data);
+            return data;
+            
         } catch (error) {
-            console.error('❌ Errore salvataggio artista:', error)
-            throw error
+            console.error('❌ Errore in saveArtista:', error);
+            throw error;
         }
     }
     
-    // Cerca artisti
-    static async searchArtisti(searchTerm) {
+    // Aggiorna artista esistente
+    static async updateArtista(artistId, artistData) {
         try {
+            console.log('✏️ Aggiornamento artista ID:', artistId);
+            
+            // Prepara i dati per l'aggiornamento
+            const updateData = {
+                nome: artistData.nome.toUpperCase(),
+                cognome: artistData.cognome.toUpperCase(),
+                nome_arte: artistData.nomeArte || null,
+                codice_fiscale: artistData.codiceFiscale.toUpperCase(),
+                matricola_enpals: artistData.matricolaENPALS || null,
+                data_nascita: artistData.dataNascita,
+                sesso: artistData.sesso || null,
+                luogo_nascita: artistData.luogoNascita || null,
+                provincia_nascita: artistData.provinciaNascita || null,
+                eta: artistData.eta,
+                nazionalita: artistData.nazionalita || 'IT',
+                telefono: artistData.telefono || null,
+                email: artistData.email || null,
+                indirizzo: artistData.indirizzo,
+                provincia: artistData.provincia,
+                citta: artistData.citta,
+                cap: artistData.cap,
+                codice_istat_citta: artistData.codiceIstatCitta || null,
+                has_partita_iva: artistData.hasPartitaIva === 'si',
+                partita_iva: artistData.partitaIva || null,
+                tipo_rapporto: artistData.tipoRapporto || null,
+                codice_comunicazione: artistData.codiceComunicazione || null,
+                iban: artistData.iban.toUpperCase().replace(/\s/g, ''),
+                mansione: artistData.mansione,
+                note: artistData.note || null,
+                updated_at: new Date().toISOString()
+            };
+            
             const { data, error } = await supabase
                 .from('artisti')
-                .select('*')
-                .or(`nome.ilike.%${searchTerm}%,cognome.ilike.%${searchTerm}%,nome_arte.ilike.%${searchTerm}%,codice_fiscale.ilike.%${searchTerm}%`)
+                .update(updateData)
+                .eq('id', artistId)
+                .select()
+                .single();
             
-            if (error) throw error
-            return data || []
+            if (error) {
+                console.error('❌ Errore Supabase update artista:', error);
+                throw error;
+            }
+            
+            console.log('✅ Artista aggiornato con successo:', data);
+            return data;
+            
         } catch (error) {
-            console.error('❌ Errore ricerca artisti:', error)
-            throw error
+            console.error('❌ Errore in updateArtista:', error);
+            throw error;
         }
     }
     
-    // Controlla se esiste artista con CF
+    // Elimina artista
+    static async deleteArtista(artistId) {
+        try {
+            const { error } = await supabase
+                .from('artisti')
+                .delete()
+                .eq('id', artistId);
+            
+            if (error) throw error;
+            
+            console.log('✅ Artista eliminato con successo');
+            return true;
+        } catch (error) {
+            console.error('❌ Errore eliminazione artista:', error);
+            throw error;
+        }
+    }
+    
+    // Controlla se esiste un artista con il CF specificato
     static async artistaExists(codiceFiscale) {
         try {
             const { data, error } = await supabase
                 .from('artisti')
-                .select('id')
+                .select('id, nome, cognome')
                 .eq('codice_fiscale', codiceFiscale.toUpperCase())
-                .limit(1)
+                .limit(1);
             
-            if (error) throw error
-            return data && data.length > 0
+            if (error) throw error;
+            
+            return data && data.length > 0;
         } catch (error) {
-            console.error('❌ Errore controllo duplicati:', error)
-            return false
+            console.error('❌ Errore in artistaExists:', error);
+            throw error;
         }
+    }
+    
+    // Controlla se esiste un artista con il CF specificato (escludendo un ID specifico)
+    static async artistaExistsExcluding(codiceFiscale, excludeId) {
+        try {
+            const { data, error } = await supabase
+                .from('artisti')
+                .select('id, nome, cognome')
+                .eq('codice_fiscale', codiceFiscale.toUpperCase())
+                .neq('id', excludeId)
+                .limit(1);
+            
+            if (error) throw error;
+            
+            return data && data.length > 0;
+        } catch (error) {
+            console.error('❌ Errore in artistaExistsExcluding:', error);
+            throw error;
+        }
+    }
+    
+    // Ottieni artisti per tipo rapporto
+    static async getArtistiByTipoRapporto(tipoRapporto) {
+        try {
+            const { data, error } = await supabase
+                .from('artisti')
+                .select('*')
+                .eq('tipo_rapporto', tipoRapporto)
+                .order('cognome', { ascending: true });
+            
+            if (error) throw error;
+            return data || [];
+        } catch (error) {
+            console.error('❌ Errore caricamento artisti per tipo rapporto:', error);
+            throw error;
+        }
+    }
+    
+    // Ottieni artisti a chiamata
+    static async getArtistiAChiamata() {
+        return this.getArtistiByTipoRapporto('chiamata');
     }
     
     // ==================== VENUES ====================
     
     // Ottieni tutti i venues
-    static async getVenues() {
+    static async getAllVenues() {
         try {
             const { data, error } = await supabase
                 .from('venues')
                 .select('*')
-                .order('nome', { ascending: true })
+                .order('nome', { ascending: true });
             
-            if (error) throw error
-            return data || []
+            if (error) throw error;
+            return data || [];
         } catch (error) {
-            console.error('❌ Errore caricamento venues:', error)
-            throw error
+            console.error('❌ Errore caricamento venues:', error);
+            throw error;
         }
     }
     
-    // Salva nuovo venue
+    // Salva venue
     static async saveVenue(venueData) {
         try {
             const { data, error } = await supabase
                 .from('venues')
                 .insert([venueData])
                 .select()
+                .single();
             
-            if (error) throw error
-            console.log('✅ Venue salvato:', data[0])
-            return data[0]
+            if (error) throw error;
+            
+            console.log('✅ Venue salvato:', data);
+            return data;
         } catch (error) {
-            console.error('❌ Errore salvataggio venue:', error)
-            throw error
+            console.error('❌ Errore salvataggio venue:', error);
+            throw error;
         }
     }
     
     // ==================== INVOICE DATA ====================
     
-    // Ottieni dati fatturazione per venue
-    static async getInvoiceDataForVenue(venueName) {
+    // Ottieni tutti i dati fatturazione
+    static async getAllInvoiceData() {
         try {
             const { data, error } = await supabase
                 .from('invoice_data')
                 .select('*')
-                .eq('venue_name', venueName)
-                .single()
+                .order('venue_name', { ascending: true });
             
-            if (error && error.code !== 'PGRST116') throw error // PGRST116 = no rows
-            return data || null
+            if (error) throw error;
+            return data || [];
         } catch (error) {
-            console.error('❌ Errore caricamento dati fatturazione:', error)
-            return null
+            console.error('❌ Errore caricamento dati fatturazione:', error);
+            throw error;
         }
     }
     
@@ -170,241 +353,314 @@ export class DatabaseService {
         try {
             const { data, error } = await supabase
                 .from('invoice_data')
-                .upsert([invoiceData], { 
-                    onConflict: 'venue_name'
-                })
+                .upsert([invoiceData], { onConflict: 'venue_name' })
                 .select()
+                .single();
             
-            if (error) throw error
-            console.log('✅ Dati fatturazione salvati:', data[0])
-            return data[0]
+            if (error) throw error;
+            
+            console.log('✅ Dati fatturazione salvati:', data);
+            return data;
         } catch (error) {
-            console.error('❌ Errore salvataggio dati fatturazione:', error)
-            throw error
+            console.error('❌ Errore salvataggio dati fatturazione:', error);
+            throw error;
         }
     }
     
     // ==================== AGIBILITÀ ====================
     
     // Ottieni tutte le agibilità
-    static async getAgibilita() {
+    static async getAllAgibilita() {
         try {
             const { data, error } = await supabase
                 .from('agibilita')
                 .select('*')
-                .order('data_creazione', { ascending: false })
+                .order('data_creazione', { ascending: false });
             
-            if (error) throw error
-            return data || []
+            if (error) throw error;
+            return data || [];
         } catch (error) {
-            console.error('❌ Errore caricamento agibilità:', error)
-            throw error
+            console.error('❌ Errore caricamento agibilità:', error);
+            throw error;
         }
     }
     
-    // Salva nuova agibilità
+    // Salva agibilità
     static async saveAgibilita(agibilitaData) {
         try {
+            console.log('💾 Salvataggio agibilità:', agibilitaData.codice);
+            
+            const dbData = {
+                codice: agibilitaData.codice,
+                data_inizio: agibilitaData.dataInizio,
+                data_fine: agibilitaData.dataFine,
+                locale: agibilitaData.locale,
+                fatturazione: agibilitaData.fatturazione || null,
+                artisti: agibilitaData.artisti,
+                xml_content: agibilitaData.xmlContent || null,
+                is_modifica: agibilitaData.isModifica || false,
+                codice_originale: agibilitaData.codiceOriginale || null,
+                identificativo_inps: agibilitaData.identificativoINPS || null,
+                data_creazione: new Date().toISOString(),
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            };
+            
             const { data, error } = await supabase
                 .from('agibilita')
-                .insert([agibilitaData])
+                .insert([dbData])
                 .select()
+                .single();
             
-            if (error) throw error
-            console.log('✅ Agibilità salvata:', data[0])
-            return data[0]
+            if (error) {
+                console.error('❌ Errore Supabase insert agibilità:', error);
+                throw error;
+            }
+            
+            console.log('✅ Agibilità salvata con successo:', data);
+            return data;
+            
         } catch (error) {
-            console.error('❌ Errore salvataggio agibilità:', error)
-            throw error
+            console.error('❌ Errore in saveAgibilita:', error);
+            throw error;
         }
     }
     
-    // Cerca agibilità
-    static async searchAgibilita(searchTerm) {
+    // Aggiorna agibilità
+    static async updateAgibilita(agibilitaId, agibilitaData) {
+        try {
+            const updateData = {
+                codice: agibilitaData.codice,
+                data_inizio: agibilitaData.dataInizio,
+                data_fine: agibilitaData.dataFine,
+                locale: agibilitaData.locale,
+                fatturazione: agibilitaData.fatturazione || null,
+                artisti: agibilitaData.artisti,
+                xml_content: agibilitaData.xmlContent || null,
+                is_modifica: agibilitaData.isModifica || false,
+                codice_originale: agibilitaData.codiceOriginale || null,
+                identificativo_inps: agibilitaData.identificativoINPS || null,
+                updated_at: new Date().toISOString()
+            };
+            
+            const { data, error } = await supabase
+                .from('agibilita')
+                .update(updateData)
+                .eq('id', agibilitaId)
+                .select()
+                .single();
+            
+            if (error) throw error;
+            
+            console.log('✅ Agibilità aggiornata:', data);
+            return data;
+        } catch (error) {
+            console.error('❌ Errore aggiornamento agibilità:', error);
+            throw error;
+        }
+    }
+    
+    // Cerca agibilità per codice
+    static async getAgibilitaByCodice(codice) {
         try {
             const { data, error } = await supabase
                 .from('agibilita')
                 .select('*')
-                .or(`codice.ilike.%${searchTerm}%`)
-                .order('data_creazione', { ascending: false })
+                .eq('codice', codice)
+                .single();
             
-            if (error) throw error
-            return data || []
+            if (error && error.code !== 'PGRST116') throw error;
+            return data;
         } catch (error) {
-            console.error('❌ Errore ricerca agibilità:', error)
-            throw error
+            console.error('❌ Errore ricerca agibilità per codice:', error);
+            throw error;
+        }
+    }
+    
+    // Ottieni agibilità per periodo
+    static async getAgibilitaByPeriod(dataInizio, dataFine) {
+        try {
+            const { data, error } = await supabase
+                .from('agibilita')
+                .select('*')
+                .gte('data_inizio', dataInizio)
+                .lte('data_fine', dataFine)
+                .order('data_inizio', { ascending: false });
+            
+            if (error) throw error;
+            return data || [];
+        } catch (error) {
+            console.error('❌ Errore caricamento agibilità per periodo:', error);
+            throw error;
         }
     }
     
     // ==================== STATISTICHE ====================
     
-    // Ottieni statistiche dashboard - VERSIONE CORRETTA
+    // Ottieni statistiche dashboard
     static async getStats() {
         try {
-            // Conta artisti - METODO CORRETTO
-            const { count: artistiCount, error: artistiError } = await supabase
+            // Conta artisti
+            const { data: artisti, error: artistiError } = await supabase
                 .from('artisti')
-                .select('*', { count: 'exact', head: true })
+                .select('id, tipo_rapporto')
+                .order('id');
             
-            if (artistiError) {
-                console.error('Errore conteggio artisti:', artistiError)
-            }
+            if (artistiError) throw artistiError;
             
-            // Conta agibilità del mese corrente
-            const currentMonth = new Date().getMonth() + 1
-            const currentYear = new Date().getFullYear()
-            const startOfMonth = `${currentYear}-${currentMonth.toString().padStart(2, '0')}-01`
-            const endOfMonth = `${currentYear}-${currentMonth.toString().padStart(2, '0')}-31`
-            
-            const { count: agibilitaCount, error: agibilitaError } = await supabase
+            // Conta agibilità
+            const { data: agibilita, error: agibilitaError } = await supabase
                 .from('agibilita')
-                .select('*', { count: 'exact', head: true })
-                .gte('data_inizio', startOfMonth)
-                .lte('data_inizio', endOfMonth)
-                
-            if (agibilitaError) {
-                console.error('Errore conteggio agibilità:', agibilitaError)
-            }
+                .select('id, data_creazione')
+                .order('id');
             
-            // Calcola compenso totale (semplificato per ora)
-            const { data: agibilita, error: compensoError } = await supabase
-                .from('agibilita')
-                .select('artisti')
+            if (agibilitaError) throw agibilitaError;
             
-            let totalCompensation = 0
-            if (agibilita && !compensoError) {
-                agibilita.forEach(a => {
-                    if (a.artisti && Array.isArray(a.artisti)) {
-                        a.artisti.forEach(artista => {
-                            totalCompensation += parseFloat(artista.compenso) || 0
-                        })
-                    }
-                })
-            }
+            // Conta venues
+            const { data: venues, error: venuesError } = await supabase
+                .from('venues')
+                .select('id')
+                .order('id');
             
-            const stats = {
-                totalArtists: artistiCount || 0,
-                monthlyAgibilita: agibilitaCount || 0,
-                totalCompensation: totalCompensation,
-                completionRate: 100 // Per ora fisso al 100%
-            }
+            if (venuesError) throw venuesError;
             
-            console.log('📊 Statistiche calcolate:', stats)
-            return stats
+            // Calcola statistiche
+            const now = new Date();
+            const currentMonth = now.getMonth();
+            const currentYear = now.getFullYear();
+            
+            const agibilitaThisMonth = agibilita.filter(a => {
+                const date = new Date(a.data_creazione);
+                return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
+            });
+            
+            const artistiAChiamata = artisti.filter(a => a.tipo_rapporto === 'chiamata');
+            
+            return {
+                totalArtisti: artisti.length,
+                totalAgibilita: agibilita.length,
+                totalVenues: venues.length,
+                agibilitaThisMonth: agibilitaThisMonth.length,
+                artistiAChiamata: artistiAChiamata.length
+            };
             
         } catch (error) {
-            console.error('❌ Errore caricamento statistiche:', error)
-            return {
-                totalArtists: 0,
-                monthlyAgibilita: 0,
-                totalCompensation: 0,
-                completionRate: 0
-            }
+            console.error('❌ Errore caricamento statistiche:', error);
+            throw error;
         }
     }
     
     // ==================== UTILITY ====================
     
-    // Elimina artista
-    static async deleteArtista(artistId) {
-        try {
-            const { error } = await supabase
-                .from('artisti')
-                .delete()
-                .eq('id', artistId)
-            
-            if (error) throw error
-            console.log('✅ Artista eliminato:', artistId)
-            return true
-        } catch (error) {
-            console.error('❌ Errore eliminazione artista:', error)
-            throw error
-        }
+    // Test connessione
+    static async testConnection() {
+        return await testConnection();
     }
     
-    // Elimina venue
-    static async deleteVenue(venueId) {
-        try {
-            const { error } = await supabase
-                .from('venues')
-                .delete()
-                .eq('id', venueId)
-            
-            if (error) throw error
-            console.log('✅ Venue eliminato:', venueId)
-            return true
-        } catch (error) {
-            console.error('❌ Errore eliminazione venue:', error)
-            throw error
-        }
-    }
-    
-    // Test di connessione completo
+    // Health check completo
     static async healthCheck() {
         try {
-            console.log('🔍 Test completo del sistema...')
+            const tests = {
+                connection: false,
+                artisti: false,
+                venues: false,
+                agibilita: false,
+                invoice_data: false
+            };
             
             // Test connessione base
-            const { data: testData, error: testError } = await supabase
-                .from('artisti')
-                .select('id')
-                .limit(1)
+            tests.connection = await this.testConnection();
             
-            if (testError) throw testError
+            if (tests.connection) {
+                // Test tabelle
+                try {
+                    await supabase.from('artisti').select('id').limit(1);
+                    tests.artisti = true;
+                } catch (e) { console.warn('Tabella artisti non accessibile'); }
+                
+                try {
+                    await supabase.from('venues').select('id').limit(1);
+                    tests.venues = true;
+                } catch (e) { console.warn('Tabella venues non accessibile'); }
+                
+                try {
+                    await supabase.from('agibilita').select('id').limit(1);
+                    tests.agibilita = true;
+                } catch (e) { console.warn('Tabella agibilita non accessibile'); }
+                
+                try {
+                    await supabase.from('invoice_data').select('id').limit(1);
+                    tests.invoice_data = true;
+                } catch (e) { console.warn('Tabella invoice_data non accessibile'); }
+            }
             
-            // Test statistiche
-            const stats = await this.getStats()
+            const allPassed = Object.values(tests).every(test => test === true);
             
-            console.log('✅ Sistema completamente funzionante!')
-            console.log('📊 Database contiene:', {
-                artisti: stats.totalArtists,
-                agibilità: stats.monthlyAgibilita
-            })
+            console.log('🏥 Health Check Supabase:', {
+                status: allPassed ? 'OK' : 'PARZIALE',
+                tests,
+                timestamp: new Date().toISOString()
+            });
             
-            return true
+            return { status: allPassed ? 'OK' : 'PARZIALE', tests };
+            
         } catch (error) {
-            console.error('❌ Test sistema fallito:', error)
-            return false
+            console.error('❌ Errore health check:', error);
+            return { status: 'ERROR', error: error.message };
+        }
+    }
+    
+    // Ottieni info sistema
+    static async getSystemInfo() {
+        try {
+            const stats = await this.getStats();
+            const health = await this.healthCheck();
+            
+            return {
+                database: 'Supabase',
+                url: SUPABASE_URL,
+                health: health.status,
+                stats,
+                timestamp: new Date().toISOString()
+            };
+        } catch (error) {
+            console.error('❌ Errore info sistema:', error);
+            return {
+                database: 'Supabase',
+                url: SUPABASE_URL,
+                health: 'ERROR',
+                error: error.message,
+                timestamp: new Date().toISOString()
+            };
         }
     }
 }
 
-// Funzione di test connessione - VERSIONE CORRETTA
-export async function testConnection() {
-    try {
-        const { data, error } = await supabase
-            .from('artisti')
-            .select('id')
-            .limit(1)
-        
-        if (error) throw error
-        console.log('🟢 Connessione Supabase OK!')
-        return true
-    } catch (error) {
-        console.error('🔴 Errore connessione Supabase:', error)
-        return false
-    }
-}
+// ==================== EXPORT ====================
 
-// Debug helper - mostra informazioni sistema
-export async function showSystemInfo() {
-    try {
-        console.log('🔧 Informazioni Sistema RECORP:')
-        console.log('📍 URL Supabase:', SUPABASE_URL)
-        console.log('🔑 Chiave API (primi 20 char):', SUPABASE_ANON_KEY.substring(0, 20) + '...')
-        
-        const health = await DatabaseService.healthCheck()
-        console.log('🏥 Stato sistema:', health ? 'SANO' : 'PROBLEMI')
-        
-    } catch (error) {
-        console.error('❌ Errore info sistema:', error)
-    }
-}
+// Export del client per usi avanzati
+export { supabase };
 
-// Rendi disponibili globalmente per debug
-window.DatabaseService = DatabaseService
-window.showSystemInfo = showSystemInfo
-window.testConnection = testConnection
+// Export default del DatabaseService
+export default DatabaseService;
 
-console.log('📡 DatabaseService caricato e pronto!')
-console.log('💡 Per debug, usa: showSystemInfo() nella console')
+// ==================== FUNZIONI HELPER GLOBALI ====================
+
+// Funzione globale per debug (disponibile in console)
+window.showSystemInfo = async function() {
+    const info = await DatabaseService.getSystemInfo();
+    console.table(info);
+    return info;
+};
+
+// Funzione globale per health check
+window.supabaseHealthCheck = async function() {
+    const health = await DatabaseService.healthCheck();
+    console.log('🏥 Supabase Health Check:', health);
+    return health;
+};
+
+// Log inizializzazione
+console.log('📡 DatabaseService caricato e pronto!');
+console.log('🔧 Usa showSystemInfo() in console per info sistema');
+console.log('🏥 Usa supabaseHealthCheck() per controllo stato database');
