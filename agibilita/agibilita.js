@@ -32,16 +32,6 @@ document.addEventListener('DOMContentLoaded', function() {
         console.error('Errore caricamento database:', error);
     }
 
-    // Inizializza Database GI
-    if (typeof window.GIDatabase !== 'undefined') {
-        window.GIDatabase.init().then(() => {
-            console.log('✅ Database GI inizializzato');
-            setupLocationDropdowns();
-        }).catch(error => {
-            console.error('❌ Errore inizializzazione Database GI:', error);
-        });
-    }
-
     // Inizializza date
     const today = new Date().toISOString().split('T')[0];
     const dataInizio = document.getElementById('dataInizio');
@@ -54,8 +44,18 @@ document.addEventListener('DOMContentLoaded', function() {
         dataFine.min = today;
     }
 
-    // Setup event listeners
-    setupEventListeners();
+    // Inizializza località - IDENTICO A REGISTRAZIONE
+    console.log('Database GI inizializzato per agibilità');
+    
+    // Aspetta che il database sia caricato - COME IN REGISTRAZIONE
+    setTimeout(() => {
+        loadProvinces();
+        setupEventListeners();
+        
+        // Focus sul primo campo
+        const descrizioneLocale = document.getElementById('descrizioneLocale');
+        if (descrizioneLocale) descrizioneLocale.focus();
+    }, 1500);
 });
 
 // ==================== FUNZIONI NAVIGAZIONE ====================
@@ -354,131 +354,110 @@ function validateDates() {
     }
 }
 
-// ==================== GESTIONE LOCALITÀ (CORRETTA) ====================
-function setupLocationDropdowns() {
-    loadProvinces();
-}
-
+// ==================== GESTIONE LOCALITÀ (IDENTICA A REGISTRAZIONE) ====================
 function loadProvinces() {
-    if (!window.GIDatabase || !window.GIDatabase.isLoaded()) {
-        console.warn('Database GI non ancora caricato');
-        setTimeout(loadProvinces, 1000);
-        return;
-    }
-
-    const provinciaSelect = document.getElementById('provincia');
-    if (!provinciaSelect) return;
-
     try {
-        // Usa la funzione helper dal comuni-loader (come in registrazione)
+        const provinceSelect = document.getElementById('provincia');
+        if (!provinceSelect) return;
+        
+        provinceSelect.innerHTML = '<option value="">Seleziona provincia...</option>';
+        
+        // Usa la funzione helper dal comuni-loader - IDENTICO A REGISTRAZIONE
         const province = window.GIDatabase.getProvince();
         
         if (province.length === 0) {
             console.error('❌ Nessuna provincia trovata nel database');
-            provinciaSelect.innerHTML = '<option value="">Errore: nessuna provincia disponibile</option>';
+            provinceSelect.innerHTML = '<option value="">Errore: nessuna provincia disponibile</option>';
+            showError('Impossibile caricare le province. Verificare i file di database.');
             return;
         }
         
         console.log(`✅ Caricate ${province.length} province dal database`);
         
-        // Ordina le province per sigla (come in registrazione)
+        // Ordina le province per sigla - IDENTICO A REGISTRAZIONE
         province.sort((a, b) => {
             if (!a.sigla || !b.sigla) return 0;
             return a.sigla.localeCompare(b.sigla);
         });
         
-        provinciaSelect.innerHTML = '<option value="">Seleziona provincia...</option>';
-        
-        // Popola il select (come in registrazione)
+        // Popola il select - IDENTICO A REGISTRAZIONE
         province.forEach(p => {
             const option = document.createElement('option');
             option.value = p.sigla;
             option.textContent = `${p.sigla} - ${p.nome}`;
-            provinciaSelect.appendChild(option);
+            provinceSelect.appendChild(option);
         });
-
-        console.log(`✅ Caricate ${province.length} province`);
+        
     } catch (error) {
         console.error('Errore caricamento province:', error);
-        provinciaSelect.innerHTML = '<option value="">Errore caricamento province</option>';
+        const provinceSelect = document.getElementById('provincia');
+        if (provinceSelect) {
+            provinceSelect.innerHTML = '<option value="">Errore caricamento province</option>';
+        }
+        showError('Errore nel caricamento delle province.');
     }
 }
 
-function loadCitiesForProvince() {
-    const provinciaSelect = document.getElementById('provincia');
+function loadCitta(provincia) {
     const cittaSelect = document.getElementById('citta');
-    const capSelect = document.getElementById('cap');
-    
-    const selectedProvincia = provinciaSelect.value;
+    if (!cittaSelect) return;
     
     cittaSelect.innerHTML = '<option value="">Seleziona città...</option>';
-    cittaSelect.disabled = !selectedProvincia;
     
-    capSelect.innerHTML = '<option value="">Prima seleziona città</option>';
-    capSelect.disabled = true;
-
-    if (!selectedProvincia || !window.GIDatabase) return;
-
     try {
-        // Usa la stessa logica della registrazione
-        const comuni = window.GIDatabase.getComuniByProvincia(selectedProvincia);
-        console.log(`🔍 Debug per provincia ${selectedProvincia}:`, {
+        // IDENTICO A REGISTRAZIONE
+        const comuni = window.GIDatabase.getComuniByProvincia(provincia);
+        console.log(`🔍 Debug per provincia ${provincia}:`, {
             totalComuni: window.GIDatabase?.getData()?.comuni?.length || 0,
             comuniTrovati: comuni.length,
             primoComune: comuni[0] || 'nessuno'
         });
         
         if (comuni.length === 0) {
-            console.warn(`Nessun comune trovato per provincia ${selectedProvincia}`);
+            console.warn(`Nessun comune trovato per provincia ${provincia}`);
             cittaSelect.innerHTML = '<option value="">Nessuna città trovata</option>';
             return;
         }
         
-        // Ordina i comuni alfabeticamente (come in registrazione)
+        // Ordina i comuni alfabeticamente - IDENTICO A REGISTRAZIONE
         comuni.sort((a, b) => {
             const nomeA = a.denominazione_ita || a.denominazione || a.nome || '';
             const nomeB = b.denominazione_ita || b.denominazione || b.nome || '';
             return nomeA.localeCompare(nomeB);
         });
         
-        // CORREZIONE PRINCIPALE: usa codice_istat come value e salva JSON completo
+        // Popola il select - IDENTICO A REGISTRAZIONE
         comuni.forEach(comune => {
             const option = document.createElement('option');
-            option.value = comune.codice_istat || comune.codiceIstat || comune.codice; // ← CODICE ISTAT come value
+            option.value = comune.codice_istat || comune.codiceIstat || comune.codice;
             option.textContent = comune.denominazione_ita || comune.denominazione || comune.nome;
-            option.setAttribute('data-comune', JSON.stringify(comune)); // ← SALVA JSON COMPLETO
+            option.setAttribute('data-comune', JSON.stringify(comune));
             cittaSelect.appendChild(option);
         });
-
-        cittaSelect.disabled = false;
-        console.log(`✅ Caricate ${comuni.length} città per ${selectedProvincia}`);
+        
+        console.log(`✅ Caricate ${comuni.length} città per ${provincia}`);
+        
     } catch (error) {
         console.error('Errore caricamento città:', error);
         cittaSelect.innerHTML = '<option value="">Errore caricamento città</option>';
     }
 }
 
-function loadCAPsForCity() {
-    const cittaSelect = document.getElementById('citta');
+function loadCAP(codiceIstat) {
     const capSelect = document.getElementById('cap');
-    
-    const selectedCodiceIstat = cittaSelect.value; // ← Ora è il codice ISTAT
-    if (!selectedCodiceIstat) return;
+    if (!capSelect) return;
     
     capSelect.innerHTML = '<option value="">Caricamento CAP...</option>';
-    capSelect.disabled = false;
-
-    if (!window.GIDatabase) return;
-
+    
     try {
-        // Usa la stessa logica della registrazione
-        const capList = window.GIDatabase.getCapByComune(selectedCodiceIstat);
+        // IDENTICO A REGISTRAZIONE
+        const capList = window.GIDatabase.getCapByComune(codiceIstat);
         
-        console.log(`📮 CAP trovati per ${selectedCodiceIstat}:`, capList);
+        console.log(`📮 CAP trovati per ${codiceIstat}:`, capList);
         
         if (capList.length === 0) {
-            // Prova a recuperare il CAP dai dati del comune (come in registrazione)
-            const selectedOption = document.querySelector(`#citta option[value="${selectedCodiceIstat}"]`);
+            // Prova a recuperare il CAP dai dati del comune - IDENTICO A REGISTRAZIONE
+            const selectedOption = document.querySelector(`#citta option[value="${codiceIstat}"]`);
             if (selectedOption) {
                 const comuneData = JSON.parse(selectedOption.getAttribute('data-comune'));
                 if (comuneData.cap) {
@@ -493,7 +472,7 @@ function loadCAPsForCity() {
             return;
         }
         
-        // Popola la select con i CAP trovati (come in registrazione)
+        // Popola la select con i CAP trovati - IDENTICO A REGISTRAZIONE
         capSelect.innerHTML = '<option value="">Seleziona CAP...</option>';
         
         // Se c'è un solo CAP, selezionalo automaticamente
@@ -514,9 +493,16 @@ function loadCAPsForCity() {
         }
         
     } catch (error) {
-        console.error('❌ Errore in loadCAPsForCity:', error);
+        console.error('❌ Errore in loadCAP:', error);
         capSelect.innerHTML = '<option value="">Errore caricamento CAP</option>';
     }
+}
+
+// Funzioni helper - IDENTICHE A REGISTRAZIONE
+function showError(message) {
+    console.error('⚠️ Errore:', message);
+    // Mostra alert o notifica errore
+    alert(message);
 }
 
 // ==================== GESTIONE VENUE ====================
@@ -547,6 +533,10 @@ function searchVenue() {
     }
 }
 
+// Rimuovi le vecchie funzioni sostituendole con quelle identiche a registrazione
+// loadCitiesForProvince e loadCAPsForCity sono già state sostituite sopra
+
+// CORREZIONE: sostituisci le chiamate nel codice esistente
 function selectVenue(nome, indirizzo, cittaCodice, cap, provincia) {
     document.getElementById('descrizioneLocale').value = nome;
     document.getElementById('indirizzo').value = indirizzo;
@@ -554,13 +544,13 @@ function selectVenue(nome, indirizzo, cittaCodice, cap, provincia) {
     // Seleziona provincia prima
     document.getElementById('provincia').value = provincia;
     
-    // Carica città per quella provincia
-    loadCitiesForProvince();
+    // Carica città per quella provincia - USA NUOVA FUNZIONE
+    loadCitta(provincia);
     
     // Aspetta che le città siano caricate, poi seleziona
     setTimeout(() => {
         document.getElementById('citta').value = cittaCodice;
-        loadCAPsForCity();
+        loadCAP(cittaCodice);
         
         // Aspetta che i CAP siano caricati, poi seleziona
         setTimeout(() => {
@@ -1133,13 +1123,13 @@ function editAgibilita(codice) {
     document.getElementById('descrizioneLocale').value = agibilita.locale.descrizione;
     document.getElementById('indirizzo').value = agibilita.locale.indirizzo;
     
-    // Ripristina provincia, città e CAP
+    // Ripristina provincia, città e CAP - USA NUOVE FUNZIONI
     document.getElementById('provincia').value = agibilita.locale.provincia;
-    loadCitiesForProvince();
+    loadCitta(agibilita.locale.provincia);
     
     setTimeout(() => {
         document.getElementById('citta').value = agibilita.locale.cittaCodice || agibilita.locale.citta;
-        loadCAPsForCity();
+        loadCAP(agibilita.locale.cittaCodice || agibilita.locale.citta);
         
         setTimeout(() => {
             document.getElementById('cap').value = agibilita.locale.cap;
@@ -1236,7 +1226,7 @@ function setupEventListeners() {
         descrizioneLocale.addEventListener('input', searchVenue);
     }
 
-    // Location dropdowns - CORRETTI come registrazione
+    // Location dropdowns - IDENTICI A REGISTRAZIONE
     const provincia = document.getElementById('provincia');
     if (provincia) {
         provincia.addEventListener('change', function() {
@@ -1246,7 +1236,7 @@ function setupEventListeners() {
             
             if (selectedProvincia) {
                 cittaSelect.disabled = false;
-                loadCitiesForProvince();
+                loadCitta(selectedProvincia); // ← USA STESSA FUNZIONE REGISTRAZIONE
             } else {
                 cittaSelect.disabled = true;
                 cittaSelect.innerHTML = '<option value="">Prima seleziona la provincia</option>';
@@ -1264,7 +1254,7 @@ function setupEventListeners() {
             
             if (selectedCitta) {
                 capSelect.disabled = false;
-                loadCAPsForCity();
+                loadCAP(selectedCitta); // ← USA STESSA FUNZIONE REGISTRAZIONE
             } else {
                 capSelect.disabled = true;
                 capSelect.innerHTML = '<option value="">Prima seleziona la città</option>';
