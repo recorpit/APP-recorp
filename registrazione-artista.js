@@ -1,5 +1,5 @@
 // Cerca comune per codice catastale/Belfiore
-function findComuneByCodCatastale(codice) {
+function findComuneByCodCatastaleReg(codice) {
     console.log('🔍 Ricerca comune con codice Belfiore:', codice);
     
     // Usa la nuova funzione del comuni-loader
@@ -713,7 +713,7 @@ function extractDataFromCF(cf) {
     const codiceCatastale = cf.substring(11, 15);
     
     // Cerca il comune di nascita (richiede un database dei codici catastali)
-    const comuneInfo = findComuneByCodCatastale(codiceCatastale);
+    const comuneInfo = findComuneByCodCatastaleReg(codiceCatastale);
     if (comuneInfo) {
         data.luogoNascita = comuneInfo.nome;
         data.provinciaNascita = comuneInfo.provincia;
@@ -723,7 +723,7 @@ function extractDataFromCF(cf) {
 }
 
 // Cerca comune per codice catastale
-function findComuneByCodCatastale(codice) {
+function findComuneByCodCatastalerEG(codice) {
     console.log('🔍 Ricerca comune con codice catastale:', codice);
     
     // Verifica se abbiamo i dati dei comuni
