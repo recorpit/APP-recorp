@@ -1,27 +1,34 @@
 /**
- * registrazione-artista.js - VERSIONE SUPABASE CORRETTA
+ * registrazione-artista.js - VERSIONE SUPABASE CON MODIFICA
  * 
- * Script per la gestione della registrazione artisti nel sistema RECORP ALL-IN-ONE.
+ * Script per la gestione della registrazione e modifica artisti nel sistema RECORP ALL-IN-ONE.
  * 
  * Funzionalità principali:
+ * - Scelta tra nuova registrazione e modifica esistente
  * - Caricamento dinamico di province, città e CAP italiani
  * - Validazione in tempo reale dei campi del form
  * - Estrazione automatica data di nascita dal codice fiscale
  * - Controllo età minima 18 anni
  * - Controllo duplicati tramite codice fiscale
  * - Verifica corrispondenza CF-data di nascita
+ * - Campo codice comunicazione per contratti a chiamata
  * - Salvataggio artisti su Supabase
  * 
  * @author RECORP ALL-IN-ONE
- * @version 2.0 - Supabase Edition
+ * @version 3.0 - Con funzionalità di modifica
  */
 
 // Import Supabase DatabaseService
 import { DatabaseService } from './supabase-config.js';
 
+// Variabili globali
+let currentMode = null; // 'new' o 'edit'
+let currentArtistId = null; // ID dell'artista in modifica
+let allArtists = []; // Cache degli artisti
+
 // Inizializzazione sistema registrazione artista
 document.addEventListener('DOMContentLoaded', async function() {
-    console.log('🚀 Inizializzazione sistema registrazione...');
+    console.log('🚀 Inizializzazione sistema gestione artisti...');
     
     // Mostra indicatore caricamento
     const loadingIndicator = document.getElementById('loadingIndicator');
@@ -50,10 +57,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
         loadProvinces();
         setupEventListeners();
-        
-        // Focus sul codice fiscale all'avvio
-        const cfField = document.getElementById('codiceFiscale');
-        if (cfField) cfField.focus();
     }, 1500);
 });
 
@@ -62,16 +65,278 @@ async function initializeRegistrationSystem() {
     try {
         console.log('🔗 Test connessione database...');
         
-        // Test connessione
-        const testResult = await DatabaseService.getArtisti();
-        console.log('✅ Sistema registrazione pronto! Database contiene:', testResult.length, 'artisti');
+        // Test connessione e carica artisti
+        allArtists = await DatabaseService.getAllArtisti();
+        console.log('✅ Sistema gestione artisti pronto! Database contiene:', allArtists.length, 'artisti');
         
         return true;
     } catch (error) {
-        console.error('❌ Errore inizializzazione sistema registrazione:', error);
+        console.error('❌ Errore inizializzazione sistema:', error);
         showError('Errore di connessione al database. Controlla la configurazione.');
         return false;
     }
+}
+
+// ==================== GESTIONE MODALITÀ ====================
+
+function selectMode(mode) {
+    currentMode = mode;
+    
+    const modeSelection = document.getElementById('modeSelection');
+    const artistSelection = document.getElementById('artistSelection');
+    const registrationForm = document.getElementById('registrationForm');
+    const pageTitle = document.getElementById('pageTitle');
+    const pageSubtitle = document.getElementById('pageSubtitle');
+    
+    if (mode === 'new') {
+        // Modalità nuova registrazione
+        modeSelection.style.display = 'none';
+        artistSelection.style.display = 'none';
+        registrationForm.style.display = 'block';
+        
+        pageTitle.textContent = 'Registrazione Nuovo Artista';
+        pageSubtitle.textContent = 'Inserisci i dati dell\'artista per aggiungerlo al database';
+        
+        document.getElementById('submitText').textContent = 'Registra Artista';
+        
+        // Reset form
+        resetForm();
+        currentArtistId = null;
+        
+        // Focus sul codice fiscale
+        setTimeout(() => {
+            const cfField = document.getElementById('codiceFiscale');
+            if (cfField) cfField.focus();
+        }, 100);
+        
+    } else if (mode === 'edit') {
+        // Modalità modifica esistente
+        modeSelection.style.display = 'none';
+        artistSelection.style.display = 'block';
+        registrationForm.style.display = 'none';
+        
+        pageTitle.textContent = 'Modifica Artista Esistente';
+        pageSubtitle.textContent = 'Seleziona l\'artista da modificare';
+        
+        // Carica lista artisti
+        displayArtistsForSelection();
+    }
+}
+
+function goBackToModeSelection() {
+    currentMode = null;
+    currentArtistId = null;
+    
+    const modeSelection = document.getElementById('modeSelection');
+    const artistSelection = document.getElementById('artistSelection');
+    const registrationForm = document.getElementById('registrationForm');
+    const pageTitle = document.getElementById('pageTitle');
+    const pageSubtitle = document.getElementById('pageSubtitle');
+    
+    modeSelection.style.display = 'block';
+    artistSelection.style.display = 'none';
+    registrationForm.style.display = 'none';
+    
+    pageTitle.textContent = 'Gestione Artisti';
+    pageSubtitle.textContent = 'Scegli un\'azione da eseguire';
+    
+    // Reset form
+    resetForm();
+}
+
+// ==================== GESTIONE SELEZIONE ARTISTI ====================
+
+function displayArtistsForSelection() {
+    const container = document.getElementById('artistsListContainer');
+    const searchInput = document.getElementById('searchArtistInput');
+    
+    // Event listener per ricerca
+    searchInput.addEventListener('input', filterArtistsForSelection);
+    
+    // Visualizza tutti gli artisti inizialmente
+    renderArtistsList(allArtists);
+}
+
+function filterArtistsForSelection() {
+    const query = document.getElementById('searchArtistInput').value.toLowerCase();
+    
+    if (query.length < 2) {
+        renderArtistsList(allArtists);
+        return;
+    }
+    
+    const filtered = allArtists.filter(artist => {
+        const searchText = `${artist.nome} ${artist.cognome} ${artist.codice_fiscale} ${artist.nome_arte || ''}`.toLowerCase();
+        return searchText.includes(query);
+    });
+    
+    renderArtistsList(filtered);
+}
+
+function renderArtistsList(artists) {
+    const container = document.getElementById('artistsListContainer');
+    
+    if (artists.length === 0) {
+        container.innerHTML = '<div class="no-artists"><h3>Nessun artista trovato</h3><p>Prova a modificare i termini di ricerca</p></div>';
+        return;
+    }
+    
+    container.innerHTML = artists.map(artist => {
+        const displayName = artist.nome_arte || `${artist.nome} ${artist.cognome}`;
+        return `
+            <div class="artist-item" onclick="selectArtistForEdit(${artist.id})">
+                <div class="artist-name">${displayName}</div>
+                <div class="artist-details">
+                    CF: ${artist.codice_fiscale} | 
+                    ${artist.mansione} | 
+                    ${artist.citta}, ${artist.provincia}
+                    ${artist.tipo_rapporto === 'chiamata' ? ' | ⚡ Contratto a Chiamata' : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function selectArtistForEdit(artistId) {
+    const artist = allArtists.find(a => a.id === artistId);
+    if (!artist) {
+        showError('Artista non trovato');
+        return;
+    }
+    
+    currentArtistId = artistId;
+    
+    // Passa alla modalità modifica
+    const artistSelection = document.getElementById('artistSelection');
+    const registrationForm = document.getElementById('registrationForm');
+    const pageTitle = document.getElementById('pageTitle');
+    const pageSubtitle = document.getElementById('pageSubtitle');
+    
+    artistSelection.style.display = 'none';
+    registrationForm.style.display = 'block';
+    
+    const displayName = artist.nome_arte || `${artist.nome} ${artist.cognome}`;
+    pageTitle.textContent = `Modifica: ${displayName}`;
+    pageSubtitle.textContent = 'Modifica i dati dell\'artista';
+    
+    document.getElementById('submitText').textContent = 'Salva Modifiche';
+    
+    // Compila il form con i dati esistenti
+    populateFormWithArtist(artist);
+}
+
+function populateFormWithArtist(artist) {
+    try {
+        // Dati anagrafici
+        document.getElementById('codiceFiscale').value = artist.codice_fiscale || '';
+        document.getElementById('nome').value = artist.nome || '';
+        document.getElementById('cognome').value = artist.cognome || '';
+        document.getElementById('nomeArte').value = artist.nome_arte || '';
+        document.getElementById('dataNascita').value = artist.data_nascita || '';
+        document.getElementById('sesso').value = artist.sesso || '';
+        document.getElementById('luogoNascita').value = artist.luogo_nascita || '';
+        document.getElementById('provinciaNascita').value = artist.provincia_nascita || '';
+        document.getElementById('matricolaENPALS').value = artist.matricola_enpals || '';
+        document.getElementById('nazionalita').value = artist.nazionalita || 'IT';
+        document.getElementById('telefono').value = artist.telefono || '';
+        document.getElementById('email').value = artist.email || '';
+        
+        // Indirizzo
+        document.getElementById('indirizzo').value = artist.indirizzo || '';
+        
+        // Preseleziona provincia e aspetta il caricamento delle città
+        if (artist.provincia) {
+            document.getElementById('provincia').value = artist.provincia;
+            loadCitta(artist.provincia);
+            
+            setTimeout(() => {
+                if (artist.codice_istat_citta) {
+                    document.getElementById('citta').value = artist.codice_istat_citta;
+                    loadCAP(artist.codice_istat_citta);
+                    
+                    setTimeout(() => {
+                        if (artist.cap) {
+                            document.getElementById('cap').value = artist.cap;
+                        }
+                    }, 500);
+                }
+            }, 1000);
+        }
+        
+        // Dati professionali
+        document.getElementById('mansione').value = artist.mansione || '';
+        document.getElementById('hasPartitaIva').value = artist.has_partita_iva ? 'si' : 'no';
+        
+        // Gestisci campi condizionali
+        if (artist.has_partita_iva) {
+            document.getElementById('partitaIva').value = artist.partita_iva || '';
+            showPartitaIvaFields();
+        } else {
+            document.getElementById('tipoRapporto').value = artist.tipo_rapporto || 'occasionale';
+            
+            // Se ha codice comunicazione, mostralo
+            if (artist.codice_comunicazione) {
+                document.getElementById('codiceComunicazione').value = artist.codice_comunicazione;
+            }
+            
+            showTipoRapportoFields();
+            
+            // Se è contratto a chiamata, mostra il campo codice comunicazione
+            if (artist.tipo_rapporto === 'chiamata') {
+                showCodiceComunicazioneField();
+            }
+        }
+        
+        document.getElementById('iban').value = artist.iban || '';
+        document.getElementById('note').value = artist.note || '';
+        
+        console.log('✅ Form popolato con dati artista:', artist.nome, artist.cognome);
+        
+    } catch (error) {
+        console.error('❌ Errore popolamento form:', error);
+        showError('Errore nel caricamento dei dati dell\'artista');
+    }
+}
+
+// ==================== GESTIONE CAMPI CONDIZIONALI ====================
+
+function showPartitaIvaFields() {
+    document.getElementById('partitaIvaGroup').style.display = 'block';
+    document.getElementById('partitaIva').required = true;
+    
+    document.getElementById('tipoRapportoGroup').style.display = 'none';
+    document.getElementById('tipoRapporto').required = false;
+    
+    document.getElementById('codiceComunicazioneGroup').style.display = 'none';
+    document.getElementById('codiceComunicazione').required = false;
+}
+
+function showTipoRapportoFields() {
+    document.getElementById('partitaIvaGroup').style.display = 'none';
+    document.getElementById('partitaIva').required = false;
+    document.getElementById('partitaIva').value = '';
+    
+    document.getElementById('tipoRapportoGroup').style.display = 'block';
+    document.getElementById('tipoRapporto').required = true;
+    
+    // Controlla se mostrare codice comunicazione
+    const tipoRapporto = document.getElementById('tipoRapporto').value;
+    if (tipoRapporto === 'chiamata') {
+        showCodiceComunicazioneField();
+    } else {
+        hideCodiceComunicazioneField();
+    }
+}
+
+function showCodiceComunicazioneField() {
+    document.getElementById('codiceComunicazioneGroup').style.display = 'block';
+    document.getElementById('codiceComunicazione').required = true;
+}
+
+function hideCodiceComunicazioneField() {
+    document.getElementById('codiceComunicazioneGroup').style.display = 'none';
+    document.getElementById('codiceComunicazione').required = false;
+    document.getElementById('codiceComunicazione').value = '';
 }
 
 // Cerca comune per codice catastale/Belfiore
@@ -370,44 +635,35 @@ function setupEventListeners() {
     const hasPartitaIva = document.getElementById('hasPartitaIva');
     if (hasPartitaIva) {
         hasPartitaIva.addEventListener('change', function(e) {
-            const partitaIvaGroup = document.getElementById('partitaIvaGroup');
-            const partitaIvaField = document.getElementById('partitaIva');
-            const tipoRapportoGroup = document.getElementById('tipoRapportoGroup');
-            const tipoRapportoField = document.getElementById('tipoRapporto');
-            
             if (e.target.value === 'si') {
-                // Ha partita IVA: mostra campo P.IVA, nascondi tipo rapporto
-                if (partitaIvaGroup) partitaIvaGroup.style.display = 'block';
-                if (partitaIvaField) partitaIvaField.required = true;
-                if (tipoRapportoGroup) tipoRapportoGroup.style.display = 'none';
-                if (tipoRapportoField) {
-                    tipoRapportoField.required = false;
-                    tipoRapportoField.value = '';
-                }
+                showPartitaIvaFields();
             } else if (e.target.value === 'no') {
-                // Non ha partita IVA: nascondi P.IVA, mostra tipo rapporto
-                if (partitaIvaGroup) partitaIvaGroup.style.display = 'none';
-                if (partitaIvaField) {
-                    partitaIvaField.required = false;
-                    partitaIvaField.value = '';
-                }
-                if (tipoRapportoGroup) tipoRapportoGroup.style.display = 'block';
-                if (tipoRapportoField) {
-                    tipoRapportoField.required = true;
-                    tipoRapportoField.value = 'occasionale';
-                }
+                showTipoRapportoFields();
             } else {
                 // Nessuna selezione: nascondi entrambi
-                if (partitaIvaGroup) partitaIvaGroup.style.display = 'none';
-                if (partitaIvaField) {
-                    partitaIvaField.required = false;
-                    partitaIvaField.value = '';
-                }
-                if (tipoRapportoGroup) tipoRapportoGroup.style.display = 'none';
-                if (tipoRapportoField) {
-                    tipoRapportoField.required = false;
-                    tipoRapportoField.value = '';
-                }
+                document.getElementById('partitaIvaGroup').style.display = 'none';
+                document.getElementById('partitaIva').required = false;
+                document.getElementById('partitaIva').value = '';
+                
+                document.getElementById('tipoRapportoGroup').style.display = 'none';
+                document.getElementById('tipoRapporto').required = false;
+                document.getElementById('tipoRapporto').value = '';
+                
+                document.getElementById('codiceComunicazioneGroup').style.display = 'none';
+                document.getElementById('codiceComunicazione').required = false;
+                document.getElementById('codiceComunicazione').value = '';
+            }
+        });
+    }
+    
+    // Event listener per tipo rapporto
+    const tipoRapporto = document.getElementById('tipoRapporto');
+    if (tipoRapporto) {
+        tipoRapporto.addEventListener('change', function(e) {
+            if (e.target.value === 'chiamata') {
+                showCodiceComunicazioneField();
+            } else {
+                hideCodiceComunicazioneField();
             }
         });
     }
@@ -659,6 +915,7 @@ function handleFormSubmit(e) {
         hasPartitaIva: formData.get('hasPartitaIva'),
         partitaIva: formData.get('hasPartitaIva') === 'si' ? formData.get('partitaIva') : '',
         tipoRapporto: formData.get('hasPartitaIva') === 'no' ? formData.get('tipoRapporto') : '',
+        codiceComunicazione: formData.get('codiceComunicazione') || '', // NUOVO CAMPO
         iban: formData.get('iban').toUpperCase().replace(/\s/g, ''),
         mansione: formData.get('mansione'),
         note: formData.get('note'),
@@ -711,8 +968,18 @@ function handleFormSubmit(e) {
         return;
     }
     
-    // Salva su Supabase
-    saveArtist(artistData);
+    // Verifica codice comunicazione per contratti a chiamata
+    if (artistData.tipoRapporto === 'chiamata' && !artistData.codiceComunicazione) {
+        showError('Codice comunicazione INPS obbligatorio per contratti a chiamata');
+        return;
+    }
+    
+    // Salva o aggiorna su Supabase
+    if (currentMode === 'edit' && currentArtistId) {
+        updateArtist(currentArtistId, artistData);
+    } else {
+        saveArtist(artistData);
+    }
 }
 
 // Salvataggio artista su Supabase - VERSIONE CORRETTA
@@ -720,11 +987,13 @@ async function saveArtist(artistData) {
     try {
         console.log('💾 Tentativo salvataggio artista:', artistData.nome, artistData.cognome);
         
-        // Controlla se esiste già un artista con questo CF
-        const exists = await DatabaseService.artistaExists(artistData.codiceFiscale);
-        if (exists) {
-            showError('Esiste già un artista con questo codice fiscale nel database');
-            return;
+        // Controlla se esiste già un artista con questo CF (solo per nuove registrazioni)
+        if (currentMode === 'new') {
+            const exists = await DatabaseService.artistaExists(artistData.codiceFiscale);
+            if (exists) {
+                showError('Esiste già un artista con questo codice fiscale nel database');
+                return;
+            }
         }
         
         // Salva in Supabase
@@ -752,6 +1021,37 @@ async function saveArtist(artistData) {
             showError('Errore durante il salvataggio: ' + error.message);
         } else {
             showError('Errore durante il salvataggio. Riprova.');
+        }
+    }
+}
+
+// Aggiornamento artista esistente
+async function updateArtist(artistId, artistData) {
+    try {
+        console.log('✏️ Tentativo aggiornamento artista:', artistData.nome, artistData.cognome);
+        
+        // Aggiorna in Supabase
+        const updatedArtist = await DatabaseService.updateArtista(artistId, artistData);
+        console.log('✅ Artista aggiornato con successo:', updatedArtist);
+        
+        // Mostra messaggio di successo
+        showSuccess('Artista modificato con successo! Reindirizzamento...');
+        
+        // Reset form
+        resetForm();
+        
+        // Reindirizza alla dashboard dopo 2 secondi
+        setTimeout(() => {
+            window.location.href = './index.html';
+        }, 2000);
+        
+    } catch (error) {
+        console.error('❌ Errore aggiornamento artista:', error);
+        
+        if (error.message) {
+            showError('Errore durante l\'aggiornamento: ' + error.message);
+        } else {
+            showError('Errore durante l\'aggiornamento. Riprova.');
         }
     }
 }
@@ -1037,13 +1337,16 @@ function showError(message) {
 
 // Funzione per annullare la registrazione
 function cancelRegistration() {
-    if (confirm('Sei sicuro di voler annullare la registrazione? I dati inseriti verranno persi.')) {
-        window.location.href = './index.html';
+    if (confirm('Sei sicuro di voler annullare? I dati inseriti verranno persi.')) {
+        goBackToModeSelection();
     }
 }
 
-// Rendi la funzione disponibile globalmente
+// Rendi le funzioni disponibili globalmente
 window.cancelRegistration = cancelRegistration;
+window.selectMode = selectMode;
+window.goBackToModeSelection = goBackToModeSelection;
+window.selectArtistForEdit = selectArtistForEdit;
 
 // Funzione per resettare il form
 function resetForm() {
@@ -1064,6 +1367,11 @@ function resetForm() {
             capSelect.innerHTML = '<option value="">Prima seleziona la città</option>';
         }
         
+        // Nascondi campi condizionali
+        document.getElementById('partitaIvaGroup').style.display = 'none';
+        document.getElementById('tipoRapportoGroup').style.display = 'none';
+        document.getElementById('codiceComunicazioneGroup').style.display = 'none';
+        
         // Rimuovi eventuali span di età e alert
         const ageDisplay = document.querySelector('.age-display');
         if (ageDisplay) ageDisplay.remove();
@@ -1081,4 +1389,4 @@ function resetForm() {
     }
 }
 
-console.log('📝 Sistema registrazione artisti aggiornato per Supabase!');
+console.log('📝 Sistema gestione artisti aggiornato con funzionalità di modifica e codice comunicazione!');
