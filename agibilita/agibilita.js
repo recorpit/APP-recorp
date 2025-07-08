@@ -1,4 +1,4 @@
-// agibilita.js - Sistema Gestione Agibilità RECORP
+// agibilita.js - Sistema Gestione Agibilità RECORP - VERSIONE CORRETTA
 
 // ==================== VARIABILI GLOBALI ====================
 let selectedArtists = [];
@@ -238,10 +238,18 @@ function updateArtistsList() {
                         <option value="">Seleziona ruolo...</option>
                         <option value="DJ" ${artist.ruolo === 'DJ' ? 'selected' : ''}>DJ (032)</option>
                         <option value="Vocalist" ${artist.ruolo === 'Vocalist' ? 'selected' : ''}>Vocalist (031)</option>
+                        <option value="Musicista" ${artist.ruolo === 'Musicista' ? 'selected' : ''}>Musicista (030)</option>
+                        <option value="Cantante" ${artist.ruolo === 'Cantante' ? 'selected' : ''}>Cantante (033)</option>
                         <option value="Ballerino/a" ${artist.ruolo === 'Ballerino/a' ? 'selected' : ''}>Ballerino/a (092)</option>
-                        <option value="Tecnico" ${artist.ruolo === 'Tecnico' ? 'selected' : ''}>Tecnico (117)</option>
+                        <option value="Performer" ${artist.ruolo === 'Performer' ? 'selected' : ''}>Performer (090)</option>
+                        <option value="Animatore" ${artist.ruolo === 'Animatore' ? 'selected' : ''}>Animatore (091)</option>
+                        <option value="Tecnico Audio" ${artist.ruolo === 'Tecnico Audio' ? 'selected' : ''}>Tecnico Audio (117)</option>
+                        <option value="Tecnico Luci" ${artist.ruolo === 'Tecnico Luci' ? 'selected' : ''}>Tecnico Luci (118)</option>
                         <option value="Fotografo" ${artist.ruolo === 'Fotografo' ? 'selected' : ''}>Fotografo (126)</option>
+                        <option value="Videomaker" ${artist.ruolo === 'Videomaker' ? 'selected' : ''}>Videomaker (127)</option>
                         <option value="Truccatore" ${artist.ruolo === 'Truccatore' ? 'selected' : ''}>Truccatore (141)</option>
+                        <option value="Costumista" ${artist.ruolo === 'Costumista' ? 'selected' : ''}>Costumista (142)</option>
+                        <option value="Scenografo" ${artist.ruolo === 'Scenografo' ? 'selected' : ''}>Scenografo (150)</option>
                     </select>
                     <input type="number" class="form-control compensation-input" 
                            placeholder="Compenso €" 
@@ -333,7 +341,7 @@ function validateDates() {
     }
 }
 
-// ==================== GESTIONE LOCALITÀ ====================
+// ==================== GESTIONE LOCALITÀ (CORRETTA) ====================
 function setupLocationDropdowns() {
     loadProvinces();
 }
@@ -348,30 +356,38 @@ function loadProvinces() {
     const provinciaSelect = document.getElementById('provincia');
     if (!provinciaSelect) return;
 
-    const provinceData = window.GIDatabase.getData().province;
-    
-    if (provinceData && Array.isArray(provinceData)) {
-        const sortedProvinces = provinceData.sort((a, b) => {
-            const siglaA = a.sigla_provincia || a.sigla || '';
-            const siglaB = b.sigla_provincia || b.sigla || '';
-            return siglaA.localeCompare(siglaB);
+    try {
+        // Usa la funzione helper dal comuni-loader (come in registrazione)
+        const province = window.GIDatabase.getProvince();
+        
+        if (province.length === 0) {
+            console.error('❌ Nessuna provincia trovata nel database');
+            provinciaSelect.innerHTML = '<option value="">Errore: nessuna provincia disponibile</option>';
+            return;
+        }
+        
+        console.log(`✅ Caricate ${province.length} province dal database`);
+        
+        // Ordina le province per sigla (come in registrazione)
+        province.sort((a, b) => {
+            if (!a.sigla || !b.sigla) return 0;
+            return a.sigla.localeCompare(b.sigla);
         });
-
+        
         provinciaSelect.innerHTML = '<option value="">Seleziona provincia...</option>';
         
-        sortedProvinces.forEach(provincia => {
-            const sigla = provincia.sigla_provincia || provincia.sigla;
-            const nome = provincia.denominazione_provincia || provincia.denominazione;
-            
-            if (sigla) {
-                const option = document.createElement('option');
-                option.value = sigla;
-                option.textContent = `${sigla} - ${nome}`;
-                provinciaSelect.appendChild(option);
-            }
+        // Popola il select (come in registrazione)
+        province.forEach(p => {
+            const option = document.createElement('option');
+            option.value = p.sigla;
+            option.textContent = `${p.sigla} - ${p.nome}`;
+            provinciaSelect.appendChild(option);
         });
 
-        console.log(`✅ Caricate ${sortedProvinces.length} province`);
+        console.log(`✅ Caricate ${province.length} province`);
+    } catch (error) {
+        console.error('Errore caricamento province:', error);
+        provinciaSelect.innerHTML = '<option value="">Errore caricamento province</option>';
     }
 }
 
@@ -390,59 +406,103 @@ function loadCitiesForProvince() {
 
     if (!selectedProvincia || !window.GIDatabase) return;
 
-    const comuni = window.GIDatabase.getComuniByProvincia(selectedProvincia);
-    
-    if (comuni.length === 0) {
-        cittaSelect.innerHTML = '<option value="">Nessuna città trovata</option>';
-        return;
-    }
-
-    const sortedComuni = comuni.sort((a, b) => {
-        const nomeA = a.denominazione_ita || a.denominazione || '';
-        const nomeB = b.denominazione_ita || b.denominazione || '';
-        return nomeA.localeCompare(nomeB);
-    });
-
-    sortedComuni.forEach(comune => {
-        const option = document.createElement('option');
-        const nomeComune = comune.denominazione_ita || comune.denominazione;
-        const codiceIstat = comune.codice_istat || comune.codiceIstat;
+    try {
+        // Usa la stessa logica della registrazione
+        const comuni = window.GIDatabase.getComuniByProvincia(selectedProvincia);
+        console.log(`🔍 Debug per provincia ${selectedProvincia}:`, {
+            totalComuni: window.GIDatabase?.getData()?.comuni?.length || 0,
+            comuniTrovati: comuni.length,
+            primoComune: comuni[0] || 'nessuno'
+        });
         
-        option.value = nomeComune;
-        option.dataset.codice = codiceIstat;
-        option.textContent = nomeComune;
-        cittaSelect.appendChild(option);
-    });
+        if (comuni.length === 0) {
+            console.warn(`Nessun comune trovato per provincia ${selectedProvincia}`);
+            cittaSelect.innerHTML = '<option value="">Nessuna città trovata</option>';
+            return;
+        }
+        
+        // Ordina i comuni alfabeticamente (come in registrazione)
+        comuni.sort((a, b) => {
+            const nomeA = a.denominazione_ita || a.denominazione || a.nome || '';
+            const nomeB = b.denominazione_ita || b.denominazione || b.nome || '';
+            return nomeA.localeCompare(nomeB);
+        });
+        
+        // CORREZIONE PRINCIPALE: usa codice_istat come value e salva JSON completo
+        comuni.forEach(comune => {
+            const option = document.createElement('option');
+            option.value = comune.codice_istat || comune.codiceIstat || comune.codice; // ← CODICE ISTAT come value
+            option.textContent = comune.denominazione_ita || comune.denominazione || comune.nome;
+            option.setAttribute('data-comune', JSON.stringify(comune)); // ← SALVA JSON COMPLETO
+            cittaSelect.appendChild(option);
+        });
 
-    cittaSelect.disabled = false;
+        cittaSelect.disabled = false;
+        console.log(`✅ Caricate ${comuni.length} città per ${selectedProvincia}`);
+    } catch (error) {
+        console.error('Errore caricamento città:', error);
+        cittaSelect.innerHTML = '<option value="">Errore caricamento città</option>';
+    }
 }
 
 function loadCAPsForCity() {
     const cittaSelect = document.getElementById('citta');
     const capSelect = document.getElementById('cap');
     
-    const selectedOption = cittaSelect.options[cittaSelect.selectedIndex];
-    if (!selectedOption) return;
+    const selectedCodiceIstat = cittaSelect.value; // ← Ora è il codice ISTAT
+    if (!selectedCodiceIstat) return;
     
-    capSelect.innerHTML = '<option value="">Seleziona CAP...</option>';
+    capSelect.innerHTML = '<option value="">Caricamento CAP...</option>';
     capSelect.disabled = false;
 
-    const codiceComune = selectedOption.dataset.codice;
-    if (!codiceComune || !window.GIDatabase) return;
+    if (!window.GIDatabase) return;
 
-    const caps = window.GIDatabase.getCapByComune(codiceComune);
-    
-    if (caps && caps.length > 0) {
-        if (caps.length === 1) {
-            capSelect.innerHTML = `<option value="${caps[0]}" selected>${caps[0]}</option>`;
+    try {
+        // Usa la stessa logica della registrazione
+        const capList = window.GIDatabase.getCapByComune(selectedCodiceIstat);
+        
+        console.log(`📮 CAP trovati per ${selectedCodiceIstat}:`, capList);
+        
+        if (capList.length === 0) {
+            // Prova a recuperare il CAP dai dati del comune (come in registrazione)
+            const selectedOption = document.querySelector(`#citta option[value="${selectedCodiceIstat}"]`);
+            if (selectedOption) {
+                const comuneData = JSON.parse(selectedOption.getAttribute('data-comune'));
+                if (comuneData.cap) {
+                    console.log('📮 Uso CAP di fallback dal comune:', comuneData.cap);
+                    capList.push(comuneData.cap);
+                }
+            }
+        }
+        
+        if (capList.length === 0) {
+            capSelect.innerHTML = '<option value="">CAP non trovato</option>';
+            return;
+        }
+        
+        // Popola la select con i CAP trovati (come in registrazione)
+        capSelect.innerHTML = '<option value="">Seleziona CAP...</option>';
+        
+        // Se c'è un solo CAP, selezionalo automaticamente
+        if (capList.length === 1) {
+            const option = document.createElement('option');
+            option.value = capList[0];
+            option.textContent = capList[0];
+            option.selected = true;
+            capSelect.appendChild(option);
         } else {
-            caps.forEach(cap => {
+            // Altrimenti mostra tutti i CAP disponibili
+            capList.forEach(cap => {
                 const option = document.createElement('option');
                 option.value = cap;
                 option.textContent = cap;
                 capSelect.appendChild(option);
             });
         }
+        
+    } catch (error) {
+        console.error('❌ Errore in loadCAPsForCity:', error);
+        capSelect.innerHTML = '<option value="">Errore caricamento CAP</option>';
     }
 }
 
@@ -463,9 +523,9 @@ function searchVenue() {
 
     if (matches.length > 0) {
         dropdown.innerHTML = matches.map(venue => `
-            <div class="autocomplete-item" onclick="selectVenue('${venue.nome}', '${venue.indirizzo}', '${venue.citta}', '${venue.cap}', '${venue.provincia}')">
+            <div class="autocomplete-item" onclick="selectVenue('${venue.nome}', '${venue.indirizzo}', '${venue.cittaCodice}', '${venue.cap}', '${venue.provincia}')">
                 <strong>${venue.nome}</strong><br>
-                <small>${venue.citta} - ${venue.provincia}</small>
+                <small>${venue.cittaNome} - ${venue.provincia}</small>
             </div>
         `).join('');
         dropdown.style.display = 'block';
@@ -474,12 +534,27 @@ function searchVenue() {
     }
 }
 
-function selectVenue(nome, indirizzo, citta, cap, provincia) {
+function selectVenue(nome, indirizzo, cittaCodice, cap, provincia) {
     document.getElementById('descrizioneLocale').value = nome;
     document.getElementById('indirizzo').value = indirizzo;
-    document.getElementById('citta').value = citta;
-    document.getElementById('cap').value = cap;
+    
+    // Seleziona provincia prima
     document.getElementById('provincia').value = provincia;
+    
+    // Carica città per quella provincia
+    loadCitiesForProvince();
+    
+    // Aspetta che le città siano caricate, poi seleziona
+    setTimeout(() => {
+        document.getElementById('citta').value = cittaCodice;
+        loadCAPsForCity();
+        
+        // Aspetta che i CAP siano caricati, poi seleziona
+        setTimeout(() => {
+            document.getElementById('cap').value = cap;
+        }, 100);
+    }, 100);
+    
     document.getElementById('venueDropdown').style.display = 'none';
     
     loadInvoiceDataForVenue(nome);
@@ -490,11 +565,17 @@ function saveVenueIfNew() {
     const existingVenue = venuesDB.find(v => v.nome.toLowerCase() === venueName.toLowerCase());
 
     if (!existingVenue) {
+        // Ottieni il nome della città dal testo dell'option selezionata
+        const cittaSelect = document.getElementById('citta');
+        const selectedOption = cittaSelect.options[cittaSelect.selectedIndex];
+        const cittaNome = selectedOption ? selectedOption.textContent : '';
+        
         const newVenue = {
             id: Date.now(),
             nome: venueName,
             indirizzo: document.getElementById('indirizzo').value,
-            citta: document.getElementById('citta').value,
+            cittaCodice: document.getElementById('citta').value, // Codice ISTAT
+            cittaNome: cittaNome, // Nome per display
             cap: document.getElementById('cap').value,
             provincia: document.getElementById('provincia').value
         };
@@ -564,7 +645,14 @@ function saveInvoiceData() {
 
 function copyVenueAddress() {
     document.getElementById('indirizzoFatturazione').value = document.getElementById('indirizzo').value;
-    document.getElementById('cittaFatturazione').value = document.getElementById('citta').value;
+    
+    // Copia anche città dal nome dell'option selezionata
+    const cittaSelect = document.getElementById('citta');
+    const selectedOption = cittaSelect.options[cittaSelect.selectedIndex];
+    if (selectedOption) {
+        document.getElementById('cittaFatturazione').value = selectedOption.textContent;
+    }
+    
     document.getElementById('capFatturazione').value = document.getElementById('cap').value;
     document.getElementById('provinciaFatturazione').value = document.getElementById('provincia').value;
 }
@@ -593,10 +681,15 @@ function updateSummaries() {
     // Luogo
     const summaryLocation = document.getElementById('summaryLocation');
     if (summaryLocation) {
+        // Ottieni il nome della città dal testo dell'option
+        const cittaSelect = document.getElementById('citta');
+        const selectedOption = cittaSelect.options[cittaSelect.selectedIndex];
+        const cittaNome = selectedOption ? selectedOption.textContent : '';
+        
         summaryLocation.innerHTML = `
             <p><strong>${document.getElementById('descrizioneLocale').value}</strong></p>
             <p>${document.getElementById('indirizzo').value}</p>
-            <p>${document.getElementById('cap').value} ${document.getElementById('citta').value} (${document.getElementById('provincia').value})</p>
+            <p>${document.getElementById('cap').value} ${cittaNome} (${document.getElementById('provincia').value})</p>
         `;
     }
 
@@ -633,7 +726,7 @@ function showTab(tabName) {
     }
 }
 
-// ==================== GENERAZIONE XML ====================
+// ==================== GENERAZIONE XML CORRETTA ====================
 function generateXML() {
     const startDate = document.getElementById('dataInizio').value;
     const endDate = document.getElementById('dataFine').value;
@@ -641,11 +734,14 @@ function generateXML() {
     
     const descrizioneLocale = document.getElementById('descrizioneLocale').value;
     const indirizzo = document.getElementById('indirizzo').value;
-    const citta = document.getElementById('citta').value;
     const cap = document.getElementById('cap').value;
     const provincia = document.getElementById('provincia').value;
     
-    const codiceComune = getCodiceIstatFromCity();
+    // Ottieni codice Belfiore e nome città
+    const codiceComune = getCodicebelfioreFromCity();
+    const cittaSelect = document.getElementById('citta');
+    const selectedOption = cittaSelect.options[cittaSelect.selectedIndex];
+    const cittaNome = selectedOption ? selectedOption.textContent : '';
 
     let xml = `<?xml version="1.0" encoding="UTF-8"?>
 <ImportAgibilita>
@@ -659,17 +755,12 @@ function generateXML() {
             <CodiceComune>M145</CodiceComune>
             <Provincia>VI</Provincia>
             <Cap>36010</Cap>
-            <Occupazioni>`;
-
-    selectedArtists.forEach((artist, index) => {
-        const codiceQualifica = getQualificaCode(artist.ruolo);
-        
-        xml += `
+            <Occupazioni>
                 <Occupazione>
                     <Tipo>O</Tipo>
                     <TipoRetribuzione>G</TipoRetribuzione>
-                    <Luogo>${citta}</Luogo>
-                    <Descrizione>Evento specifico per ${artist.nome}</Descrizione>
+                    <Luogo>${cittaNome}</Luogo>
+                    <Descrizione>Evento per ${selectedArtists.length} artist${selectedArtists.length > 1 ? 'i' : 'a'}</Descrizione>
                     <Indirizzo>${indirizzo}</Indirizzo>
                     <CodiceComune>${codiceComune}</CodiceComune>
                     <Provincia>${provincia}</Provincia>
@@ -680,7 +771,13 @@ function generateXML() {
                             <DataAl>${endDate}</DataAl>
                         </Periodo>
                     </Periodi>
-                    <Lavoratori>
+                    <Lavoratori>`;
+
+    // CORREZIONE PRINCIPALE: tutti gli artisti nella STESSA occupazione
+    selectedArtists.forEach(artist => {
+        const codiceQualifica = getQualificaCode(artist.ruolo);
+        
+        xml += `
                         <Lavoratore>
                             <CodiceFiscale>${artist.codiceFiscale}</CodiceFiscale>
                             <MatricolaEnpals>${artist.matricolaEnpals || generateMatricolaEnpals()}</MatricolaEnpals>
@@ -689,12 +786,12 @@ function generateXML() {
                             <LegaleRappresentante>NO</LegaleRappresentante>
                             <CodiceQualifica>${codiceQualifica}</CodiceQualifica>
                             <Retribuzione>${formatRetribuzione(artist.compenso)}</Retribuzione>
-                        </Lavoratore>
-                    </Lavoratori>
-                </Occupazione>`;
+                        </Lavoratore>`;
     });
 
     xml += `
+                    </Lavoratori>
+                </Occupazione>
             </Occupazioni>
         </Agibilita>
     </ElencoAgibilita>
@@ -728,12 +825,23 @@ function generateXMLPreview() {
     }
 }
 
-function getCodiceIstatFromCity() {
+function getCodicebelfioreFromCity() {
     const cittaSelect = document.getElementById('citta');
     const selectedOption = cittaSelect.options[cittaSelect.selectedIndex];
     
-    if (selectedOption && selectedOption.dataset.codice) {
-        return selectedOption.dataset.codice;
+    if (selectedOption && selectedOption.getAttribute('data-comune')) {
+        try {
+            const comuneData = JSON.parse(selectedOption.getAttribute('data-comune'));
+            // Cerca il codice Belfiore nei vari campi possibili
+            return comuneData.codice_belfiore || 
+                   comuneData.codiceBelfiore || 
+                   comuneData.belfiore || 
+                   comuneData.codice_catastale ||
+                   'L736'; // Default Venezia
+        } catch (error) {
+            console.error('Errore parsing dati comune:', error);
+            return 'L736';
+        }
     }
     
     return 'L736'; // Default Venezia
@@ -743,10 +851,18 @@ function getQualificaCode(ruolo) {
     const qualificaMap = {
         'DJ': '032',
         'Vocalist': '031',
+        'Musicista': '030',
+        'Cantante': '033',
         'Ballerino/a': '092',
-        'Tecnico': '117',
+        'Performer': '090',
+        'Animatore': '091',
+        'Tecnico Audio': '117',
+        'Tecnico Luci': '118',
         'Fotografo': '126',
-        'Truccatore': '141'
+        'Videomaker': '127',
+        'Truccatore': '141',
+        'Costumista': '142',
+        'Scenografo': '150'
     };
     return qualificaMap[ruolo] || '032';
 }
@@ -777,6 +893,11 @@ function validateINPSXML(xmlString) {
             errors.push(`Campo obbligatorio ${field} mancante`);
         }
     });
+    
+    // Verifica TipoRetribuzione sempre "G"
+    if (!xmlString.includes('<TipoRetribuzione>G</TipoRetribuzione>')) {
+        errors.push('TipoRetribuzione deve essere "G" (Giornaliera)');
+    }
     
     selectedArtists.forEach(artist => {
         if (!validaCodiceFiscale(artist.codiceFiscale)) {
@@ -833,6 +954,11 @@ function downloadAndSave() {
 }
 
 function saveAgibilitaToDatabase(xmlContent) {
+    // Ottieni il nome della città dal testo dell'option
+    const cittaSelect = document.getElementById('citta');
+    const selectedOption = cittaSelect.options[cittaSelect.selectedIndex];
+    const cittaNome = selectedOption ? selectedOption.textContent : '';
+    
     const agibilita = {
         id: Date.now(),
         codice: `AG-${new Date().getFullYear()}-${String(agibilitaDB.length + 1).padStart(3, '0')}`,
@@ -842,9 +968,11 @@ function saveAgibilitaToDatabase(xmlContent) {
         locale: {
             descrizione: document.getElementById('descrizioneLocale').value,
             indirizzo: document.getElementById('indirizzo').value,
-            citta: document.getElementById('citta').value,
+            cittaCodice: document.getElementById('citta').value, // Codice ISTAT
+            cittaNome: cittaNome, // Nome per display
             cap: document.getElementById('cap').value,
-            provincia: document.getElementById('provincia').value
+            provincia: document.getElementById('provincia').value,
+            codiceComune: getCodicebelfioreFromCity() // Codice Belfiore per INPS
         },
         fatturazione: {
             ragioneSociale: document.getElementById('ragioneSociale').value,
@@ -933,12 +1061,15 @@ function showExistingAgibilita() {
             `${a.nome} ${a.cognome} (${a.ruolo})`
         ).join(', ');
 
+        // Usa cittaNome se disponibile, altrimenti fallback
+        const cittaDisplay = agibilita.locale.cittaNome || agibilita.locale.citta || 'Città non specificata';
+
         return `
             <div class="agibilita-item">
                 <div class="agibilita-info">
                     <div class="agibilita-code">[${agibilita.codice}]</div>
                     <div class="agibilita-dates">${agibilita.dataInizio} - ${agibilita.dataFine}</div>
-                    <div class="agibilita-location">${agibilita.locale.descrizione} - ${agibilita.locale.citta}</div>
+                    <div class="agibilita-location">${agibilita.locale.descrizione} - ${cittaDisplay}</div>
                     <div class="agibilita-artists">Artisti: ${artistsList} - Totale: €${totalCompensation.toFixed(2)}</div>
                 </div>
                 <div class="agibilita-actions">
@@ -988,9 +1119,19 @@ function editAgibilita(codice) {
     document.getElementById('dataFine').value = agibilita.dataFine;
     document.getElementById('descrizioneLocale').value = agibilita.locale.descrizione;
     document.getElementById('indirizzo').value = agibilita.locale.indirizzo;
-    document.getElementById('citta').value = agibilita.locale.citta;
-    document.getElementById('cap').value = agibilita.locale.cap;
+    
+    // Ripristina provincia, città e CAP
     document.getElementById('provincia').value = agibilita.locale.provincia;
+    loadCitiesForProvince();
+    
+    setTimeout(() => {
+        document.getElementById('citta').value = agibilita.locale.cittaCodice || agibilita.locale.citta;
+        loadCAPsForCity();
+        
+        setTimeout(() => {
+            document.getElementById('cap').value = agibilita.locale.cap;
+        }, 100);
+    }, 100);
 
     if (agibilita.fatturazione) {
         document.getElementById('ragioneSociale').value = agibilita.fatturazione.ragioneSociale || '';
@@ -1060,6 +1201,12 @@ function clearAllForms() {
     document.getElementById('editListSection').style.display = 'none';
     const dateInfo = document.getElementById('dateInfo');
     if (dateInfo) dateInfo.style.display = 'none';
+    
+    // Reset dropdowns
+    document.getElementById('citta').disabled = true;
+    document.getElementById('cap').disabled = true;
+    document.getElementById('citta').innerHTML = '<option value="">Prima seleziona la provincia</option>';
+    document.getElementById('cap').innerHTML = '<option value="">Prima seleziona la città</option>';
 }
 
 function setupEventListeners() {
@@ -1076,12 +1223,41 @@ function setupEventListeners() {
         descrizioneLocale.addEventListener('input', searchVenue);
     }
 
-    // Location dropdowns
+    // Location dropdowns - CORRETTI come registrazione
     const provincia = document.getElementById('provincia');
-    if (provincia) provincia.addEventListener('change', loadCitiesForProvince);
+    if (provincia) {
+        provincia.addEventListener('change', function() {
+            const selectedProvincia = this.value;
+            const cittaSelect = document.getElementById('citta');
+            const capSelect = document.getElementById('cap');
+            
+            if (selectedProvincia) {
+                cittaSelect.disabled = false;
+                loadCitiesForProvince();
+            } else {
+                cittaSelect.disabled = true;
+                cittaSelect.innerHTML = '<option value="">Prima seleziona la provincia</option>';
+                capSelect.disabled = true;
+                capSelect.innerHTML = '<option value="">Prima seleziona la città</option>';
+            }
+        });
+    }
     
     const citta = document.getElementById('citta');
-    if (citta) citta.addEventListener('change', loadCAPsForCity);
+    if (citta) {
+        citta.addEventListener('change', function() {
+            const selectedCitta = this.value;
+            const capSelect = document.getElementById('cap');
+            
+            if (selectedCitta) {
+                capSelect.disabled = false;
+                loadCAPsForCity();
+            } else {
+                capSelect.disabled = true;
+                capSelect.innerHTML = '<option value="">Prima seleziona la città</option>';
+            }
+        });
+    }
 
     // Modal close on outside click
     window.addEventListener('click', function(event) {
@@ -1128,4 +1304,4 @@ window.editAgibilita = editAgibilita;
 window.duplicateAgibilita = duplicateAgibilita;
 window.cancelAgibilita = cancelAgibilita;
 
-console.log('agibilita.js caricato completamente');
+console.log('agibilita.js CORRETTO caricato completamente');
