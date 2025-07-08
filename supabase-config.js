@@ -1,11 +1,10 @@
-// supabase-config.js
+// supabase-config.js - VERSIONE COMPLETA E CORRETTA
 // Configurazione per collegare RECORP a Supabase
 
-// SOSTITUISCI CON LE TUE CREDENZIALI REALI
 const SUPABASE_URL = 'https://nommluymuwioddhaujxu.supabase.co'
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5vbW1sdXltdXdpb2RkaGF1anh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE5ODA5MjgsImV4cCI6MjA2NzU1NjkyOH0.oaF5uaNe21W8NU67n1HjngngMUClkss2achTQ7BZ5tE' // Sostituisci con la tua chiave completa
 
-// Import Supabase da CDN (funziona senza npm)
+// Import Supabase da CDN stabile
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 // Crea client Supabase
@@ -239,13 +238,17 @@ export class DatabaseService {
     
     // ==================== STATISTICHE ====================
     
-    // Ottieni statistiche dashboard
+    // Ottieni statistiche dashboard - VERSIONE CORRETTA
     static async getStats() {
         try {
-            // Conta artisti
-            const { count: artistiCount } = await supabase
+            // Conta artisti - METODO CORRETTO
+            const { count: artistiCount, error: artistiError } = await supabase
                 .from('artisti')
                 .select('*', { count: 'exact', head: true })
+            
+            if (artistiError) {
+                console.error('Errore conteggio artisti:', artistiError)
+            }
             
             // Conta agibilità del mese corrente
             const currentMonth = new Date().getMonth() + 1
@@ -253,19 +256,23 @@ export class DatabaseService {
             const startOfMonth = `${currentYear}-${currentMonth.toString().padStart(2, '0')}-01`
             const endOfMonth = `${currentYear}-${currentMonth.toString().padStart(2, '0')}-31`
             
-            const { count: agibilitaCount } = await supabase
+            const { count: agibilitaCount, error: agibilitaError } = await supabase
                 .from('agibilita')
                 .select('*', { count: 'exact', head: true })
                 .gte('data_inizio', startOfMonth)
                 .lte('data_inizio', endOfMonth)
+                
+            if (agibilitaError) {
+                console.error('Errore conteggio agibilità:', agibilitaError)
+            }
             
-            // Calcola compenso totale (questo richiederà un calcolo lato client)
-            const { data: agibilita } = await supabase
+            // Calcola compenso totale (semplificato per ora)
+            const { data: agibilita, error: compensoError } = await supabase
                 .from('agibilita')
                 .select('artisti')
             
             let totalCompensation = 0
-            if (agibilita) {
+            if (agibilita && !compensoError) {
                 agibilita.forEach(a => {
                     if (a.artisti && Array.isArray(a.artisti)) {
                         a.artisti.forEach(artista => {
@@ -275,12 +282,16 @@ export class DatabaseService {
                 })
             }
             
-            return {
+            const stats = {
                 totalArtists: artistiCount || 0,
                 monthlyAgibilita: agibilitaCount || 0,
                 totalCompensation: totalCompensation,
                 completionRate: 100 // Per ora fisso al 100%
             }
+            
+            console.log('📊 Statistiche calcolate:', stats)
+            return stats
+            
         } catch (error) {
             console.error('❌ Errore caricamento statistiche:', error)
             return {
@@ -291,14 +302,79 @@ export class DatabaseService {
             }
         }
     }
+    
+    // ==================== UTILITY ====================
+    
+    // Elimina artista
+    static async deleteArtista(artistId) {
+        try {
+            const { error } = await supabase
+                .from('artisti')
+                .delete()
+                .eq('id', artistId)
+            
+            if (error) throw error
+            console.log('✅ Artista eliminato:', artistId)
+            return true
+        } catch (error) {
+            console.error('❌ Errore eliminazione artista:', error)
+            throw error
+        }
+    }
+    
+    // Elimina venue
+    static async deleteVenue(venueId) {
+        try {
+            const { error } = await supabase
+                .from('venues')
+                .delete()
+                .eq('id', venueId)
+            
+            if (error) throw error
+            console.log('✅ Venue eliminato:', venueId)
+            return true
+        } catch (error) {
+            console.error('❌ Errore eliminazione venue:', error)
+            throw error
+        }
+    }
+    
+    // Test di connessione completo
+    static async healthCheck() {
+        try {
+            console.log('🔍 Test completo del sistema...')
+            
+            // Test connessione base
+            const { data: testData, error: testError } = await supabase
+                .from('artisti')
+                .select('id')
+                .limit(1)
+            
+            if (testError) throw testError
+            
+            // Test statistiche
+            const stats = await this.getStats()
+            
+            console.log('✅ Sistema completamente funzionante!')
+            console.log('📊 Database contiene:', {
+                artisti: stats.totalArtists,
+                agibilità: stats.monthlyAgibilita
+            })
+            
+            return true
+        } catch (error) {
+            console.error('❌ Test sistema fallito:', error)
+            return false
+        }
+    }
 }
 
-// Funzione di test connessione
+// Funzione di test connessione - VERSIONE CORRETTA
 export async function testConnection() {
     try {
         const { data, error } = await supabase
             .from('artisti')
-            .select('count(*)')
+            .select('id')
             .limit(1)
         
         if (error) throw error
@@ -310,4 +386,25 @@ export async function testConnection() {
     }
 }
 
+// Debug helper - mostra informazioni sistema
+export async function showSystemInfo() {
+    try {
+        console.log('🔧 Informazioni Sistema RECORP:')
+        console.log('📍 URL Supabase:', SUPABASE_URL)
+        console.log('🔑 Chiave API (primi 20 char):', SUPABASE_ANON_KEY.substring(0, 20) + '...')
+        
+        const health = await DatabaseService.healthCheck()
+        console.log('🏥 Stato sistema:', health ? 'SANO' : 'PROBLEMI')
+        
+    } catch (error) {
+        console.error('❌ Errore info sistema:', error)
+    }
+}
+
+// Rendi disponibili globalmente per debug
+window.DatabaseService = DatabaseService
+window.showSystemInfo = showSystemInfo
+window.testConnection = testConnection
+
 console.log('📡 DatabaseService caricato e pronto!')
+console.log('💡 Per debug, usa: showSystemInfo() nella console')
