@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comunicazioni Intermittenti - RECORP ALL-IN-ONE</title>
+    <link rel="stylesheet" href="./assets/style.css">
+    <style>
+        .communication-builder {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .step-container {
+            background: var(--bg-card, #ffffff);
+            border: 1px solid var(--border-color, #e5e7eb);
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            overflow: hidden;
+        }
+
+        .step-header {
+            background: #3b82f6;
+            color: white;
+            padding: 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .step-number {
+            background: rgba(255,255,255,0.2);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .step-content {
+            padding: 2rem;
+        }
+
+        .worker-selector {
+            margin-bottom: 2rem;
+        }
+
+        .search-worker {
+            position: relative;
+            margin-bottom: 1rem;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 1rem;
+            border: 1px solid var(--border-color, #e5e7eb);
+            border-radius: 8px;
+            font-size: 1rem;
+            background: var(--bg-secondary, #f8f9fa);
+        }
+
+        .search-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid var(--border-color, #e5e7eb);
+            border-radius: 8px;
+            max-height: 300px;
+            overflow-y: auto;
+            z-index: 100;
+            display: none;
+        }
+
+        .search-result-item {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color, #e5e7eb);
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .search-result-item:hover {
+            background: #f3f4f6;
+        }
+
+        .search-result-item:last-child {
+            border-bottom: none;
+        }
+
+        .worker-name {
+            font-weight: 600;
+            color: var(--text-primary, #1f2937);
+        }
+
+        .worker-details {
+            font-size: 0.9rem;
+            color: var(--text-secondary, #6b7280);
+            margin-top: 0.25rem;
+        }
+
+        .selected-workers {
+            margin-top: 2rem;
+        }
+
+        .selected-worker-item {
+            background: #f0f9ff;
+            border: 1px solid #3b82f6;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            position: relative;
+        }
+
+        .worker-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .worker-info {
+            flex: 1;
+        }
+
+        .worker-display-name {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #1e40af;
+            margin-bottom: 0.25rem;
+        }
+
+        .worker-cf {
+            font-size: 0.9rem;
+            color: #6b7280;
+            font-family: monospace;
+        }
+
+        .remove-worker {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 0.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .remove-worker:hover {
+            background: #dc2626;
+        }
+
+        .date-inputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 1rem;
+            align-items: end;
+        }
+
+        .date-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .date-label {
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary, #1f2937);
+        }
+
+        .date-input {
+            padding: 0.75rem;
+            border: 1px solid var(--border-color, #e5e7eb);
+            border-radius: 6px;
+            font-size: 0.9rem;
+            background: white;
+        }
+
+        .auto-fill-btn {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 0.75rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.3s;
+        }
+
+        .auto-fill-btn:hover {
+            background: #059669;
+        }
+
+        .global-dates {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .global-dates h4 {
+            color: #92400e;
+            margin-bottom: 1rem;
+        }
+
+        .global-date-inputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 1rem;
+            align-items: end;
+        }
+
+        .summary-section {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .summary-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary, #1f2937);
+            margin-bottom: 1rem;
+        }
+
+        .summary-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .summary-item {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .summary-worker {
+            font-weight: 500;
+        }
+
+        .summary-dates {
+            color: #6b7280;
+            font-size: 0.9rem;
+        }
+
+        .generation-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-top: 2rem;
+        }
+
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        .xml-preview-container {
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 2rem;
+            border-radius: 8px;
+            margin-top: 2rem;
+            display: none;
+        }
+
+        .xml-preview {
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            line-height: 1.6;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .xml-keyword {
+            color: #60a5fa;
+        }
+
+        .xml-value {
+            color: #34d399;
+        }
+
+        .validation-error {
+            color: #ef4444;
+            font-size: 0.8rem;
+            margin-top: 0.25rem;
+        }
+
+        .success-message {
+            background: #dcfce7;
+            color: #166534;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            border-left: 4px solid #10b981;
+            display: none;
+        }
+
+        .info-box {
+            background: #e0f2fe;
+            color: #0c4a6e;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            border-left: 4px solid #0ea5e9;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-secondary, #6b7280);
+        }
+
+        .empty-state h3 {
+            margin-bottom: 1rem;
+        }
+
+        @media (max-width: 768px) {
+            .communication-builder {
+                padding: 1rem;
+            }
+            
+            .date-inputs, .global-date-inputs {
+                grid-template-columns: 1fr;
+            }
+            
+            .generation-actions {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="nav-brand">
+            <h1>RECORP ALL-IN-ONE</h1>
+            <span class="nav-subtitle">Comunicazioni Intermittenti</span>
+        </div>
+        <div class="nav-links">
+            <a href="./index.html" class="nav-link">
+                <i class="icon">🏠</i>
+                Dashboard
+            </a>
+            <a href="./registrazione-artista.html" class="nav-link">
+                <i class="icon">👥</i>
+                Gestione Artisti
+            </a>
+            <a href="./agibilita/index.html" class="nav-link">
+                <i class="icon">📋</i>
+                Agibilità
+            </a>
+            <a href="./generatore-xml-inps.html" class="nav-link">
+                <i class="icon">📄</i>
+                XML INPS
+            </a>
+            <a href="#" class="nav-link active">
+                <i class="icon">📞</i>
+                Comunicazioni
+            </a>
+        </div>
+    </nav>
+
+    <div class="communication-builder">
+        <!-- Header -->
+        <div class="page-header">
+            <h1>Comunicazioni Lavoro Intermittente</h1>
+            <p>Crea comunicazioni INPS per lavoratori intermittenti selezionando artisti e periodi di lavoro</p>
+        </div>
+
+        <!-- Step 1: Selezione Lavoratori -->
+        <div class="step-container">
+            <div class="step-header">
+                <div class="step-info">
+                    <div class="step-number">1</div>
+                    <div>
+                        <h3>Selezione Lavoratori</h3>
+                        <p>Cerca e seleziona gli artisti per la comunicazione</p>
+                    </div>
+                </div>
+            </div>
+            <div class="step-content">
+                <div class="worker-selector">
+                    <div class="search-worker">
+                        <input type="text" 
+                               id="workerSearch" 
+                               class="search-input" 
+                               placeholder="Cerca artista per nome, cognome o codice fiscale...">
+                        <div id="searchResults" class="search-results"></div>
+                    </div>
+                </div>
+
+                <div class="selected-workers">
+                    <h4>Lavoratori Selezionati</h4>
+                    <div id="selectedWorkersList">
+                        <div class="empty-state">
+                            <h3>Nessun lavoratore selezionato</h3>
+                            <p>Cerca e seleziona gli artisti dalla barra di ricerca sopra</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 2: Date Globali -->
+        <div class="step-container">
+            <div class="step-header">
+                <div class="step-info">
+                    <div class="step-number">2</div>
+                    <div>
+                        <h3>Date Globali (Opzionale)</h3>
+                        <p>Imposta date comuni per tutti i lavoratori</p>
+                    </div>
+                </div>
+            </div>
+            <div class="step-content">
+                <div class="global-dates">
+                    <h4>⚡ Compilazione Rapida</h4>
+                    <p>Imposta le stesse date per tutti i lavoratori selezionati</p>
+                    <div class="global-date-inputs">
+                        <div class="date-group">
+                            <label class="date-label">Data Inizio</label>
+                            <input type="date" id="globalStartDate" class="date-input">
+                        </div>
+                        <div class="date-group">
+                            <label class="date-label">Data Fine</label>
+                            <input type="date" id="globalEndDate" class="date-input">
+                        </div>
+                        <div class="date-group">
+                            <button onclick="applyGlobalDates()" class="auto-fill-btn">
+                                Applica a Tutti
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="info-box">
+                    <strong>💡 Suggerimento:</strong> Usa le date globali se tutti i lavoratori hanno lavorato nello stesso periodo. 
+                    Puoi sempre modificare le date individuali successivamente.
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 3: Riepilogo e Generazione -->
+        <div class="step-container">
+            <div class="step-header">
+                <div class="step-info">
+                    <div class="step-number">3</div>
+                    <div>
+                        <h3>Riepilogo e Generazione</h3>
+                        <p>Controlla i dati e genera il file XML</p>
+                    </div>
+                </div>
+            </div>
+            <div class="step-content">
+                <div class="summary-section" id="summarySection">
+                    <div class="summary-title">Riepilogo Comunicazione</div>
+                    <div id="summaryContent">
+                        <div class="empty-state">
+                            <p>Seleziona almeno un lavoratore per vedere il riepilogo</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="generation-actions">
+                    <button class="btn-primary" onclick="generateXMLPreview()" id="previewBtn" disabled>
+                        👁️ Anteprima XML
+                    </button>
+                    <button class="btn-success" onclick="downloadXML()" id="downloadBtn" disabled>
+                        💾 Scarica XML
+                    </button>
+                </div>
+
+                <div id="xmlPreviewContainer" class="xml-preview-container">
+                    <h4>Anteprima File XML:</h4>
+                    <div class="xml-preview" id="xmlPreview"></div>
+                </div>
+
+                <div id="successMessage" class="success-message">
+                    <strong>✅ XML Generato con Successo!</strong>
+                    <p>Il file XML è pronto per essere inviato all'INPS.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script type="module" src="./comunicazioni-intermittenti.js"></script>
+</body>
+</html>
