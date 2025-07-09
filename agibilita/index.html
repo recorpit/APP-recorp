@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestione Agibilità - RECORP ALL-IN-ONE</title>
+    <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+    <div class="main-container">
+        <!-- Header -->
+        <div class="header">
+            <h1>Gestione Agibilità</h1>
+            <p>Sistema integrato per la creazione e gestione delle agibilità ex-ENPALS</p>
+        </div>
+
+        <!-- Breadcrumb -->
+        <div class="breadcrumb">
+            <a href="../index.html" class="breadcrumb-item">Dashboard</a>
+            <span class="breadcrumb-separator">›</span>
+            <span class="breadcrumb-item active">Gestione Agibilità</span>
+        </div>
+
+        <!-- Tipo Agibilità Section -->
+        <div id="tipoSection" class="step-section active">
+            <h2>Seleziona Tipo di Operazione</h2>
+            <div class="type-cards">
+                <div class="type-card" onclick="startNewAgibilita()">
+                    <div class="type-card-icon">📄</div>
+                    <h3>Nuova Agibilità</h3>
+                    <p>Crea una nuova pratica di agibilità</p>
+                </div>
+                <div class="type-card" onclick="showEditAgibilita()">
+                    <div class="type-card-icon">📝</div>
+                    <h3>Modifica Agibilità</h3>
+                    <p>Modifica o gestisci agibilità esistenti</p>
+                </div>
+            </div>
+            
+            <!-- Lista agibilità per modifica -->
+            <div id="editListSection" style="display: none;">
+                <h3>Agibilità Recenti</h3>
+                <div class="form-group">
+                    <input type="text" class="form-control" id="searchAgibilita" placeholder="Cerca per codice o artista..." oninput="filterAgibilita()">
+                </div>
+                <div id="agibilitaList"></div>
+            </div>
+        </div>
+
+        <!-- Step 1: Artisti -->
+        <div id="step1" class="step-section">
+            <h2>Step 1: Selezione Artisti</h2>
+            
+            <button class="btn btn-primary" onclick="showAddArtistModal()">+ Aggiungi Artista</button>
+            
+            <div class="artist-list" id="artistList">
+                <p class="no-artists-message">Nessun artista selezionato</p>
+            </div>
+            
+            <div class="summary-box" id="summaryBox" style="display: none;">
+                <h4>Riepilogo</h4>
+                <p>Totale artisti: <span id="totalArtists">0</span></p>
+                <p>Compenso totale: €<span id="totalCompensation">0.00</span></p>
+            </div>
+            
+            <div class="btn-group" style="margin-top: 2rem;">
+                <button class="btn btn-secondary" onclick="showSection('tipoSection')">Indietro</button>
+                <button class="btn btn-primary" id="btnNext1" onclick="goToStep2()" style="display: none;">Avanti</button>
+            </div>
+        </div>
+
+        <!-- Step 2: Data e Luogo -->
+        <div id="step2" class="step-section">
+            <h2>Step 2: Data e Luogo</h2>
+            
+            <div class="form-section">
+                <h3>📅 Date dell'Evento</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Data Inizio <span class="required">*</span></label>
+                        <input type="date" class="form-control" id="dataInizio" required onchange="validateDates()">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Data Fine <span class="required">*</span></label>
+                        <input type="date" class="form-control" id="dataFine" required onchange="validateDates()">
+                    </div>
+                </div>
+                <div class="date-info" id="dateInfo" style="display: none;"></div>
+            </div>
+            
+            <div class="form-section">
+                <h3>📍 Luogo dell'Evento</h3>
+                <div class="form-group">
+                    <label class="form-label">Descrizione Locale <span class="required">*</span></label>
+                    <div style="position: relative;">
+                        <input type="text" class="form-control" id="descrizioneLocale" required 
+                               oninput="searchVenue()" placeholder="Es: Teatro Olimpico">
+                        <div id="venueDropdown" class="autocomplete-dropdown" style="display: none;"></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Indirizzo <span class="required">*</span></label>
+                    <input type="text" class="form-control" id="indirizzo" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Provincia <span class="required">*</span></label>
+                        <select class="form-control" id="provincia" required onchange="loadCitiesForProvince()">
+                            <option value="">Seleziona provincia...</option>
+                        </select>
+                        <div class="location-helper-text">Seleziona prima la provincia</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Città <span class="required">*</span></label>
+                        <select class="form-control" id="citta" required onchange="loadCAPsForCity()" disabled>
+                            <option value="">Prima seleziona la provincia</option>
+                        </select>
+                        <div class="location-helper-text">Seleziona la città</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">CAP <span class="required">*</span></label>
+                        <select class="form-control" id="cap" required disabled>
+                            <option value="">Prima seleziona città</option>
+                        </select>
+                        <div class="location-helper-text">Seleziona il CAP</div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Note (opzionale)</label>
+                    <textarea class="form-control" id="noteLocale" rows="3"></textarea>
+                </div>
+            </div>
+
+            <!-- SEZIONE FATTURAZIONE -->
+            <div class="form-section">
+                <h3>💰 Dati Fatturazione</h3>
+                <div class="alert alert-info">
+                    <small>I dati di fatturazione verranno salvati e associati a questo locale per usi futuri</small>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Ragione Sociale <span class="required">*</span></label>
+                    <input type="text" class="form-control" id="ragioneSociale" required>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Partita IVA</label>
+                        <input type="text" class="form-control" id="piva" pattern="[0-9]{11}" maxlength="11">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Codice Fiscale</label>
+                        <input type="text" class="form-control uppercase-field" id="codiceFiscale" pattern="[A-Z0-9]{16}" maxlength="16">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="copyVenueAddress()">
+                        📋 Copia indirizzo del locale
+                    </button>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Indirizzo Fatturazione <span class="required">*</span></label>
+                    <input type="text" class="form-control" id="indirizzoFatturazione" required>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Città <span class="required">*</span></label>
+                        <input type="text" class="form-control" id="cittaFatturazione" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">CAP <span class="required">*</span></label>
+                        <input type="text" class="form-control" id="capFatturazione" pattern="[0-9]{5}" maxlength="5" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Provincia <span class="required">*</span></label>
+                        <input type="text" class="form-control uppercase-field" id="provinciaFatturazione" pattern="[A-Z]{2}" maxlength="2" required>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Codice SDI</label>
+                        <input type="text" class="form-control uppercase-field" id="codiceSDI" pattern="[A-Z0-9]{7}" maxlength="7">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">PEC</label>
+                        <input type="email" class="form-control" id="pecFatturazione">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="btn-group">
+                <button class="btn btn-secondary" onclick="showSection('step1')">Indietro</button>
+                <button class="btn btn-primary" onclick="goToStep3()">Avanti</button>
+            </div>
+        </div>
+
+        <!-- Step 3: Riepilogo e Invio -->
+        <div id="step3" class="step-section">
+            <h2>Step 3: Riepilogo e Invio</h2>
+            
+            <div class="tabs">
+                <button class="tab active" onclick="showTab('riepilogo')">Riepilogo</button>
+                <button class="tab" onclick="showTab('anteprima')">Anteprima XML</button>
+                <button class="tab" onclick="showTab('invio')">Invio</button>
+            </div>
+            
+            <!-- Tab Riepilogo -->
+            <div id="tabRiepilogo" class="tab-content active">
+                <div class="summary-box">
+                    <h4>🎭 Artisti</h4>
+                    <div id="summaryArtists"></div>
+                </div>
+                
+                <div class="summary-box">
+                    <h4>📅 Date</h4>
+                    <div id="summaryDates"></div>
+                </div>
+                
+                <div class="summary-box">
+                    <h4>📍 Luogo</h4>
+                    <div id="summaryLocation"></div>
+                </div>
+
+                <div class="summary-box">
+                    <h4>💰 Fatturazione</h4>
+                    <div id="summaryInvoice"></div>
+                </div>
+            </div>
+            
+            <!-- Tab Anteprima XML -->
+            <div id="tabAnteprima" class="tab-content">
+                <div class="xml-preview" id="xmlPreview"></div>
+            </div>
+            
+            <!-- Tab Invio -->
+            <div id="tabInvio" class="tab-content">
+                <div class="form-section">
+                    <h3>Opzioni di Invio</h3>
+                    <div class="btn-group" style="flex-direction: column; gap: 1rem;">
+                        <button class="btn btn-primary" onclick="downloadAndSave()">
+                            📥 Scarica XML e Salva
+                        </button>
+                        <button class="btn btn-secondary" onclick="window.open('https://servizi2.inps.it/servizi/GestioneAgibilitaInter/Agibilita/Import', '_blank')">
+                            🌐 Vai al Portale INPS
+                        </button>
+                        <button class="btn btn-secondary" onclick="saveDraft()">
+                            💾 Salva Bozza
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="btn-group" style="margin-top: 2rem;">
+                <button class="btn btn-secondary" onclick="showSection('step2')">Indietro</button>
+                <button class="btn btn-primary" id="btnConfirm" onclick="confirmAndProceed()">Conferma e Scarica XML</button>
+                <button class="btn btn-success" id="btnNewAgibilita" style="display: none;" onclick="newAgibilita()">
+                    Nuova Agibilità
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Aggiungi Artista -->
+    <div class="modal" id="addArtistModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Cerca e Aggiungi Artista</h2>
+                <button class="close-modal" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="form-group">
+                <input type="text" class="form-control" id="artistSearch" 
+                       placeholder="Cerca per nome, cognome o codice fiscale..." 
+                       oninput="searchArtists()">
+            </div>
+            <div class="search-results" id="searchResults"></div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="../comuni-loader.js"></script>
+    <script src="agibilita.js"></script>
+</body>
+</html>
