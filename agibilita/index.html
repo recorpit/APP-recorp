@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestione Agibilità - RECORP ALL-IN-ONE</title>
-    <link rel="stylesheet" href="../assets/style.css">
+    <link rel="stylesheet" href="./assets/style.css">
 </head>
 <body>
     <div class="main-container">
@@ -16,7 +16,7 @@
 
         <!-- Breadcrumb -->
         <div class="breadcrumb">
-            <a href="../index.html" class="breadcrumb-item">Dashboard</a>
+            <a href="./index.html" class="breadcrumb-item">Dashboard</a>
             <span class="breadcrumb-separator">›</span>
             <span class="breadcrumb-item active">Gestione Agibilità</span>
         </div>
@@ -38,7 +38,7 @@
             </div>
             
             <!-- Lista agibilità per modifica -->
-            <div id="editListSection" style="display: none;">
+            <div id="editListSection">
                 <h3>Agibilità Recenti</h3>
                 <div class="form-group">
                     <input type="text" class="form-control" id="searchAgibilita" placeholder="Cerca per codice o artista..." oninput="filterAgibilita()">
@@ -57,15 +57,15 @@
                 <p class="no-artists-message">Nessun artista selezionato</p>
             </div>
             
-            <div class="summary-box" id="summaryBox" style="display: none;">
+            <div class="summary-box" id="summaryBox">
                 <h4>Riepilogo</h4>
                 <p>Totale artisti: <span id="totalArtists">0</span></p>
                 <p>Compenso totale: €<span id="totalCompensation">0.00</span></p>
             </div>
             
-            <div class="btn-group" style="margin-top: 2rem;">
+            <div class="btn-group">
                 <button class="btn btn-secondary" onclick="showSection('tipoSection')">Indietro</button>
-                <button class="btn btn-primary" id="btnNext1" onclick="goToStep2()" style="display: none;">Avanti</button>
+                <button class="btn btn-primary" id="btnNext1" onclick="goToStep2()">Avanti</button>
             </div>
         </div>
 
@@ -85,17 +85,17 @@
                         <input type="date" class="form-control" id="dataFine" required onchange="validateDates()">
                     </div>
                 </div>
-                <div class="date-info" id="dateInfo" style="display: none;"></div>
+                <div class="date-info" id="dateInfo"></div>
             </div>
             
             <div class="form-section">
                 <h3>📍 Luogo dell'Evento</h3>
                 <div class="form-group">
                     <label class="form-label">Descrizione Locale <span class="required">*</span></label>
-                    <div style="position: relative;">
+                    <div>
                         <input type="text" class="form-control" id="descrizioneLocale" required 
                                oninput="searchVenue()" placeholder="Es: Teatro Olimpico">
-                        <div id="venueDropdown" class="autocomplete-dropdown" style="display: none;"></div>
+                        <div id="venueDropdown" class="autocomplete-dropdown"></div>
                     </div>
                 </div>
                 <div class="form-group">
@@ -234,7 +234,7 @@
             <div id="tabInvio" class="tab-content">
                 <div class="form-section">
                     <h3>Opzioni di Invio</h3>
-                    <div class="btn-group" style="flex-direction: column; gap: 1rem;">
+                    <div class="btn-group">
                         <button class="btn btn-primary" onclick="downloadAndSave()">
                             📥 Scarica XML e Salva
                         </button>
@@ -248,10 +248,10 @@
                 </div>
             </div>
             
-            <div class="btn-group" style="margin-top: 2rem;">
+            <div class="btn-group">
                 <button class="btn btn-secondary" onclick="showSection('step2')">Indietro</button>
                 <button class="btn btn-primary" id="btnConfirm" onclick="confirmAndProceed()">Conferma e Scarica XML</button>
-                <button class="btn btn-success" id="btnNewAgibilita" style="display: none;" onclick="newAgibilita()">
+                <button class="btn btn-success" id="btnNewAgibilita" onclick="newAgibilita()">
                     Nuova Agibilità
                 </button>
             </div>
@@ -275,7 +275,7 @@
     </div>
 
     <!-- Scripts -->
-    <script src="../comuni-loader.js"></script>
+    <script src="./comuni-loader.js"></script>
     <script type="module" src="agibilita.js"></script>
 </body>
 </html>
