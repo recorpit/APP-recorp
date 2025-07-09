@@ -1,251 +1,52 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RECORP ALL-IN-ONE - Sistema Gestionale</title>
-    <link rel="stylesheet" href="./assets/style.css">
+  <meta charset="UTF-8">
+  <title>RECORP ALL-IN-ONE - Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="./assets/style.css">
 </head>
 <body>
-    <!-- Navbar -->
-    <nav class="navbar">
-        <div class="navbar-content">
-            <a href="./index.html" class="logo">
-                <img src="./assets/logo.png" alt="RECORP Logo">
-                <span class="logo-text">RECORP ALL-IN-ONE</span>
-            </a>
-            <div class="nav-links">
-                <a href="./index.html" class="active">Dashboard</a>
-                <a href="./registrazione-artista.html">Nuova Registrazione</a>
-                <a href="./agibilita/index.html">Agibilità</a>
-            </div>
+  <nav class="navbar">
+    <div class="navbar-content">
+      <a href="./index.html" class="logo">
+        <img src="./assets/logo.png" alt="RECORP Logo">
+        <span class="logo-text">RECORP ALL-IN-ONE</span>
+      </a>
+      <div class="nav-links">
+        <a href="./index.html" class="active">Dashboard</a>
+        <a href="./registrazione-artista.html">Artisti</a>
+        <a href="./agibilita/index.html">Agibilità</a>
+        <a href="./comunicazioni-intermittenti.html">Comunicazioni a Chiamata</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="main-container">
+    <div class="container">
+      <div class="header">
+        <h1>Benvenuto in RECORP ALL-IN-ONE</h1>
+        <p>Gestisci artisti, agibilità e comunicazioni in un'unica piattaforma.</p>
+      </div>
+
+      <div class="actions-grid">
+        <div class="action-card" onclick="goArtisti()">
+          <h2>Gestione Artisti</h2>
+          <p>Registra, modifica e consulta gli artisti.</p>
         </div>
-    </nav>
-
-    <div class="page-container">
-        <div class="container">
-            <!-- Header -->
-            <div class="header">
-                <h1>RECORP ALL-IN-ONE</h1>
-                <p>Sistema integrato per la gestione artisti e agibilità</p>
-            </div>
-
-            <!-- Ricerca e Registrazione -->
-            <div class="search-section">
-                <div class="search-container">
-                    <div class="search-input-wrapper">
-                        <input type="text" class="search-input" id="searchInput" 
-                               placeholder="Cerca artista per nome o codice fiscale..."
-                               oninput="showSuggestions()" 
-                               onblur="setTimeout(hideSuggestions, 200)"
-                               autocomplete="off">
-                        <div id="suggestions" class="suggestions-dropdown"></div>
-                    </div>
-                    <button class="btn btn-primary" onclick="searchArtist()">
-                        🔍 Cerca
-                    </button>
-                </div>
-                <div class="search-register-link">
-                    <a href="./registrazione-artista.html" class="btn btn-success">
-                        ➕ Registra Nuovo Artista
-                    </a>
-                </div>
-            </div>
-
-            <!-- Azioni principali -->
-            <div class="actions-grid">
-                <div class="action-card" onclick="startNewAgibilita()">
-                    <div class="action-icon">
-                        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                            <polyline points="14 2 14 8 20 8"></polyline>
-                            <line x1="16" y1="13" x2="8" y2="13"></line>
-                            <line x1="16" y1="17" x2="8" y2="17"></line>
-                            <polyline points="10 9 9 9 8 9"></polyline>
-                        </svg>
-                    </div>
-                    <h3>Creazione Agibilità</h3>
-                    <p>Crea nuove agibilità o modifica esistenti</p>
-                </div>
-                
-                <div class="action-card" onclick="window.location.href='./comunicazioni-intermittenti.html'">
-                    <div class="action-icon">
-                        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
-                        </svg>
-                    </div>
-                    <h3>Comunicazione a Chiamata</h3>
-                    <p>Gestisci il lavoro intermittente</p>
-                </div>
-                
-                <div class="action-card" onclick="showComingSoon()">
-                    <div class="action-icon">
-                        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <line x1="12" y1="1" x2="12" y2="23"></line>
-                            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-                        </svg>
-                    </div>
-                    <h3>Gestione Fatturazione</h3>
-                    <p>Fatture e documenti fiscali</p>
-                </div>
-                
-                <div class="action-card" onclick="showComingSoon()">
-                    <div class="action-icon">
-                        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
-                            <line x1="1" y1="10" x2="23" y2="10"></line>
-                        </svg>
-                    </div>
-                    <h3>Gestione Pagamenti</h3>
-                    <p>Traccia pagamenti e scadenze</p>
-                </div>
-            </div>
-
-            <!-- Statistiche -->
-            <div class="stats-section">
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-value" id="totalArtists">0</div>
-                        <div class="stat-label">Artisti Registrati</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="monthlyAgibilita">0</div>
-                        <div class="stat-label">Agibilità Questo Mese</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="totalCompensation">€0</div>
-                        <div class="stat-label">Totale Compensi</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="completionRate">0%</div>
-                        <div class="stat-label">Pratiche Completate</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Footer -->
-            <div class="footer">
-                <p>RECORP ALL-IN-ONE © 2025 - Sistema Gestionale Integrato</p>
-            </div>
+        <div class="action-card" onclick="startNewAgibilita()">
+          <h2>Creazione Agibilità</h2>
+          <p>Compila una nuova richiesta di agibilità INPS.</p>
         </div>
-    </div>
-
-    <!-- Database Management Button -->
-    <div class="db-manager-button">
-        <button class="btn btn-secondary btn-sm" onclick="toggleDatabaseManager()">
-            ⚙️ Gestione DB
-        </button>
-    </div>
-
-    <!-- Chat AI Button -->
-    <div class="chat-ai-button">
-        <button class="btn btn-primary btn-chat-ai" onclick="openChatAI()">
-            <span class="chat-ai-icon">🤖</span>
-            <span>Assistente AI</span>
-        </button>
-    </div>
-
-    <!-- Modal risultati ricerca -->
-    <div class="modal" id="searchModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Risultati Ricerca</h2>
-                <button class="close-modal" onclick="closeModal()">&times;</button>
-            </div>
-            <div class="search-results" id="searchResults">
-                <!-- I risultati verranno inseriti qui -->
-            </div>
+        <div class="action-card" onclick="goComunicazioniIntermittenti()">
+          <h2>Comunicazioni a Chiamata</h2>
+          <p>Genera e invia comunicazioni INPS per lavoro intermittente.</p>
         </div>
+      </div>
     </div>
+  </div>
 
-    <!-- Database Manager Modal -->
-    <div class="modal" id="databaseManagerModal">
-        <div class="modal-content modal-content-wide">
-            <div class="modal-header">
-                <h2>Gestione Database</h2>
-                <button class="close-modal" onclick="closeDatabaseManager()">&times;</button>
-            </div>
-            
-            <div class="tabs">
-                <button class="tab active" onclick="showDBTab('artisti')">Artisti</button>
-                <button class="tab" onclick="showDBTab('locali')">Locali</button>
-                <button class="tab" onclick="showDBTab('export')">Export/Import</button>
-            </div>
-            
-            <!-- Tab Artisti -->
-            <div id="dbTabArtisti" class="tab-content active">
-                <div class="form-group">
-                    <input type="text" class="form-control" id="dbSearchArtist" 
-                           placeholder="Cerca artista..." oninput="filterDBArtists()">
-                </div>
-                <div class="db-table-container">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Nome</th>
-                                <th>CF</th>
-                                <th>Mansione</th>
-                                <th class="text-center">Azioni</th>
-                            </tr>
-                        </thead>
-                        <tbody id="dbArtistsList"></tbody>
-                    </table>
-                    <p id="noArtistsMsg" class="no-data-msg">Nessun artista nel database</p>
-                </div>
-            </div>
-            
-            <!-- Tab Locali -->
-            <div id="dbTabLocali" class="tab-content">
-                <div class="form-group">
-                    <input type="text" class="form-control" id="dbSearchVenue" 
-                           placeholder="Cerca locale..." oninput="filterDBVenues()">
-                </div>
-                <div class="db-table-container">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Nome</th>
-                                <th>Città</th>
-                                <th>Indirizzo</th>
-                                <th class="text-center">Azioni</th>
-                            </tr>
-                        </thead>
-                        <tbody id="dbVenuesList"></tbody>
-                    </table>
-                    <p id="noVenuesMsg" class="no-data-msg">Nessun locale nel database</p>
-                </div>
-            </div>
-            
-            <!-- Tab Export/Import -->
-            <div id="dbTabExport" class="tab-content">
-                <div class="form-section">
-                    <h3 class="form-section-title">Export Database</h3>
-                    <div class="btn-group">
-                        <button class="btn btn-primary" onclick="exportDatabase('artisti')">
-                            📥 Export Artisti
-                        </button>
-                        <button class="btn btn-primary" onclick="exportDatabase('locali')">
-                            📥 Export Locali
-                        </button>
-                        <button class="btn btn-primary" onclick="exportDatabase('all')">
-                            📥 Export Completo
-                        </button>
-                    </div>
-                </div>
-                <div class="form-section">
-                    <h3 class="form-section-title">Import Database</h3>
-                    <input type="file" id="importFile" accept=".json" onchange="importDatabase(event)">
-                    <p class="import-help-text">
-                        Seleziona un file JSON esportato precedentemente
-                    </p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-<script type="module">
-    // ...TUTTO IL TUO SCRIPT RIMANE INVARIATO...
-    // Vedi il tuo file sopra per il JS, identico e senza modifiche.
-</script>
+  <!-- Script principale -->
+  <script type="module" src="./main.js"></script>
 </body>
 </html>
