@@ -1,533 +1,184 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestione Artisti - RECORP ALL-IN-ONE</title>
-    <link rel="stylesheet" href="./assets/style.css">
-    <style>
-        .mode-selection {
-            margin: 2rem 0;
-        }
-        
-        .mode-cards {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 2rem;
-            max-width: 600px;
-            margin: 0 auto;
-        }
-        
-        .mode-card {
-            background: var(--bg-card, #ffffff);
-            border: 2px solid var(--border-color, #e5e7eb);
-            border-radius: 12px;
-            padding: 2rem;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            position: relative;
-        }
-        
-        .mode-card:hover {
-            border-color: #3b82f6;
-            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.15);
-            transform: translateY(-2px);
-        }
-        
-        .mode-icon {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-        }
-        
-        .mode-card h3 {
-            color: var(--text-primary, #1f2937);
-            margin-bottom: 0.5rem;
-            font-size: 1.25rem;
-            font-weight: 600;
-        }
-        
-        .mode-card p {
-            color: var(--text-secondary, #6b7280);
-            font-size: 0.9rem;
-            margin: 0;
-        }
-        
-        .artist-selection {
-            margin: 2rem 0;
-        }
-        
-        .search-artist {
-            margin-bottom: 1.5rem;
-        }
-        
-        .search-artist input {
-            width: 100%;
-            padding: 1rem;
-            border: 1px solid var(--border-color, #e5e7eb);
-            border-radius: 8px;
-            font-size: 1rem;
-        }
-        
-        .artists-list {
-            max-height: 400px;
-            overflow-y: auto;
-            border: 1px solid var(--border-color, #e5e7eb);
-            border-radius: 8px;
-            background: var(--bg-secondary, #f8f9fa);
-        }
-        
-        .artist-item {
-            padding: 1rem;
-            border-bottom: 1px solid var(--border-color, #e5e7eb);
-            cursor: pointer;
-            transition: background 0.3s ease;
-        }
-        
-        .artist-item:hover {
-            background: #e0f2fe;
-        }
-        
-        .artist-item:last-child {
-            border-bottom: none;
-        }
-        
-        .artist-name {
-            font-weight: 600;
-            color: var(--text-primary, #1f2937);
-            margin-bottom: 0.25rem;
-        }
-        
-        .artist-details {
-            font-size: 0.9rem;
-            color: var(--text-secondary, #6b7280);
-        }
-        
-        .no-artists {
-            text-align: center;
-            padding: 3rem;
-            color: var(--text-secondary, #6b7280);
-        }
-        
-        @media (max-width: 768px) {
-            .mode-cards {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestione Artisti - RECORP ALL-IN-ONE</title>
+  <link rel="stylesheet" href="./assets/style.css">
 </head>
 <body>
-    <!-- Navbar -->
-    <nav class="navbar">
-        <div class="navbar-content">
-            <a href="./index.html" class="logo">
-                <img src="./assets/logo.png" alt="RECORP Logo">
-                <span class="logo-text">RECORP ALL-IN-ONE</span>
-            </a>
-        </div>
-    </nav>
-
-    <div class="page-container">
-        <div class="container">
-            <div class="registration-container">
-                <div class="header text-center">
-                    <h1 class="page-title" id="pageTitle">Gestione Artisti</h1>
-                    <p class="page-subtitle" id="pageSubtitle">Scegli un'azione da eseguire</p>
-                </div>
-                
-                <!-- Selezione Modalità -->
-                <div class="mode-selection" id="modeSelection">
-                    <div class="mode-cards">
-                        <div class="mode-card" onclick="selectMode('new')">
-                            <div class="mode-icon">👤</div>
-                            <h3>Nuova Registrazione</h3>
-                            <p>Aggiungi un nuovo artista al database</p>
-                        </div>
-                        <div class="mode-card" onclick="selectMode('edit')">
-                            <div class="mode-icon">✏️</div>
-                            <h3>Modifica Esistente</h3>
-                            <p>Modifica i dati di un artista già registrato</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Selezione Artista per Modifica -->
-                <div class="artist-selection" id="artistSelection" style="display: none;">
-                    <div class="form-section">
-                        <div class="section-header">
-                            <h2 class="section-title">Seleziona Artista da Modificare</h2>
-                            <p class="section-subtitle">Cerca e seleziona l'artista che vuoi modificare</p>
-                        </div>
-                        <div class="form-content">
-                            <div class="search-artist">
-                                <input type="text" id="searchArtistInput" class="form-control" 
-                                       placeholder="Cerca per nome, cognome o codice fiscale...">
-                            </div>
-                            <div class="artists-list" id="artistsListContainer">
-                                <!-- Lista artisti caricata dinamicamente -->
-                            </div>
-                        </div>
-                    </div>
-                    <div class="form-actions">
-                        <button type="button" class="btn btn-secondary" onclick="goBackToModeSelection()">
-                            <span class="btn-icon">⬅️</span> Torna Indietro
-                        </button>
-                    </div>
-                </div>
-                
-                <div class="loading-indicator" id="loadingIndicator">
-                    <span class="loading-icon spinning">⌛</span> Caricamento database località...
-                </div>
-                
-                <div class="alert alert-success" id="successMessage">
-                    Artista registrato con successo!
-                </div>
-                
-                <div class="alert alert-error" id="errorMessage">
-                    Errore durante la registrazione. Riprova.
-                </div>
-                
-                <form class="registration-form" id="registrationForm" style="display: none;">
-                    <!-- Sezione Dati Anagrafici -->
-                    <div class="form-section">
-                        <div class="section-header">
-                            <h2 class="section-title">Dati Anagrafici</h2>
-                            <p class="section-subtitle">Informazioni personali dell'artista</p>
-                        </div>
-                        
-                        <div class="form-content">
-                            <div class="form-group highlight-group">
-                                <label class="form-label" for="codiceFiscale">
-                                    Codice Fiscale <span class="required">*</span>
-                                </label>
-                                <input type="text" 
-                                       class="form-control uppercase-field" 
-                                       id="codiceFiscale" 
-                                       name="codiceFiscale" 
-                                       maxlength="16" 
-                                       required 
-                                       placeholder="RSSMRA85T10A562S">
-                                <small class="form-text">Il codice fiscale deve essere inserito per primo - la data di nascita verrà compilata automaticamente</small>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label" for="nomeArte">
-                                    Nome d'Arte
-                                </label>
-                                <input type="text" 
-                                       class="form-control" 
-                                       id="nomeArte" 
-                                       name="nomeArte" 
-                                       placeholder="Opzionale">
-                            </div>
-                            
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label class="form-label" for="nome">
-                                        Nome <span class="required">*</span>
-                                    </label>
-                                    <input type="text" 
-                                           class="form-control" 
-                                           id="nome" 
-                                           name="nome" 
-                                           required 
-                                           placeholder="Mario">
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label class="form-label" for="cognome">
-                                        Cognome <span class="required">*</span>
-                                    </label>
-                                    <input type="text" 
-                                           class="form-control" 
-                                           id="cognome" 
-                                           name="cognome" 
-                                           required 
-                                           placeholder="Rossi">
-                                </div>
-                            </div>
-                            
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label class="form-label" for="dataNascita">
-                                        Data di Nascita <span class="required">*</span>
-                                    </label>
-                                    <input type="date" 
-                                           class="form-control" 
-                                           id="dataNascita" 
-                                           name="dataNascita" 
-                                           required>
-                                    <small class="form-text">Compilata automaticamente dal codice fiscale - modificabile se necessario</small>
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label class="form-label" for="sesso">
-                                        Sesso
-                                    </label>
-                                    <select class="form-control" id="sesso" name="sesso">
-                                        <option value="">Seleziona...</option>
-                                        <option value="M">Maschio</option>
-                                        <option value="F">Femmina</option>
-                                    </select>
-                                    <small class="form-text">Estratto automaticamente dal codice fiscale</small>
-                                </div>
-                            </div>
-                            
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label class="form-label" for="luogoNascita">
-                                        Luogo di Nascita
-                                    </label>
-                                    <input type="text" 
-                                           class="form-control" 
-                                           id="luogoNascita" 
-                                           name="luogoNascita" 
-                                           placeholder="Comune o stato estero">
-                                    <small class="form-text">Estratto automaticamente dal codice fiscale quando possibile</small>
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label class="form-label" for="provinciaNascita">
-                                        Provincia di Nascita
-                                    </label>
-                                    <input type="text" 
-                                           class="form-control uppercase-field" 
-                                           id="provinciaNascita" 
-                                           name="provinciaNascita" 
-                                           maxlength="2"
-                                           placeholder="XX">
-                                    <small class="form-text">Sigla provincia (se nato in Italia)</small>
-                                </div>
-                            </div>
-                            
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label class="form-label" for="matricolaENPALS">
-                                        Matricola ENPALS
-                                    </label>
-                                    <input type="text" 
-                                           class="form-control uppercase-field" 
-                                           id="matricolaENPALS" 
-                                           name="matricolaENPALS" 
-                                           placeholder="123456">
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label class="form-label" for="nazionalita">
-                                        Nazionalità <span class="required">*</span>
-                                    </label>
-                                    <select class="form-control" id="nazionalita" name="nazionalita" required>
-                                        <option value="">Seleziona nazionalità...</option>
-                                        <option value="IT" selected>Italiana</option>
-                                        <option value="EU">Comunitaria (UE)</option>
-                                        <option value="EX">Extracomunitaria</option>
-                                    </select>
-                                </div>
-                            </div>
-                            
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label class="form-label" for="telefono">
-                                        Telefono
-                                    </label>
-                                    <input type="tel" 
-                                           class="form-control" 
-                                           id="telefono" 
-                                           name="telefono" 
-                                           placeholder="+39 333 1234567">
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label class="form-label" for="email">
-                                        Email
-                                    </label>
-                                    <input type="email" 
-                                           class="form-control" 
-                                           id="email" 
-                                           name="email" 
-                                           placeholder="artista@esempio.it">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Sezione Indirizzo -->
-                    <div class="form-section">
-                        <div class="section-header">
-                            <h2 class="section-title">Indirizzo di Residenza</h2>
-                            <p class="section-subtitle">Dati relativi alla residenza dell'artista</p>
-                        </div>
-                        
-                        <div class="form-content">
-                            <div class="form-group">
-                                <label class="form-label" for="indirizzo">
-                                    Indirizzo <span class="required">*</span>
-                                </label>
-                                <input type="text" 
-                                       class="form-control" 
-                                       id="indirizzo" 
-                                       name="indirizzo" 
-                                       required 
-                                       placeholder="Via Roma, 123">
-                            </div>
-                            
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label class="form-label" for="provincia">
-                                        Provincia <span class="required">*</span>
-                                    </label>
-                                    <select class="form-control" id="provincia" name="provincia" required>
-                                        <option value="">Seleziona provincia...</option>
-                                    </select>
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label class="form-label" for="citta">
-                                        Città <span class="required">*</span>
-                                    </label>
-                                    <select class="form-control" id="citta" name="citta" required disabled>
-                                        <option value="">Prima seleziona la provincia</option>
-                                    </select>
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label class="form-label" for="cap">
-                                        CAP <span class="required">*</span>
-                                    </label>
-                                    <select class="form-control" id="cap" name="cap" required disabled>
-                                        <option value="">Prima seleziona la città</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Sezione Dati Professionali -->
-                    <div class="form-section">
-                        <div class="section-header">
-                            <h2 class="section-title">Dati Professionali</h2>
-                            <p class="section-subtitle">Informazioni relative all'attività artistica</p>
-                        </div>
-                        
-                        <div class="form-content">
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label class="form-label" for="mansione">
-                                        Mansione <span class="required">*</span>
-                                    </label>
-                                    <select class="form-control" id="mansione" name="mansione" required>
-                                        <option value="">Seleziona mansione...</option>
-                                        <option value="DJ">DJ (032)</option>
-                                        <option value="Vocalist">Vocalist (031)</option>
-                                        <option value="Musicista">Musicista (030)</option>
-                                        <option value="Cantante">Cantante (033)</option>
-                                        <option value="Ballerino/a">Ballerino/a (092)</option>
-                                        <option value="Performer">Performer (090)</option>
-                                        <option value="Animatore">Animatore (091)</option>
-                                        <option value="Tecnico Audio">Tecnico Audio (117)</option>
-                                        <option value="Tecnico Luci">Tecnico Luci (118)</option>
-                                        <option value="Fotografo">Fotografo (126)</option>
-                                        <option value="Videomaker">Videomaker (127)</option>
-                                        <option value="Truccatore">Truccatore (141)</option>
-                                        <option value="Costumista">Costumista (142)</option>
-                                        <option value="Scenografo">Scenografo (150)</option>
-                                    </select>
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label class="form-label" for="hasPartitaIva">
-                                        Ha Partita IVA? <span class="required">*</span>
-                                    </label>
-                                    <select class="form-control" id="hasPartitaIva" name="hasPartitaIva" required>
-                                        <option value="">Seleziona...</option>
-                                        <option value="no">No</option>
-                                        <option value="si">Sì</option>
-                                    </select>
-                                </div>
-                            </div>
-                            
-                            <div class="form-group" id="partitaIvaGroup" style="display: none;">
-                                <label class="form-label" for="partitaIva">
-                                    Partita IVA <span class="required">*</span>
-                                </label>
-                                <input type="text" 
-                                       class="form-control" 
-                                       id="partitaIva" 
-                                       name="partitaIva" 
-                                       maxlength="11" 
-                                       pattern="[0-9]{11}" 
-                                       placeholder="12345678901">
-                                <small class="form-text">Inserire 11 cifre della partita IVA</small>
-                            </div>
-                            
-                            <div class="form-group" id="tipoRapportoGroup" style="display: none;">
-                                <label class="form-label" for="tipoRapporto">
-                                    Tipologia Rapporto di Lavoro <span class="required">*</span>
-                                </label>
-                                <select class="form-control" id="tipoRapporto" name="tipoRapporto">
-                                    <option value="occasionale" selected>Prestazione Occasionale</option>
-                                    <option value="chiamata">Contratto a Chiamata</option>
-                                    <option value="fulltime">Full Time</option>
-                                </select>
-                                <small class="form-text">Tipo di contratto per chi non ha partita IVA</small>
-                            </div>
-                            
-                            <div class="form-group" id="codiceComunicazioneGroup" style="display: none;">
-                                <label class="form-label" for="codiceComunicazione">
-                                    Codice Comunicazione INPS <span class="required">*</span>
-                                </label>
-                                <input type="text" 
-                                       class="form-control" 
-                                       id="codiceComunicazione" 
-                                       name="codiceComunicazione" 
-                                       placeholder="Es. 2100024201368860"
-                                       maxlength="20">
-                                <small class="form-text">Codice necessario per le comunicazioni INPS per contratti a chiamata</small>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label class="form-label" for="iban">
-                                    IBAN <span class="required">*</span>
-                                </label>
-                                <input type="text" 
-                                       class="form-control uppercase-field" 
-                                       id="iban" 
-                                       name="iban" 
-                                       maxlength="27" 
-                                       required
-                                       placeholder="IT60X0542811101000000123456">
-                                <small class="form-text">IBAN italiano (27 caratteri) per i pagamenti</small>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label class="form-label" for="note">
-                                    Note
-                                </label>
-                                <textarea class="form-control" 
-                                          id="note" 
-                                          name="note" 
-                                          rows="3" 
-                                          placeholder="Informazioni aggiuntive sull'artista..."></textarea>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Azioni Form -->
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
-                            <span class="btn-icon">💾</span> <span id="submitText">Registra Artista</span>
-                        </button>
-                        <button type="button" class="btn btn-secondary btn-lg" onclick="cancelRegistration()">
-                            <span class="btn-icon">❌</span> Annulla
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
+  <nav class="navbar">
+    <div class="navbar-content">
+      <a href="./index.html" class="logo">
+        <img src="./assets/logo.png" alt="RECORP Logo">
+        <span class="logo-text">RECORP ALL-IN-ONE</span>
+      </a>
+      <div class="nav-links">
+        <a href="./index.html">Dashboard</a>
+        <a href="./registrazione-artista.html" class="active">Artisti</a>
+        <a href="./agibilita/index.html">Agibilità</a>
+      </div>
     </div>
+  </nav>
 
-    <!-- Include Database GI Loader -->
-    <script src="./comuni-loader.js"></script>
-    <!-- Include Registration Scripts -->
-    <script type="module" src="./registrazione-artista.js"></script>
+  <div class="main-container">
+    <div class="container">
+      <div class="header">
+        <h1 id="pageTitle">Gestione Artisti</h1>
+        <p id="pageSubtitle">Scegli un'azione da eseguire</p>
+      </div>
+      <div id="loadingIndicator" class="alert alert-info" style="display:none;"></div>
+      <div id="successMessage" class="alert alert-success" style="display:none;"></div>
+      <div id="errorMessage" class="alert alert-danger" style="display:none;"></div>
+
+      <!-- Scelta modalità -->
+      <div id="modeSelection" class="mode-selection">
+        <button class="btn btn-primary" onclick="selectMode('new')">+ Nuovo Artista</button>
+        <button class="btn btn-secondary" onclick="selectMode('edit')">✏️ Modifica Artista</button>
+      </div>
+
+      <!-- Selezione artista per modifica -->
+      <div id="artistSelection" style="display:none;">
+        <div class="form-group">
+          <input type="text" class="form-control" id="searchArtistInput" placeholder="Cerca per nome, cognome, CF o nome d'arte...">
+        </div>
+        <div id="artistsListContainer" class="artists-list-container"></div>
+        <button class="btn btn-secondary" onclick="goBackToModeSelection()">⬅️ Indietro</button>
+      </div>
+
+      <!-- Form registrazione/modifica artista -->
+      <div id="registrationForm" style="display:none;">
+        <form id="registrationForm" autocomplete="off">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Codice Fiscale <span class="required">*</span></label>
+              <input type="text" class="form-control uppercase-field" id="codiceFiscale" name="codiceFiscale" maxlength="16" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Nome <span class="required">*</span></label>
+              <input type="text" class="form-control" id="nome" name="nome" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Cognome <span class="required">*</span></label>
+              <input type="text" class="form-control" id="cognome" name="cognome" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Nome d'Arte</label>
+              <input type="text" class="form-control" id="nomeArte" name="nomeArte">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Data di nascita <span class="required">*</span></label>
+              <input type="date" class="form-control" id="dataNascita" name="dataNascita" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Sesso</label>
+              <select class="form-control" id="sesso" name="sesso">
+                <option value="">-</option>
+                <option value="M">Maschio</option>
+                <option value="F">Femmina</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Luogo di nascita</label>
+              <input type="text" class="form-control" id="luogoNascita" name="luogoNascita">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Provincia di nascita</label>
+              <input type="text" class="form-control uppercase-field" id="provinciaNascita" name="provinciaNascita" maxlength="2">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Matricola ENPALS</label>
+              <input type="text" class="form-control uppercase-field" id="matricolaENPALS" name="matricolaENPALS">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Nazionalità</label>
+              <input type="text" class="form-control" id="nazionalita" name="nazionalita" value="IT">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Telefono</label>
+              <input type="text" class="form-control" id="telefono" name="telefono">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Email</label>
+              <input type="email" class="form-control" id="email" name="email">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Indirizzo</label>
+              <input type="text" class="form-control" id="indirizzo" name="indirizzo">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Provincia</label>
+              <select class="form-control" id="provincia" name="provincia"></select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Città</label>
+              <select class="form-control" id="citta" name="citta" disabled>
+                <option value="">Prima seleziona la provincia</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">CAP</label>
+              <select class="form-control" id="cap" name="cap" disabled>
+                <option value="">Prima seleziona la città</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Mansione <span class="required">*</span></label>
+              <input type="text" class="form-control" id="mansione" name="mansione" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Partita IVA?</label>
+              <select class="form-control" id="hasPartitaIva" name="hasPartitaIva">
+                <option value="">-</option>
+                <option value="si">Sì</option>
+                <option value="no">No</option>
+              </select>
+            </div>
+            <div class="form-group" id="partitaIvaGroup" style="display:none;">
+              <label class="form-label">Partita IVA <span class="required">*</span></label>
+              <input type="text" class="form-control" id="partitaIva" name="partitaIva">
+            </div>
+            <div class="form-group" id="tipoRapportoGroup" style="display:none;">
+              <label class="form-label">Tipologia Contratto <span class="required">*</span></label>
+              <select class="form-control" id="tipoRapporto" name="tipoRapporto">
+                <option value="">-</option>
+                <option value="occasionale">Occasionale</option>
+                <option value="chiamata">A chiamata</option>
+                <option value="fulltime">Full Time</option>
+              </select>
+            </div>
+            <div class="form-group" id="codiceComunicazioneGroup" style="display:none;">
+              <label class="form-label">Codice Comunicazione INPS</label>
+              <input type="text" class="form-control" id="codiceComunicazione" name="codiceComunicazione">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">IBAN</label>
+              <input type="text" class="form-control" id="iban" name="iban">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Note</label>
+              <textarea class="form-control" id="note" name="note" rows="2"></textarea>
+            </div>
+          </div>
+          <div class="form-group">
+            <button type="submit" class="btn btn-primary"><span id="submitText">Registra Artista</span></button>
+            <button type="button" class="btn btn-secondary" onclick="cancelRegistration()">Annulla</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  <script src="./comuni-loader.js"></script>
+  <script type="module" src="registrazione-artista.js"></script>
 </body>
 </html>
