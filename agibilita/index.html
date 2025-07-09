@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestione Agibilità - RECORP ALL-IN-ONE</title>
-    <link rel="stylesheet" href="./assets/style.css">
+    <link rel="stylesheet" href="../assets/style.css">
 </head>
 <body>
     <div class="main-container">
@@ -16,7 +16,7 @@
 
         <!-- Breadcrumb -->
         <div class="breadcrumb">
-            <a href="./index.html" class="breadcrumb-item">Dashboard</a>
+            <a href="../index.html" class="breadcrumb-item">Dashboard</a>
             <span class="breadcrumb-separator">›</span>
             <span class="breadcrumb-item active">Gestione Agibilità</span>
         </div>
@@ -50,19 +50,15 @@
         <!-- Step 1: Artisti -->
         <div id="step1" class="step-section">
             <h2>Step 1: Selezione Artisti</h2>
-            
             <button class="btn btn-primary" onclick="showAddArtistModal()">+ Aggiungi Artista</button>
-            
             <div class="artist-list" id="artistList">
                 <p class="no-artists-message">Nessun artista selezionato</p>
             </div>
-            
             <div class="summary-box" id="summaryBox">
                 <h4>Riepilogo</h4>
                 <p>Totale artisti: <span id="totalArtists">0</span></p>
                 <p>Compenso totale: €<span id="totalCompensation">0.00</span></p>
             </div>
-            
             <div class="btn-group">
                 <button class="btn btn-secondary" onclick="showSection('tipoSection')">Indietro</button>
                 <button class="btn btn-primary" id="btnNext1" onclick="goToStep2()">Avanti</button>
@@ -72,7 +68,6 @@
         <!-- Step 2: Data e Luogo -->
         <div id="step2" class="step-section">
             <h2>Step 2: Data e Luogo</h2>
-            
             <div class="form-section">
                 <h3>📅 Date dell'Evento</h3>
                 <div class="form-row">
@@ -87,7 +82,6 @@
                 </div>
                 <div class="date-info" id="dateInfo"></div>
             </div>
-            
             <div class="form-section">
                 <h3>📍 Luogo dell'Evento</h3>
                 <div class="form-group">
@@ -130,19 +124,16 @@
                     <textarea class="form-control" id="noteLocale" rows="3"></textarea>
                 </div>
             </div>
-
             <!-- SEZIONE FATTURAZIONE -->
             <div class="form-section">
                 <h3>💰 Dati Fatturazione</h3>
                 <div class="alert alert-info">
                     <small>I dati di fatturazione verranno salvati e associati a questo locale per usi futuri</small>
                 </div>
-                
                 <div class="form-group">
                     <label class="form-label">Ragione Sociale <span class="required">*</span></label>
                     <input type="text" class="form-control" id="ragioneSociale" required>
                 </div>
-                
                 <div class="form-row">
                     <div class="form-group">
                         <label class="form-label">Partita IVA</label>
@@ -153,18 +144,15 @@
                         <input type="text" class="form-control uppercase-field" id="codiceFiscale" pattern="[A-Z0-9]{16}" maxlength="16">
                     </div>
                 </div>
-                
                 <div class="form-group">
                     <button type="button" class="btn btn-secondary btn-sm" onclick="copyVenueAddress()">
                         📋 Copia indirizzo del locale
                     </button>
                 </div>
-                
                 <div class="form-group">
                     <label class="form-label">Indirizzo Fatturazione <span class="required">*</span></label>
                     <input type="text" class="form-control" id="indirizzoFatturazione" required>
                 </div>
-                
                 <div class="form-row">
                     <div class="form-group">
                         <label class="form-label">Città <span class="required">*</span></label>
@@ -179,7 +167,6 @@
                         <input type="text" class="form-control uppercase-field" id="provinciaFatturazione" pattern="[A-Z]{2}" maxlength="2" required>
                     </div>
                 </div>
-                
                 <div class="form-row">
                     <div class="form-group">
                         <label class="form-label">Codice SDI</label>
@@ -191,7 +178,6 @@
                     </div>
                 </div>
             </div>
-            
             <div class="btn-group">
                 <button class="btn btn-secondary" onclick="showSection('step1')">Indietro</button>
                 <button class="btn btn-primary" onclick="goToStep3()">Avanti</button>
@@ -201,35 +187,29 @@
         <!-- Step 3: Riepilogo e Invio -->
         <div id="step3" class="step-section">
             <h2>Step 3: Riepilogo e Invio</h2>
-            
             <div class="tabs">
                 <button class="tab active" onclick="showTab('riepilogo')">Riepilogo</button>
                 <button class="tab" onclick="showTab('invio')">Invio</button>
             </div>
-            
             <!-- Tab Riepilogo -->
             <div id="tabRiepilogo" class="tab-content active">
                 <div class="summary-box">
                     <h4>🎭 Artisti</h4>
                     <div id="summaryArtists"></div>
                 </div>
-                
                 <div class="summary-box">
                     <h4>📅 Date</h4>
                     <div id="summaryDates"></div>
                 </div>
-                
                 <div class="summary-box">
                     <h4>📍 Luogo</h4>
                     <div id="summaryLocation"></div>
                 </div>
-
                 <div class="summary-box">
                     <h4>💰 Fatturazione</h4>
                     <div id="summaryInvoice"></div>
                 </div>
             </div>
-            
             <!-- Tab Invio -->
             <div id="tabInvio" class="tab-content">
                 <div class="form-section">
@@ -247,7 +227,6 @@
                     </div>
                 </div>
             </div>
-            
             <div class="btn-group">
                 <button class="btn btn-secondary" onclick="showSection('step2')">Indietro</button>
                 <button class="btn btn-primary" id="btnConfirm" onclick="confirmAndProceed()">Conferma e Scarica XML</button>
@@ -275,7 +254,7 @@
     </div>
 
     <!-- Scripts -->
-    <script src="./comuni-loader.js"></script>
+    <script src="../comuni-loader.js"></script>
     <script type="module" src="agibilita.js"></script>
 </body>
 </html>
