@@ -63,6 +63,28 @@ document.addEventListener('DOMContentLoaded', async function() {
     
     loadProvinces();
     setupEventListeners();
+    
+    // Aggiungi event listeners per i pulsanti di modalità
+    const newModeCard = document.getElementById('newModeCard');
+    const editModeCard = document.getElementById('editModeCard');
+    const backToModeBtn = document.getElementById('backToModeBtn');
+    const cancelBtn = document.getElementById('cancelBtn');
+    
+    if (newModeCard) {
+        newModeCard.addEventListener('click', () => selectMode('new'));
+    }
+    
+    if (editModeCard) {
+        editModeCard.addEventListener('click', () => selectMode('edit'));
+    }
+    
+    if (backToModeBtn) {
+        backToModeBtn.addEventListener('click', goBackToModeSelection);
+    }
+    
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', cancelRegistration);
+    }
 });
 
 // Funzione di debug per verificare lo stato del database
@@ -202,7 +224,7 @@ function renderArtistsList(artists) {
     container.innerHTML = artists.map(artist => {
         const displayName = artist.nome_arte || `${artist.nome} ${artist.cognome}`;
         return `
-            <div class="artist-item" onclick="selectArtistForEdit(${artist.id})">
+            <div class="artist-item" data-artist-id="${artist.id}">
                 <div class="artist-name">${displayName}</div>
                 <div class="artist-details">
                     CF: ${artist.codice_fiscale} | 
@@ -213,6 +235,14 @@ function renderArtistsList(artists) {
             </div>
         `;
     }).join('');
+    
+    // Aggiungi event listeners agli elementi artista
+    container.querySelectorAll('.artist-item').forEach(item => {
+        item.addEventListener('click', function() {
+            const artistId = parseInt(this.getAttribute('data-artist-id'));
+            selectArtistForEdit(artistId);
+        });
+    });
 }
 
 function selectArtistForEdit(artistId) {
@@ -1409,11 +1439,14 @@ function resetForm() {
     }
 }
 
-// Rendi le funzioni disponibili globalmente
-window.cancelRegistration = cancelRegistration;
-window.selectMode = selectMode;
-window.goBackToModeSelection = goBackToModeSelection;
-window.selectArtistForEdit = selectArtistForEdit;
+// Non rendere più le funzioni globali poiché usiamo event listeners
+// window.cancelRegistration = cancelRegistration;
+// window.selectMode = selectMode;
+// window.goBackToModeSelection = goBackToModeSelection;
+// window.selectArtistForEdit = selectArtistForEdit;
+// window.debugDatabaseStatus = debugDatabaseStatus;
+
+// Esporta solo per debug
 window.debugDatabaseStatus = debugDatabaseStatus;
 
 console.log('📝 Sistema gestione artisti v3.1 - Con fix autocompilazione CF!');
