@@ -54,8 +54,8 @@ async function initializeAgibilitaSystem() {
     try {
         console.log('📥 Caricamento dati da Supabase...');
         
-        // Carica artisti
-        artistsDB = await DatabaseService.getArtisti();
+        // Carica artisti - CORREZIONE: usa getAllArtisti()
+        artistsDB = await DatabaseService.getAllArtisti();
         console.log(`✅ ${artistsDB.length} artisti caricati`);
         
         // Carica agibilità
@@ -1388,20 +1388,4 @@ window.confirmAndProceed = confirmAndProceed;
 window.newAgibilita = newAgibilita;
 window.saveDraft = saveDraft;
 window.filterAgibilita = filterAgibilita;
-window.editAgibilita = editAgibilita;
-window.duplicateAgibilita = duplicateAgibilita;
-window.cancelAgibilita = cancelAgibilita;
-window.loadCitiesForProvince = function() {
-   const provincia = document.getElementById('provincia').value;
-   if (provincia) {
-       loadCitta(provincia);
-   }
-};
-window.loadCAPsForCity = function() {
-   const citta = document.getElementById('citta').value;
-   if (citta) {
-       loadCAP(citta);
-   }
-};
-
-console.log('🎭 Sistema agibilità SUPABASE con COMUNICAZIONI INTERMITTENTI caricato completamente!');
+window.editAgibilita = editAgibilita
