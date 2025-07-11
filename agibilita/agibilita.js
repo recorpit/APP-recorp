@@ -1388,4 +1388,20 @@ window.confirmAndProceed = confirmAndProceed;
 window.newAgibilita = newAgibilita;
 window.saveDraft = saveDraft;
 window.filterAgibilita = filterAgibilita;
-window.editAgibilita = editAgibilita
+window.editAgibilita = editAgibilita;
+window.duplicateAgibilita = duplicateAgibilita;
+window.cancelAgibilita = cancelAgibilita;
+window.loadCitiesForProvince = function() {
+   const provincia = document.getElementById('provincia').value;
+   if (provincia) {
+       loadCitta(provincia);
+   }
+};
+window.loadCAPsForCity = function() {
+   const citta = document.getElementById('citta').value;
+   if (citta) {
+       loadCAP(citta);
+   }
+};
+
+console.log('🎭 Sistema agibilità SUPABASE con COMUNICAZIONI INTERMITTENTI caricato completamente!');
