@@ -35,7 +35,7 @@ async function loadDataFromSupabase() {
         console.log('📥 Caricamento dati da Supabase...');
         
         // Carica artisti
-        artistsDB = await DatabaseService.getArtisti();
+        artistsDB = await DatabaseService.getAllArtisti();
         console.log(`✅ ${artistsDB.length} artisti caricati`);
         
         // Carica agibilità
