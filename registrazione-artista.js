@@ -3,19 +3,8 @@
  * 
  * Script per la gestione della registrazione e modifica artisti nel sistema RECORP ALL-IN-ONE.
  * 
- * Funzionalità principali:
- * - Scelta tra nuova registrazione e modifica esistente
- * - Caricamento dinamico di province, città e CAP italiani
- * - Validazione in tempo reale dei campi del form
- * - Estrazione automatica data di nascita dal codice fiscale
- * - Controllo età minima 18 anni
- * - Controllo duplicati tramite codice fiscale
- * - Verifica corrispondenza CF-data di nascita
- * - Campo codice comunicazione per contratti a chiamata
- * - Salvataggio artisti su Supabase
- * 
  * @author RECORP ALL-IN-ONE
- * @version 3.0 - Con funzionalità di modifica
+ * @version 3.1 - Con fix autocompilazione CF
  */
 
 // Import Supabase DatabaseService
@@ -37,6 +26,23 @@ document.addEventListener('DOMContentLoaded', async function() {
         loadingIndicator.textContent = '⌛ Inizializzazione sistema e database...';
     }
     
+    // Aspetta che il database GI sia caricato
+    let attempts = 0;
+    const maxAttempts = 20; // 10 secondi max
+    
+    while (!window.GIDatabase?.isLoaded() && attempts < maxAttempts) {
+        console.log(`⏳ Attesa caricamento database GI... (${attempts + 1}/${maxAttempts})`);
+        await new Promise(resolve => setTimeout(resolve, 500));
+        attempts++;
+    }
+    
+    if (window.GIDatabase?.isLoaded()) {
+        console.log('✅ Database GI caricato con successo');
+        debugDatabaseStatus(); // Mostra lo stato per debug
+    } else {
+        console.error('❌ Timeout caricamento database GI');
+    }
+    
     // Inizializza sistema con Supabase
     const systemReady = await initializeRegistrationSystem();
     
@@ -50,15 +56,27 @@ document.addEventListener('DOMContentLoaded', async function() {
         return;
     }
     
-    // Aspetta che il database GI sia caricato
-    setTimeout(() => {
-        if (loadingIndicator) {
-            loadingIndicator.style.display = 'none';
-        }
-        loadProvinces();
-        setupEventListeners();
-    }, 1500);
+    // Ora che tutto è caricato, inizializza i componenti
+    if (loadingIndicator) {
+        loadingIndicator.style.display = 'none';
+    }
+    
+    loadProvinces();
+    setupEventListeners();
 });
+
+// Funzione di debug per verificare lo stato del database
+function debugDatabaseStatus() {
+    console.log('🔍 Debug Database Status:');
+    console.log('- window.GIDatabase exists:', !!window.GIDatabase);
+    console.log('- isLoaded:', window.GIDatabase?.isLoaded());
+    console.log('- comuniValidita loaded:', !!window.GIDatabase?.data?.comuniValidita);
+    console.log('- comuni loaded:', !!window.GIDatabase?.data?.comuni);
+    
+    if (window.GIDatabase) {
+        window.GIDatabase.showStatus();
+    }
+}
 
 // Inizializzazione con Supabase
 async function initializeRegistrationSystem() {
@@ -343,7 +361,7 @@ function hideCodiceComunicazioneField() {
 function findComuneByCodCatastaleReg(codice) {
     console.log('🔍 Ricerca comune con codice Belfiore:', codice);
     
-    // Usa la nuova funzione del comuni-loader
+    // Usa la funzione esistente del comuni-loader
     const comuneInfo = window.GIDatabase.getComuneByCodiceBelfiore(codice);
     
     if (comuneInfo) {
@@ -786,6 +804,14 @@ function setupEventListeners() {
             }
         });
     }
+    
+    // Auto-uppercase per codice comunicazione
+    const codiceComunicazione = document.getElementById('codiceComunicazione');
+    if (codiceComunicazione) {
+        codiceComunicazione.addEventListener('input', function(e) {
+            e.target.value = e.target.value.toUpperCase();
+        });
+    }
 }
 
 function loadCitta(provincia) {
@@ -982,7 +1008,7 @@ function handleFormSubmit(e) {
     }
 }
 
-// Salvataggio artista su Supabase - VERSIONE CORRETTA
+// Salvataggio artista su Supabase
 async function saveArtist(artistData) {
     try {
         console.log('💾 Tentativo salvataggio artista:', artistData.nome, artistData.cognome);
@@ -1342,12 +1368,6 @@ function cancelRegistration() {
     }
 }
 
-// Rendi le funzioni disponibili globalmente
-window.cancelRegistration = cancelRegistration;
-window.selectMode = selectMode;
-window.goBackToModeSelection = goBackToModeSelection;
-window.selectArtistForEdit = selectArtistForEdit;
-
 // Funzione per resettare il form
 function resetForm() {
     const form = document.getElementById('registrationForm');
@@ -1389,4 +1409,11 @@ function resetForm() {
     }
 }
 
-console.log('📝 Sistema gestione artisti aggiornato con funzionalità di modifica e codice comunicazione!');
+// Rendi le funzioni disponibili globalmente
+window.cancelRegistration = cancelRegistration;
+window.selectMode = selectMode;
+window.goBackToModeSelection = goBackToModeSelection;
+window.selectArtistForEdit = selectArtistForEdit;
+window.debugDatabaseStatus = debugDatabaseStatus;
+
+console.log('📝 Sistema gestione artisti v3.1 - Con fix autocompilazione CF!');
