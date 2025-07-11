@@ -40,12 +40,12 @@
                 <!-- Selezione modalità -->
                 <div class="mode-selection" id="modeSelection">
                     <div class="mode-cards">
-                        <div class="mode-card" onclick="selectMode('new')">
+                        <div class="mode-card" id="newModeCard">
                             <div class="mode-icon">➕</div>
                             <h3>Nuovo Artista</h3>
                             <p>Registra un nuovo artista nel database</p>
                         </div>
-                        <div class="mode-card" onclick="selectMode('edit')">
+                        <div class="mode-card" id="editModeCard">
                             <div class="mode-icon">✏️</div>
                             <h3>Modifica Artista</h3>
                             <p>Modifica i dati di un artista esistente</p>
@@ -65,7 +65,7 @@
                         <!-- Popolato dinamicamente -->
                     </div>
                     <div class="form-actions">
-                        <button type="button" class="btn btn-secondary" onclick="goBackToModeSelection()">
+                        <button type="button" class="btn btn-secondary" id="backToModeBtn">
                             <span class="btn-icon">⬅️</span> Indietro
                         </button>
                     </div>
@@ -401,7 +401,7 @@
                         <button type="submit" class="btn btn-primary btn-lg">
                             <span class="btn-icon">💾</span> <span id="submitText">Registra Artista</span>
                         </button>
-                        <button type="button" class="btn btn-secondary btn-lg" onclick="cancelRegistration()">
+                        <button type="button" class="btn btn-secondary btn-lg" id="cancelBtn">
                             <span class="btn-icon">❌</span> Annulla
                         </button>
                     </div>
