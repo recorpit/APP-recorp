@@ -476,6 +476,8 @@ function selectArtistForEdit(artistId) {
 
 function populateFormWithArtist(artist) {
     try {
+        console.log('📝 Popolamento form con dati artista:', artist);
+        
         // Dati anagrafici
         document.getElementById('codiceFiscale').value = artist.codice_fiscale || '';
         document.getElementById('nome').value = artist.nome || '';
@@ -493,82 +495,142 @@ function populateFormWithArtist(artist) {
         // Indirizzo
         document.getElementById('indirizzo').value = artist.indirizzo || '';
         
-        // Gestisci indirizzo in base alla nazionalità
-        if (artist.nazionalita === 'IT' || !artist.nazionalita) {
-            // Artista italiano
-            showItalianAddressFields();
-            
-            // Preseleziona provincia e aspetta il caricamento delle città
-            if (artist.provincia && artist.provincia !== 'EE') {
-                document.getElementById('provincia').value = artist.provincia;
-                loadCitta(artist.provincia);
-                
-                setTimeout(() => {
-                    if (artist.codice_istat_citta) {
-                        document.getElementById('citta').value = artist.codice_istat_citta;
-                        loadCAP(artist.codice_istat_citta);
-                        
-                        setTimeout(() => {
-                            if (artist.cap && artist.cap !== '00000') {
-                                document.getElementById('cap').value = artist.cap;
-                            }
-                        }, 500);
-                    }
-                }, 1000);
-            }
+        // IMPORTANTE: Assicuriamoci che le province siano caricate prima di procedere
+        if (!document.getElementById('provincia').options.length || document.getElementById('provincia').options.length <= 1) {
+            console.log('⏳ Province non ancora caricate, ricarico...');
+            loadProvinces();
+            // Aspetta che le province siano caricate
+            setTimeout(() => populateAddressFields(artist), 500);
         } else {
-            // Artista straniero
-            showForeignAddressFields();
-            
-            const paeseResidenzaGroup = document.getElementById('paeseResidenzaGroup');
-            if (paeseResidenzaGroup) {
-                paeseResidenzaGroup.style.display = 'block';
-                
-                // Carica i paesi in base al tipo di nazionalità
-                loadPaesiEsteri(artist.nazionalita);
-                
-                // Seleziona il paese di residenza se presente
-                setTimeout(() => {
-                    if (artist.paese_residenza) {
-                        document.getElementById('paeseResidenza').value = artist.paese_residenza;
-                    }
-                }, 500);
-            }
+            populateAddressFields(artist);
         }
-        
-        // Dati professionali
-        document.getElementById('mansione').value = artist.mansione || '';
-        document.getElementById('hasPartitaIva').value = artist.has_partita_iva ? 'si' : 'no';
-        
-        // Gestisci campi condizionali
-        if (artist.has_partita_iva) {
-            document.getElementById('partitaIva').value = artist.partita_iva || '';
-            showPartitaIvaFields();
-        } else {
-            document.getElementById('tipoRapporto').value = artist.tipo_rapporto || 'occasionale';
-            
-            // Se ha codice comunicazione, mostralo
-            if (artist.codice_comunicazione) {
-                document.getElementById('codiceComunicazione').value = artist.codice_comunicazione;
-            }
-            
-            showTipoRapportoFields();
-            
-            // Se è contratto a chiamata, mostra il campo codice comunicazione
-            if (artist.tipo_rapporto === 'chiamata') {
-                showCodiceComunicazioneField();
-            }
-        }
-        
-        document.getElementById('iban').value = artist.iban || '';
-        document.getElementById('note').value = artist.note || '';
-        
-        console.log('✅ Form popolato con dati artista:', artist.nome, artist.cognome);
-        
     } catch (error) {
         console.error('❌ Errore popolamento form:', error);
         showError('Errore nel caricamento dei dati dell\'artista');
     }
+}
+
+// Funzione separata per popolare i campi indirizzo
+function populateAddressFields(artist) {
+    console.log('📍 Popolamento campi indirizzo per:', artist.nazionalita, artist.provincia, artist.citta);
+    
+    // Gestisci indirizzo in base alla nazionalità
+    if (artist.nazionalita === 'IT' || !artist.nazionalita || artist.provincia !== 'EE') {
+        // Artista italiano
+        showItalianAddressFields();
+        
+        // Preseleziona provincia e carica città
+        if (artist.provincia && artist.provincia !== 'EE') {
+            console.log('🏛️ Seleziono provincia:', artist.provincia);
+            const provinciaSelect = document.getElementById('provincia');
+            
+            // Verifica che l'opzione esista
+            const optionExists = Array.from(provinciaSelect.options).some(opt => opt.value === artist.provincia);
+            
+            if (optionExists) {
+                provinciaSelect.value = artist.provincia;
+                
+                // Carica le città per questa provincia
+                loadCitta(artist.provincia);
+                
+                // Aspetta che le città siano caricate, poi seleziona città e CAP
+                setTimeout(() => {
+                    const cittaSelect = document.getElementById('citta');
+                    
+                    // Prova prima con codice_istat_citta, poi con il nome della città
+                    if (artist.codice_istat_citta) {
+                        console.log('🏛️ Seleziono città per codice ISTAT:', artist.codice_istat_citta);
+                        cittaSelect.value = artist.codice_istat_citta;
+                    } else if (artist.citta) {
+                        // Cerca l'opzione che corrisponde al nome della città
+                        console.log('🏛️ Cerco città per nome:', artist.citta);
+                        const cittaOption = Array.from(cittaSelect.options).find(opt => 
+                            opt.textContent === artist.citta || opt.textContent.toLowerCase() === artist.citta.toLowerCase()
+                        );
+                        if (cittaOption) {
+                            cittaSelect.value = cittaOption.value;
+                        }
+                    }
+                    
+                    // Se abbiamo selezionato una città, carica i CAP
+                    if (cittaSelect.value) {
+                        loadCAP(cittaSelect.value);
+                        
+                        // Seleziona il CAP dopo che sono stati caricati
+                        setTimeout(() => {
+                            if (artist.cap && artist.cap !== '00000') {
+                                console.log('📮 Seleziono CAP:', artist.cap);
+                                const capSelect = document.getElementById('cap');
+                                
+                                // Se c'è solo un'opzione oltre al placeholder, selezionala
+                                if (capSelect.options.length === 2) {
+                                    capSelect.selectedIndex = 1;
+                                } else {
+                                    capSelect.value = artist.cap;
+                                }
+                            }
+                        }, 500);
+                    }
+                }, 1000);
+            } else {
+                console.warn('⚠️ Provincia non trovata nel select:', artist.provincia);
+            }
+        }
+    } else {
+        // Artista straniero
+        console.log('🌍 Artista straniero, nascondo campi italiani');
+        showForeignAddressFields();
+        
+        const paeseResidenzaGroup = document.getElementById('paeseResidenzaGroup');
+        if (paeseResidenzaGroup) {
+            paeseResidenzaGroup.style.display = 'block';
+            
+            // Carica i paesi in base al tipo di nazionalità
+            loadPaesiEsteri(artist.nazionalita);
+            
+            // Seleziona il paese di residenza se presente
+            setTimeout(() => {
+                if (artist.paese_residenza) {
+                    document.getElementById('paeseResidenza').value = artist.paese_residenza;
+                }
+            }, 500);
+        }
+    }
+    
+    // Completa il popolamento dei dati professionali
+    continueProfessionalDataPopulation(artist);
+}
+
+// Funzione per completare il popolamento dei dati professionali
+function continueProfessionalDataPopulation(artist) {
+    // Dati professionali
+    document.getElementById('mansione').value = artist.mansione || '';
+    document.getElementById('hasPartitaIva').value = artist.has_partita_iva ? 'si' : 'no';
+    
+    // Gestisci campi condizionali
+    if (artist.has_partita_iva) {
+        document.getElementById('partitaIva').value = artist.partita_iva || '';
+        showPartitaIvaFields();
+    } else {
+        document.getElementById('tipoRapporto').value = artist.tipo_rapporto || 'occasionale';
+        
+        // Se ha codice comunicazione, mostralo
+        if (artist.codice_comunicazione) {
+            document.getElementById('codiceComunicazione').value = artist.codice_comunicazione;
+        }
+        
+        showTipoRapportoFields();
+        
+        // Se è contratto a chiamata, mostra il campo codice comunicazione
+        if (artist.tipo_rapporto === 'chiamata') {
+            showCodiceComunicazioneField();
+        }
+    }
+    
+    document.getElementById('iban').value = artist.iban || '';
+    document.getElementById('note').value = artist.note || '';
+    
+    console.log('✅ Form popolato con dati artista:', artist.nome, artist.cognome);
 }
 
 // ==================== GESTIONE CAMPI CONDIZIONALI ====================
@@ -849,7 +911,20 @@ function loadProvinces() {
         const provinceSelect = document.getElementById('provincia');
         if (!provinceSelect) return;
         
+        // Se le province sono già caricate, non ricaricarle
+        if (provinceSelect.options.length > 1) {
+            console.log('✅ Province già caricate, skip');
+            return;
+        }
+        
         provinceSelect.innerHTML = '<option value="">Seleziona provincia...</option>';
+        
+        // Verifica che il database GI sia disponibile
+        if (!window.GIDatabase || !window.GIDatabase.isLoaded()) {
+            console.error('❌ Database GI non disponibile');
+            setTimeout(() => loadProvinces(), 1000); // Riprova dopo 1 secondo
+            return;
+        }
         
         // Usa la funzione helper dal comuni-loader
         const province = window.GIDatabase.getProvince();
@@ -876,6 +951,8 @@ function loadProvinces() {
             option.textContent = `${p.sigla} - ${p.nome}`;
             provinceSelect.appendChild(option);
         });
+        
+        console.log('✅ Select province popolato con successo');
         
     } catch (error) {
         console.error('Errore caricamento province:', error);
@@ -1324,8 +1401,15 @@ function handleFormSubmit(e) {
         artistData.provincia = formData.get('provincia');
         artistData.citta = document.querySelector('#citta option:checked')?.textContent || '';
         artistData.cap = formData.get('cap');
-        artistData.codiceIstatCitta = formData.get('citta');
+        artistData.codiceIstatCitta = formData.get('citta'); // Salva il codice ISTAT
         artistData.paeseResidenza = 'IT';
+        
+        console.log('🏛️ Dati indirizzo italiano:', {
+            provincia: artistData.provincia,
+            citta: artistData.citta,
+            codiceIstat: artistData.codiceIstatCitta,
+            cap: artistData.cap
+        });
     } else {
         // Per stranieri, imposta i campi diversamente
         const paeseResidenza = formData.get('paeseResidenza');
@@ -1336,6 +1420,11 @@ function handleFormSubmit(e) {
         artistData.cap = '00000'; // CAP generico per esteri
         artistData.codiceIstatCitta = null;
         artistData.paeseResidenza = paeseResidenza;
+        
+        console.log('🌍 Dati indirizzo straniero:', {
+            paeseResidenza: artistData.paeseResidenza,
+            citta: artistData.citta
+        });
     }
     
     // Validazione base
