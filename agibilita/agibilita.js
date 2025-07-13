@@ -19,6 +19,57 @@ let invoiceDB = [];
 // Nuova variabile per tracciare conferme compensi
 let compensiConfermati = new Set();
 
+// ==================== ESPORTA FUNZIONI GLOBALI SUBITO ====================
+// Assicurati che le funzioni siano disponibili globalmente
+function exportGlobalFunctions() {
+    window.startNewAgibilita = startNewAgibilita;
+    window.showEditAgibilita = showEditAgibilita;
+    window.showAddArtistModal = showAddArtistModal;
+    window.closeModal = closeModal;
+    window.searchArtists = searchArtists;
+    window.addArtistToList = addArtistToList;
+    window.updateArtistRole = updateArtistRole;
+    window.updateArtistCompensation = updateArtistCompensation;
+    window.removeArtist = removeArtist;
+    window.goToRegistration = goToRegistration;
+    window.goToStep2 = goToStep2;
+    window.goToStep3 = goToStep3;
+    window.showSection = showSection;
+    window.validateDates = validateDates;
+    window.loadCitta = loadCitta;
+    window.loadCAP = loadCAP;
+    window.searchVenue = searchVenue;
+    window.selectVenue = selectVenue;
+    window.copyVenueAddress = copyVenueAddress;
+    window.showTab = showTab;
+    window.downloadAndSave = downloadAndSave;
+    window.confirmAndProceed = confirmAndProceed;
+    window.newAgibilita = newAgibilita;
+    window.saveDraft = saveDraft;
+    window.filterAgibilita = filterAgibilita;
+    window.editAgibilita = editAgibilita;
+    window.duplicateAgibilita = duplicateAgibilita;
+    window.cancelAgibilita = cancelAgibilita;
+    window.searchInvoiceData = searchInvoiceData;
+    window.selectInvoiceFromSearch = selectInvoiceFromSearch;
+    window.loadSelectedInvoiceData = loadSelectedInvoiceData;
+    window.loadCitiesForProvince = function() {
+        const provincia = document.getElementById('provincia').value;
+        if (provincia) {
+            loadCitta(provincia);
+        }
+    };
+    window.loadCAPsForCity = function() {
+        const citta = document.getElementById('citta').value;
+        if (citta) {
+            loadCAP(citta);
+        }
+    };
+}
+
+// Esporta le funzioni immediatamente
+exportGlobalFunctions();
+
 // ==================== INIZIALIZZAZIONE ====================
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('🚀 Inizializzazione sistema agibilità...');
@@ -1696,50 +1747,4 @@ function setupEventListeners() {
     });
 }
 
-// ==================== ESPORTA FUNZIONI GLOBALI ====================
-window.startNewAgibilita = startNewAgibilita;
-window.showEditAgibilita = showEditAgibilita;
-window.showAddArtistModal = showAddArtistModal;
-window.closeModal = closeModal;
-window.searchArtists = searchArtists;
-window.addArtistToList = addArtistToList;
-window.updateArtistRole = updateArtistRole;
-window.updateArtistCompensation = updateArtistCompensation;
-window.removeArtist = removeArtist;
-window.goToRegistration = goToRegistration;
-window.goToStep2 = goToStep2;
-window.goToStep3 = goToStep3;
-window.showSection = showSection;
-window.validateDates = validateDates;
-window.loadCitta = loadCitta;
-window.loadCAP = loadCAP;
-window.searchVenue = searchVenue;
-window.selectVenue = selectVenue;
-window.copyVenueAddress = copyVenueAddress;
-window.showTab = showTab;
-window.downloadAndSave = downloadAndSave;
-window.confirmAndProceed = confirmAndProceed;
-window.newAgibilita = newAgibilita;
-window.saveDraft = saveDraft;
-window.filterAgibilita = filterAgibilita;
-window.editAgibilita = editAgibilita;
-window.duplicateAgibilita = duplicateAgibilita;
-window.cancelAgibilita = cancelAgibilita;
-window.searchInvoiceData = searchInvoiceData;
-window.selectInvoiceFromSearch = selectInvoiceFromSearch;
-window.loadSelectedInvoiceData = loadSelectedInvoiceData;
-window.loadCitiesForProvince = function() {
-    const provincia = document.getElementById('provincia').value;
-    if (provincia) {
-        loadCitta(provincia);
-    }
-};
-window.loadCAPsForCity = function() {
-    const citta = document.getElementById('citta').value;
-    if (citta) {
-        loadCAP(citta);
-    }
-};
-
 console.log('🎭 Sistema agibilità v2.0 - Con gestione compensi flessibili e fatturazione avanzata!');
-        const selectedOption = cittaSelect.
