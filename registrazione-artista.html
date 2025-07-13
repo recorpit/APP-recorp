@@ -39,6 +39,34 @@
         .form-group[style*="display: none"] {
             margin: 0 !important;
         }
+        
+        /* Stile per campo opzionale */
+        .optional {
+            color: #6c757d;
+            font-weight: normal;
+            font-size: 0.875rem;
+        }
+        
+        .cf-alternative-notice {
+            margin-top: 0.5rem;
+            padding: 0.5rem;
+            background-color: #e3f2fd;
+            border-radius: 4px;
+        }
+        
+        .text-info {
+            color: #0d47a1;
+        }
+        
+        /* Evidenzia quando il CF non è obbligatorio */
+        #codiceFiscale:not([required]) {
+            border-color: #6c757d;
+        }
+        
+        #codiceFiscale:not([required]):focus {
+            border-color: #80bdff;
+            box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+        }
     </style>
 </head>
 <body>
@@ -128,6 +156,11 @@
                                        required 
                                        placeholder="RSSMRA85T10A562S">
                                 <small class="form-text">Il codice fiscale deve essere inserito per primo - la data di nascita verrà compilata automaticamente</small>
+                                <div class="cf-alternative-notice" id="cfAlternativeNotice" style="display: none;">
+                                    <small class="text-info">
+                                        <strong>ℹ️ Nota:</strong> Per artisti stranieri senza codice fiscale, il sistema genererà un identificativo temporaneo
+                                    </small>
+                                </div>
                             </div>
                             
                             <div class="form-group">
@@ -289,6 +322,7 @@
                                        name="indirizzo" 
                                        required 
                                        placeholder="Via Roma, 123">
+                                <small class="form-text">Per artisti stranieri, inserire l'indirizzo completo inclusa la città</small>
                             </div>
                             
                             <!-- Campo Paese per stranieri -->
@@ -305,7 +339,7 @@
                             <!-- Avviso per stranieri -->
                             <div class="foreign-address-notice" id="foreignAddressNotice" style="display: none;">
                                 <div class="alert alert-info">
-                                    <strong>📍 Artista Straniero:</strong> Per gli artisti stranieri non è necessario compilare provincia, comune e CAP italiani. L'indirizzo completo va inserito nel campo sopra.
+                                    <strong>📍 Artista Straniero:</strong> Per gli artisti stranieri non è necessario compilare provincia, comune e CAP italiani. L'indirizzo completo (via, numero, CAP e città) va inserito nel campo indirizzo sopra.
                                 </div>
                             </div>
                             
@@ -430,10 +464,10 @@
                                        class="form-control uppercase-field" 
                                        id="iban" 
                                        name="iban" 
-                                       maxlength="27" 
+                                       maxlength="34" 
                                        required
                                        placeholder="IT60X0542811101000000123456">
-                                <small class="form-text">IBAN italiano (27 caratteri) per i pagamenti</small>
+                                <small class="form-text">IBAN per i pagamenti (27 caratteri per Italia)</small>
                             </div>
                             
                             <div class="form-group">
