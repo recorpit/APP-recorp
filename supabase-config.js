@@ -1,7 +1,7 @@
 // supabase-config.js - Configurazione e servizio database Supabase
 
-const SUPABASE_URL = 'https://jkqlnrpmybhpufqpvfce.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImprcWlucnBteWJocHVmcXB2ZmNlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjY4MjUzNDIsImV4cCI6MjA0MjQwMTM0Mn0.ksq1I39KDgZNN1bWnJauvFcDkYs8aeYPh_9lJGWPY9o';
+const SUPABASE_URL = 'https://nommluymuwioddhaujxu.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5vbW1sdXltdXdpb2RkaGF1anh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE5ODA5MjgsImV4cCI6MjA2NzU1NjkyOH0.oaF5uaNe21W8NU67n1HjngngMUClkss2achTQ7BZ5tE';
 
 // Inizializza Supabase client
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
