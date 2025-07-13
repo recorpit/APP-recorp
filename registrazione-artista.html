@@ -5,6 +5,41 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Registrazione Artista - RECORP ALL-IN-ONE</title>
     <link rel="stylesheet" href="./assets/style.css">
+    <style>
+        /* Stili aggiuntivi per la gestione paesi esteri */
+        .foreign-address-notice {
+            margin: 1rem 0;
+        }
+
+        .alert-info {
+            background-color: #e3f2fd;
+            border: 1px solid #90caf9;
+            color: #0d47a1;
+            padding: 1rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+        }
+
+        #paeseResidenzaGroup {
+            margin-bottom: 1.5rem;
+        }
+
+        /* Stile per il select del paese */
+        #paeseResidenza {
+            background-color: #f8f9fa;
+        }
+
+        /* Evidenzia quando è selezionato straniero */
+        #nazionalita option[value="EU"],
+        #nazionalita option[value="EX"] {
+            font-weight: 600;
+        }
+
+        /* Fix per campi nascosti */
+        .form-group[style*="display: none"] {
+            margin: 0 !important;
+        }
+    </style>
 </head>
 <body>
     <!-- Navbar -->
@@ -254,6 +289,24 @@
                                        name="indirizzo" 
                                        required 
                                        placeholder="Via Roma, 123">
+                            </div>
+                            
+                            <!-- Campo Paese per stranieri -->
+                            <div class="form-group" id="paeseResidenzaGroup" style="display: none;">
+                                <label class="form-label" for="paeseResidenza">
+                                    Paese di Residenza <span class="required">*</span>
+                                </label>
+                                <select class="form-control" id="paeseResidenza" name="paeseResidenza">
+                                    <option value="">Seleziona paese...</option>
+                                </select>
+                                <small class="form-text">Seleziona il paese di residenza per artisti stranieri</small>
+                            </div>
+                            
+                            <!-- Avviso per stranieri -->
+                            <div class="foreign-address-notice" id="foreignAddressNotice" style="display: none;">
+                                <div class="alert alert-info">
+                                    <strong>📍 Artista Straniero:</strong> Per gli artisti stranieri non è necessario compilare provincia, comune e CAP italiani. L'indirizzo completo va inserito nel campo sopra.
+                                </div>
                             </div>
                             
                             <div class="form-row">
