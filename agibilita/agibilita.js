@@ -2,12 +2,14 @@
 
 // Import Supabase DatabaseService
 import { DatabaseService } from '../supabase-config.js';
+import { NotificationService } from '../notification-service.js';
 
 // ==================== VARIABILI GLOBALI ====================
 let selectedArtists = [];
 let agibilitaData = {
     isModifica: false,
-    codiceAgibilita: null
+    codiceAgibilita: null,
+    numeroRiservato: null
 };
 
 // Database - ora caricati da Supabase
@@ -15,15 +17,29 @@ let artistsDB = [];
 let agibilitaDB = [];
 let venuesDB = [];
 let invoiceDB = [];
+let bozzeDB = [];
 
 // Nuova variabile per tracciare conferme compensi
 let compensiConfermati = new Set();
 
+// Variabili per autosalvataggio e lock
+let autosaveTimer = null;
+let lockCheckTimer = null;
+let currentLock = null;
+let currentBozzaId = null;
+
+// User session management
+let userSession = {
+    id: null,
+    name: null,
+    workstation: null
+};
+
 // ==================== ESPORTA FUNZIONI GLOBALI SUBITO ====================
-// Assicurati che le funzioni siano disponibili globalmente
 function exportGlobalFunctions() {
     window.startNewAgibilita = startNewAgibilita;
     window.showEditAgibilita = showEditAgibilita;
+    window.showBozzeAgibilita = showBozzeAgibilita;
     window.showAddArtistModal = showAddArtistModal;
     window.closeModal = closeModal;
     window.searchArtists = searchArtists;
@@ -44,8 +60,8 @@ function exportGlobalFunctions() {
     window.showTab = showTab;
     window.downloadAndSave = downloadAndSave;
     window.confirmAndProceed = confirmAndProceed;
+    window.saveBozza = saveBozza;
     window.newAgibilita = newAgibilita;
-    window.saveDraft = saveDraft;
     window.filterAgibilita = filterAgibilita;
     window.editAgibilita = editAgibilita;
     window.duplicateAgibilita = duplicateAgibilita;
@@ -53,6 +69,12 @@ function exportGlobalFunctions() {
     window.searchInvoiceData = searchInvoiceData;
     window.selectInvoiceFromSearch = selectInvoiceFromSearch;
     window.loadSelectedInvoiceData = loadSelectedInvoiceData;
+    window.loadBozza = loadBozza;
+    window.deleteBozza = deleteBozza;
+    window.forceUnlock = forceUnlock;
+    window.showCalendarView = showCalendarView;
+    window.changeCalendarMonth = changeCalendarMonth;
+    window.closeCalendarModal = closeCalendarModal;
     window.loadCitiesForProvince = function() {
         const provincia = document.getElementById('provincia').value;
         if (provincia) {
@@ -73,6 +95,9 @@ exportGlobalFunctions();
 // ==================== INIZIALIZZAZIONE ====================
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('🚀 Inizializzazione sistema agibilità...');
+    
+    // Inizializza sessione utente
+    await initializeUserSession();
     
     // Test connessione e carica dati
     await initializeAgibilitaSystem();
@@ -96,19 +121,108 @@ document.addEventListener('DOMContentLoaded', async function() {
     setTimeout(() => {
         loadProvinces();
         setupEventListeners();
+        updateDashboardStats();
         
         // Focus sul primo campo
         const descrizioneLocale = document.getElementById('descrizioneLocale');
         if (descrizioneLocale) descrizioneLocale.focus();
     }, 1500);
+    
+    // Inizializza shortcuts tastiera
+    initializeKeyboardShortcuts();
 });
+
+// Inizializza sessione utente
+async function initializeUserSession() {
+    // Recupera o genera session ID
+    let sessionId = localStorage.getItem('userSessionId');
+    if (!sessionId) {
+        sessionId = generateSessionId();
+        localStorage.setItem('userSessionId', sessionId);
+    }
+    
+    // Recupera nome utente salvato
+    let userName = localStorage.getItem('userName');
+    const rememberMe = localStorage.getItem('rememberUser') === 'true';
+    
+    // Se non c'è nome salvato o remember me è false, chiedi
+    if (!userName || !rememberMe) {
+        const modal = createWelcomeModal();
+        document.body.appendChild(modal);
+        modal.style.display = 'block';
+        
+        // Aspetta input utente
+        await new Promise(resolve => {
+            window.saveUserName = function() {
+                const nameInput = document.getElementById('userNameInput');
+                const rememberCheckbox = document.getElementById('rememberMe');
+                
+                if (nameInput.value.trim()) {
+                    userName = nameInput.value.trim();
+                    localStorage.setItem('userName', userName);
+                    localStorage.setItem('rememberUser', rememberCheckbox.checked);
+                    modal.remove();
+                    resolve();
+                }
+            };
+        });
+    }
+    
+    // Genera workstation ID
+    const workstationId = btoa(
+        navigator.userAgent + screen.width + screen.height
+    ).substring(0, 8);
+    
+    userSession = {
+        id: sessionId,
+        name: userName,
+        workstation: workstationId
+    };
+    
+    console.log('👤 Sessione utente inizializzata:', userSession);
+}
+
+// Crea modal di benvenuto
+function createWelcomeModal() {
+    const modal = document.createElement('div');
+    modal.className = 'modal welcome-modal';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h2>👋 Benvenuto!</h2>
+            </div>
+            <div class="modal-body">
+                <p>Per una migliore esperienza, inserisci il tuo nome:</p>
+                <div class="form-group">
+                    <input type="text" id="userNameInput" class="form-control" 
+                           placeholder="Il tuo nome..." autofocus>
+                </div>
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; cursor: pointer;">
+                        <input type="checkbox" id="rememberMe" checked style="margin-right: 8px;">
+                        Ricorda su questo dispositivo
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="saveUserName()">Continua</button>
+            </div>
+        </div>
+    `;
+    return modal;
+}
+
+// Genera ID sessione univoco
+function generateSessionId() {
+    return 'sess_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+}
 
 // Inizializzazione sistema agibilità con Supabase
 async function initializeAgibilitaSystem() {
     try {
         console.log('📥 Caricamento dati da Supabase...');
         
-        // Carica artisti - CORREZIONE: usa getAllArtisti()
+        // Carica artisti
         artistsDB = await DatabaseService.getAllArtisti();
         console.log(`✅ ${artistsDB.length} artisti caricati`);
         
@@ -124,36 +238,111 @@ async function initializeAgibilitaSystem() {
         invoiceDB = await DatabaseService.getAllInvoiceData();
         console.log(`✅ ${invoiceDB.length} dati fatturazione caricati`);
         
+        // Carica bozze
+        bozzeDB = await DatabaseService.getBozze();
+        console.log(`✅ ${bozzeDB.length} bozze caricate`);
+        
         console.log('🎉 Sistema agibilità inizializzato con Supabase!');
         return true;
         
     } catch (error) {
         console.error('❌ Errore inizializzazione sistema agibilità:', error);
-        alert('Errore nel caricamento dei dati: ' + error.message);
+        showToast('Errore nel caricamento dei dati: ' + error.message, 'error');
         return false;
     }
+}
+
+// ==================== SISTEMA NOTIFICHE TOAST ====================
+function showToast(message, type = 'info', duration = 3000) {
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.innerHTML = `
+        <div class="toast-content">
+            <span class="toast-icon">${getToastIcon(type)}</span>
+            <span class="toast-message">${message}</span>
+        </div>
+    `;
+    
+    const container = document.getElementById('toast-container') || createToastContainer();
+    container.appendChild(toast);
+    
+    // Animazione entrata
+    setTimeout(() => toast.classList.add('show'), 10);
+    
+    // Rimozione automatica
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, duration);
+}
+
+function createToastContainer() {
+    const container = document.createElement('div');
+    container.id = 'toast-container';
+    container.className = 'toast-container';
+    document.body.appendChild(container);
+    return container;
+}
+
+function getToastIcon(type) {
+    const icons = {
+        'success': '✅',
+        'error': '❌',
+        'warning': '⚠️',
+        'info': 'ℹ️'
+    };
+    return icons[type] || icons.info;
 }
 
 // ==================== FUNZIONI NAVIGAZIONE ====================
 function showSection(sectionId) {
     console.log('Showing section:', sectionId);
+    
+    // Rimuovi active da tutte le sezioni
     document.querySelectorAll('.step-section').forEach(section => {
         section.classList.remove('active');
     });
+    
+    // Aggiungi active alla sezione target
     const targetSection = document.getElementById(sectionId);
     if (targetSection) {
         targetSection.classList.add('active');
+        
+        // Aggiorna progress bar
+        updateProgressBar();
+        
+        // Scroll top
+        window.scrollTo(0, 0);
     }
 }
 
-function startNewAgibilita() {
+async function startNewAgibilita() {
     console.log('Starting new agibilità');
-    agibilitaData.isModifica = false;
-    agibilitaData.codiceAgibilita = null;
-    selectedArtists = [];
-    compensiConfermati.clear(); // Reset conferme compensi
-    clearAllForms();
-    showSection('step1');
+    
+    try {
+        // Prenota numero agibilità
+        const numeroRiservato = await DatabaseService.reserveAgibilitaNumber();
+        
+        agibilitaData.isModifica = false;
+        agibilitaData.codiceAgibilita = null;
+        agibilitaData.numeroRiservato = numeroRiservato;
+        
+        selectedArtists = [];
+        compensiConfermati.clear();
+        clearAllForms();
+        
+        // Mostra il numero riservato
+        showToast(`Numero agibilità riservato: ${numeroRiservato}`, 'success');
+        
+        // Inizia autosalvataggio
+        startAutosave();
+        
+        showSection('step1');
+        
+    } catch (error) {
+        console.error('Errore prenotazione numero:', error);
+        showToast('Errore nella prenotazione del numero agibilità', 'error');
+    }
 }
 
 function showEditAgibilita() {
@@ -165,7 +354,507 @@ function showEditAgibilita() {
     }
 }
 
-// MODIFICA: Nuova funzione per validare compensi con popup
+// NUOVA FUNZIONE: Mostra bozze
+function showBozzeAgibilita() {
+    console.log('Showing bozze');
+    const bozzeSection = document.getElementById('bozzeSection');
+    if (bozzeSection) {
+        bozzeSection.style.display = 'block';
+        showExistingBozze();
+    }
+}
+
+// ==================== GESTIONE BOZZE ====================
+async function showExistingBozze() {
+    const listDiv = document.getElementById('bozzeList');
+    if (!listDiv) return;
+    
+    // Ricarica bozze dal database
+    bozzeDB = await DatabaseService.getBozze();
+    
+    if (bozzeDB.length === 0) {
+        listDiv.innerHTML = '<p class="no-data-message">Nessuna bozza trovata</p>';
+        return;
+    }
+    
+    const bozzeHTML = bozzeDB.map(bozza => {
+        const isLocked = bozza.locked_by && bozza.locked_until > new Date().toISOString();
+        const lockInfo = isLocked ? `🔒 In modifica da ${bozza.locked_by_name}` : '';
+        const completamento = calculateCompletamento(bozza.data);
+        
+        return `
+            <div class="bozza-item ${isLocked ? 'locked' : ''}">
+                <div class="bozza-info">
+                    <div class="bozza-header">
+                        <span class="bozza-code">[BOZZA-${bozza.id}]</span>
+                        <span class="bozza-date">Salvata: ${new Date(bozza.updated_at).toLocaleString('it-IT')}</span>
+                    </div>
+                    <div class="bozza-progress">
+                        <div class="progress-bar-mini">
+                            <div class="progress-fill" style="width: ${completamento}%"></div>
+                        </div>
+                        <span class="progress-text">${completamento}% completo</span>
+                    </div>
+                    ${bozza.data.locale ? `<div class="bozza-location">📍 ${bozza.data.locale.descrizione || 'Locale non specificato'}</div>` : ''}
+                    ${bozza.data.artisti && bozza.data.artisti.length > 0 ? `<div class="bozza-artists">🎭 ${bozza.data.artisti.length} artisti</div>` : ''}
+                    ${lockInfo ? `<div class="lock-info">${lockInfo}</div>` : ''}
+                </div>
+                <div class="bozza-actions">
+                    ${isLocked ? 
+                        `<button class="btn btn-secondary btn-sm" onclick="forceUnlock(${bozza.id})">🔓 Sblocca</button>` :
+                        `<button class="btn btn-primary btn-sm" onclick="loadBozza(${bozza.id})">📝 Riprendi</button>`
+                    }
+                    <button class="btn btn-danger btn-sm" onclick="deleteBozza(${bozza.id})">🗑️ Elimina</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    listDiv.innerHTML = bozzeHTML;
+}
+
+// Calcola percentuale completamento bozza
+function calculateCompletamento(bozzaData) {
+    let campiTotali = 0;
+    let campiCompilati = 0;
+    
+    // Controlla artisti
+    if (bozzaData.artisti && bozzaData.artisti.length > 0) {
+        campiCompilati += 2;
+    }
+    campiTotali += 2;
+    
+    // Controlla date
+    if (bozzaData.dataInizio) campiCompilati++;
+    if (bozzaData.dataFine) campiCompilati++;
+    campiTotali += 2;
+    
+    // Controlla locale
+    if (bozzaData.locale) {
+        if (bozzaData.locale.descrizione) campiCompilati++;
+        if (bozzaData.locale.indirizzo) campiCompilati++;
+        if (bozzaData.locale.citta) campiCompilati++;
+        if (bozzaData.locale.cap) campiCompilati++;
+        if (bozzaData.locale.provincia) campiCompilati++;
+    }
+    campiTotali += 5;
+    
+    // Controlla fatturazione
+    if (bozzaData.fatturazione) {
+        if (bozzaData.fatturazione.ragioneSociale) campiCompilati++;
+        if (bozzaData.fatturazione.indirizzo) campiCompilati++;
+        if (bozzaData.fatturazione.citta) campiCompilati++;
+        if (bozzaData.fatturazione.cap) campiCompilati++;
+        if (bozzaData.fatturazione.provincia) campiCompilati++;
+    }
+    campiTotali += 5;
+    
+    return Math.round((campiCompilati / campiTotali) * 100);
+}
+
+// Carica bozza
+async function loadBozza(bozzaId) {
+    try {
+        // Verifica lock
+        const lockResult = await DatabaseService.lockBozza(bozzaId, userSession);
+        
+        if (!lockResult.success) {
+            showToast(`Bozza bloccata da ${lockResult.locked_by}`, 'warning');
+            return;
+        }
+        
+        // Carica dati bozza
+        const bozza = bozzeDB.find(b => b.id === bozzaId);
+        if (!bozza) {
+            showToast('Bozza non trovata', 'error');
+            return;
+        }
+        
+        currentBozzaId = bozzaId;
+        currentLock = lockResult.lock;
+        
+        // Ripristina dati
+        restoreBozzaData(bozza.data);
+        
+        // Nascondi sezione bozze e mostra step1
+        document.getElementById('bozzeSection').style.display = 'none';
+        showSection('step1');
+        
+        // Inizia autosalvataggio e controllo lock
+        startAutosave();
+        startLockCheck();
+        
+        showToast('Bozza caricata con successo', 'success');
+        
+    } catch (error) {
+        console.error('Errore caricamento bozza:', error);
+        showToast('Errore nel caricamento della bozza', 'error');
+    }
+}
+
+// Ripristina dati da bozza
+function restoreBozzaData(data) {
+    // Ripristina agibilità data
+    if (data.agibilitaData) {
+        agibilitaData = data.agibilitaData;
+    }
+    
+    // Ripristina artisti
+    if (data.artisti) {
+        selectedArtists = data.artisti;
+        updateArtistsList();
+    }
+    
+    // Ripristina date
+    if (data.dataInizio) document.getElementById('dataInizio').value = data.dataInizio;
+    if (data.dataFine) document.getElementById('dataFine').value = data.dataFine;
+    
+    // Ripristina locale
+    if (data.locale) {
+        if (data.locale.descrizione) document.getElementById('descrizioneLocale').value = data.locale.descrizione;
+        if (data.locale.indirizzo) document.getElementById('indirizzo').value = data.locale.indirizzo;
+        if (data.locale.provincia) {
+            document.getElementById('provincia').value = data.locale.provincia;
+            loadCitta(data.locale.provincia);
+            
+            setTimeout(() => {
+                if (data.locale.citta) {
+                    document.getElementById('citta').value = data.locale.citta;
+                    loadCAP(data.locale.citta);
+                    
+                    setTimeout(() => {
+                        if (data.locale.cap) document.getElementById('cap').value = data.locale.cap;
+                    }, 100);
+                }
+            }, 100);
+        }
+    }
+    
+    // Ripristina fatturazione
+    if (data.fatturazione) {
+        Object.keys(data.fatturazione).forEach(key => {
+            const element = document.getElementById(key);
+            if (element) element.value = data.fatturazione[key];
+        });
+    }
+}
+
+// Elimina bozza
+async function deleteBozza(bozzaId) {
+    if (!confirm('Sei sicuro di voler eliminare questa bozza?')) return;
+    
+    try {
+        await DatabaseService.deleteBozza(bozzaId);
+        showToast('Bozza eliminata', 'success');
+        showExistingBozze();
+    } catch (error) {
+        console.error('Errore eliminazione bozza:', error);
+        showToast('Errore nell\'eliminazione della bozza', 'error');
+    }
+}
+
+// Forza sblocco
+async function forceUnlock(bozzaId) {
+    if (!confirm('Vuoi forzare lo sblocco di questa bozza?')) return;
+    
+    try {
+        await DatabaseService.unlockBozza(bozzaId);
+        showToast('Bozza sbloccata', 'success');
+        showExistingBozze();
+    } catch (error) {
+        console.error('Errore sblocco bozza:', error);
+        showToast('Errore nello sblocco della bozza', 'error');
+    }
+}
+
+// ==================== AUTOSALVATAGGIO ====================
+function startAutosave() {
+    // Cancella timer esistente
+    if (autosaveTimer) clearInterval(autosaveTimer);
+    
+    // Salva ogni minuto
+    autosaveTimer = setInterval(async () => {
+        if (currentBozzaId || agibilitaData.numeroRiservato) {
+            await saveBozza(true); // true = autosave silenzioso
+        }
+    }, 60000); // 1 minuto
+}
+
+function stopAutosave() {
+    if (autosaveTimer) {
+        clearInterval(autosaveTimer);
+        autosaveTimer = null;
+    }
+}
+
+// Salva bozza
+async function saveBozza(isAutosave = false) {
+    try {
+        const bozzaData = collectCurrentData();
+        
+        if (currentBozzaId) {
+            // Aggiorna bozza esistente
+            await DatabaseService.updateBozza(currentBozzaId, bozzaData);
+        } else {
+            // Crea nuova bozza
+            const result = await DatabaseService.createBozza(bozzaData, userSession);
+            currentBozzaId = result.id;
+        }
+        
+        if (!isAutosave) {
+            showToast('Bozza salvata con successo', 'success');
+        } else {
+            // Mostra indicatore discreto per autosave
+            showAutosaveIndicator();
+        }
+        
+    } catch (error) {
+        console.error('Errore salvataggio bozza:', error);
+        showToast('Errore nel salvataggio della bozza', 'error');
+    }
+}
+
+// Mostra indicatore autosave
+function showAutosaveIndicator() {
+    const indicator = document.getElementById('autosave-indicator') || createAutosaveIndicator();
+    indicator.classList.add('show');
+    setTimeout(() => indicator.classList.remove('show'), 2000);
+}
+
+function createAutosaveIndicator() {
+    const indicator = document.createElement('div');
+    indicator.id = 'autosave-indicator';
+    indicator.className = 'autosave-indicator';
+    indicator.innerHTML = '💾 Salvato automaticamente';
+    document.body.appendChild(indicator);
+    return indicator;
+}
+
+// Raccogli dati correnti
+function collectCurrentData() {
+    const cittaSelect = document.getElementById('citta');
+    const selectedOption = cittaSelect ? cittaSelect.options[cittaSelect.selectedIndex] : null;
+    const cittaNome = selectedOption ? selectedOption.textContent : '';
+    
+    return {
+        agibilitaData: agibilitaData,
+        artisti: selectedArtists,
+        dataInizio: document.getElementById('dataInizio')?.value || '',
+        dataFine: document.getElementById('dataFine')?.value || '',
+        locale: {
+            descrizione: document.getElementById('descrizioneLocale')?.value || '',
+            indirizzo: document.getElementById('indirizzo')?.value || '',
+            citta: document.getElementById('citta')?.value || '',
+            cittaNome: cittaNome,
+            cap: document.getElementById('cap')?.value || '',
+            provincia: document.getElementById('provincia')?.value || ''
+        },
+        fatturazione: {
+            ragioneSociale: document.getElementById('ragioneSociale')?.value || '',
+            piva: document.getElementById('piva')?.value || '',
+            codiceFiscale: document.getElementById('codiceFiscale')?.value || '',
+            indirizzo: document.getElementById('indirizzoFatturazione')?.value || '',
+            citta: document.getElementById('cittaFatturazione')?.value || '',
+            cap: document.getElementById('capFatturazione')?.value || '',
+            provincia: document.getElementById('provinciaFatturazione')?.value || '',
+            codiceSDI: document.getElementById('codiceSDI')?.value || '',
+            pec: document.getElementById('pecFatturazione')?.value || ''
+        }
+    };
+}
+
+// ==================== GESTIONE LOCK ====================
+function startLockCheck() {
+    // Cancella timer esistente
+    if (lockCheckTimer) clearInterval(lockCheckTimer);
+    
+    // Controlla lock ogni 5 minuti
+    lockCheckTimer = setInterval(async () => {
+        if (currentLock && currentBozzaId) {
+            try {
+                await DatabaseService.renewLock(currentBozzaId, currentLock);
+            } catch (error) {
+                console.error('Errore rinnovo lock:', error);
+                showToast('Attenzione: problema con il blocco della bozza', 'warning');
+            }
+        }
+    }, 300000); // 5 minuti
+}
+
+function stopLockCheck() {
+    if (lockCheckTimer) {
+        clearInterval(lockCheckTimer);
+        lockCheckTimer = null;
+    }
+}
+
+// ==================== PROGRESS BAR ====================
+function updateProgressBar() {
+    const progressBar = document.getElementById('main-progress-bar') || createProgressBar();
+    const steps = ['tipoSection', 'step1', 'step2', 'step3'];
+    const currentStep = steps.findIndex(s => document.getElementById(s)?.classList.contains('active'));
+    
+    const progress = ((currentStep + 1) / steps.length) * 100;
+    progressBar.querySelector('.progress-fill').style.width = `${progress}%`;
+    progressBar.querySelector('.progress-text').textContent = `Step ${currentStep + 1} di ${steps.length}`;
+}
+
+function createProgressBar() {
+    const bar = document.createElement('div');
+    bar.id = 'main-progress-bar';
+    bar.className = 'main-progress-bar';
+    bar.innerHTML = `
+        <div class="progress-track">
+            <div class="progress-fill"></div>
+        </div>
+        <span class="progress-text">Step 1 di 4</span>
+    `;
+    document.querySelector('.main-container').prepend(bar);
+    return bar;
+}
+
+// ==================== DASHBOARD STATS ====================
+function updateDashboardStats() {
+    // Conta bozze
+    const bozzeCount = bozzeDB.filter(b => !b.locked_by).length;
+    const agibilitaMonth = agibilitaDB.filter(a => {
+        const date = new Date(a.created_at);
+        const now = new Date();
+        return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+    }).length;
+    
+    // Aggiorna badge se esistono
+    const bozzeBadge = document.getElementById('bozze-badge');
+    if (bozzeBadge) bozzeBadge.textContent = bozzeCount;
+    
+    const monthBadge = document.getElementById('month-badge');
+    if (monthBadge) monthBadge.textContent = agibilitaMonth;
+}
+
+// ==================== CALENDARIO ====================
+let currentCalendarMonth = new Date();
+
+function showCalendarView() {
+    const modal = document.getElementById('calendar-modal') || createCalendarModal();
+    modal.style.display = 'block';
+    renderCalendar();
+}
+
+function createCalendarModal() {
+    const modal = document.createElement('div');
+    modal.id = 'calendar-modal';
+    modal.className = 'modal';
+    modal.innerHTML = `
+        <div class="modal-content modal-content-wide">
+            <div class="modal-header">
+                <h2>📅 Calendario Agibilità</h2>
+                <button class="close-modal" onclick="closeCalendarModal()">&times;</button>
+            </div>
+            <div class="calendar-controls">
+                <button class="btn btn-sm" onclick="changeCalendarMonth(-1)">◀ Mese precedente</button>
+                <h3 id="calendar-month-year"></h3>
+                <button class="btn btn-sm" onclick="changeCalendarMonth(1)">Mese successivo ▶</button>
+            </div>
+            <div id="calendar-grid" class="calendar-grid"></div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    return modal;
+}
+
+function renderCalendar() {
+    const year = currentCalendarMonth.getFullYear();
+    const month = currentCalendarMonth.getMonth();
+    
+    // Aggiorna titolo
+    const monthNames = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 
+                       'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
+    document.getElementById('calendar-month-year').textContent = `${monthNames[month]} ${year}`;
+    
+    // Genera griglia calendario
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    
+    let html = '<div class="calendar-header">';
+    ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'].forEach(day => {
+        html += `<div class="calendar-day-header">${day}</div>`;
+    });
+    html += '</div><div class="calendar-body">';
+    
+    // Giorni vuoti iniziali
+    for (let i = 0; i < firstDay; i++) {
+        html += '<div class="calendar-day empty"></div>';
+    }
+    
+    // Giorni del mese
+    for (let day = 1; day <= daysInMonth; day++) {
+        const date = new Date(year, month, day);
+        const dateStr = date.toISOString().split('T')[0];
+        
+        // Trova agibilità per questa data
+        const dayAgibilita = agibilitaDB.filter(a => {
+            const start = new Date(a.data_inizio);
+            const end = new Date(a.data_fine);
+            return date >= start && date <= end;
+        });
+        
+        const hasAgibilita = dayAgibilita.length > 0;
+        const isToday = date.toDateString() === new Date().toDateString();
+        
+        html += `
+            <div class="calendar-day ${hasAgibilita ? 'has-events' : ''} ${isToday ? 'today' : ''}">
+                <div class="day-number">${day}</div>
+                ${hasAgibilita ? `<div class="event-count">${dayAgibilita.length}</div>` : ''}
+                ${hasAgibilita ? `
+                    <div class="day-events">
+                        ${dayAgibilita.slice(0, 2).map(a => `
+                            <div class="mini-event" title="${a.locale.descrizione}">
+                                ${a.locale.descrizione.substring(0, 15)}${a.locale.descrizione.length > 15 ? '...' : ''}
+                            </div>
+                        `).join('')}
+                        ${dayAgibilita.length > 2 ? `<div class="more-events">+${dayAgibilita.length - 2} altri</div>` : ''}
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }
+    
+    html += '</div>';
+    document.getElementById('calendar-grid').innerHTML = html;
+}
+
+function changeCalendarMonth(delta) {
+    currentCalendarMonth.setMonth(currentCalendarMonth.getMonth() + delta);
+    renderCalendar();
+}
+
+function closeCalendarModal() {
+    const modal = document.getElementById('calendar-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+// ==================== KEYBOARD SHORTCUTS ====================
+function initializeKeyboardShortcuts() {
+    document.addEventListener('keydown', function(e) {
+        // Ctrl+S per salvare bozza
+        if (e.ctrlKey && e.key === 's') {
+            e.preventDefault();
+            saveBozza();
+        }
+        
+        // Escape per chiudere modali
+        if (e.key === 'Escape') {
+            const modals = document.querySelectorAll('.modal');
+            modals.forEach(modal => {
+                if (modal.style.display === 'block') {
+                    modal.style.display = 'none';
+                }
+            });
+        }
+    });
+}
+
+// ==================== VALIDAZIONE COMPENSI (MODIFICATA) ====================
 async function validateCompensations() {
     let hasIssues = false;
     let needsConfirmation = [];
@@ -180,7 +869,7 @@ async function validateCompensations() {
         }
         
         if (!artist.ruolo) {
-            alert(`Completa il ruolo per ${artist.nome} ${artist.cognome}`);
+            showToast(`Completa il ruolo per ${artist.nome} ${artist.cognome}`, 'warning');
             return false;
         }
         
@@ -212,9 +901,9 @@ async function validateCompensations() {
             const compensoInput = document.querySelector(`#artistList .artist-item:nth-child(${confirmation.index + 1}) .compensation-input`);
             if (compensoInput) {
                 compensoInput.focus();
-                compensoInput.style.border = '2px solid #ff9800';
+                compensoInput.classList.add('field-warning');
                 setTimeout(() => {
-                    compensoInput.style.border = '';
+                    compensoInput.classList.remove('field-warning');
                 }, 3000);
             }
             return false;
@@ -227,10 +916,10 @@ async function validateCompensations() {
     return true;
 }
 
-// MODIFICA: Aggiorna goToStep2 per usare la nuova validazione
+// ==================== NAVIGAZIONE STEP (MODIFICATA) ====================
 async function goToStep2() {
     if (selectedArtists.length === 0) {
-        alert('Seleziona almeno un artista');
+        showToast('Seleziona almeno un artista', 'warning');
         return;
     }
     
@@ -253,7 +942,15 @@ function goToStep3() {
     });
 
     if (missingFields.length > 0) {
-        alert('Compila tutti i campi obbligatori');
+        showToast('Compila tutti i campi obbligatori', 'warning');
+        // Evidenzia campi mancanti
+        missingFields.forEach(fieldId => {
+            const element = document.getElementById(fieldId);
+            if (element) {
+                element.classList.add('field-error');
+                setTimeout(() => element.classList.remove('field-error'), 3000);
+            }
+        });
         return;
     }
 
@@ -263,7 +960,7 @@ function goToStep3() {
     showSection('step3');
 }
 
-// ==================== GESTIONE ARTISTI ====================
+// ==================== GESTIONE ARTISTI (MODIFICATA) ====================
 function showAddArtistModal() {
     console.log('Opening artist modal');
     const modal = document.getElementById('addArtistModal');
@@ -271,6 +968,7 @@ function showAddArtistModal() {
         modal.style.display = 'block';
         document.getElementById('artistSearch').value = '';
         document.getElementById('searchResults').innerHTML = '';
+        document.getElementById('artistSearch').focus();
     }
 }
 
@@ -290,7 +988,7 @@ async function searchArtists() {
     }
     
     try {
-        // Cerca in Supabase invece che in array locale
+        // Cerca in Supabase
         const results = await DatabaseService.searchArtisti(searchTerm);
         displayArtistResults(results);
     } catch (error) {
@@ -330,12 +1028,12 @@ function displayArtistResults(results) {
 function addArtistToList(artistId) {
     console.log('Adding artist:', artistId);
     
-    // Cerca l'artista per ID (adatta ai nomi dei campi Supabase)
+    // Cerca l'artista per ID
     const artist = artistsDB.find(a => a.id == artistId);
     
     if (!artist) {
         console.error('Artist not found. Searched ID:', artistId);
-        alert('Artista non trovato nel database');
+        showToast('Artista non trovato nel database', 'error');
         return;
     }
 
@@ -348,7 +1046,7 @@ function addArtistToList(artistId) {
     );
     
     if (existingIndex !== -1) {
-        alert('Questo artista è già stato aggiunto!');
+        showToast('Questo artista è già stato aggiunto!', 'warning');
         return;
     }
 
@@ -356,7 +1054,7 @@ function addArtistToList(artistId) {
 
     selectedArtists.push({
         ...artist,
-        ruolo: artist.mansione || '',
+        ruolo: artist.mansione || '', // Precompila la mansione
         compenso: 0,
         matricolaEnpals: artist.matricola_enpals || generateMatricolaEnpals(),
         tipoRapporto: tipoRapporto
@@ -364,7 +1062,147 @@ function addArtistToList(artistId) {
 
     updateArtistsList();
     closeModal();
+    showToast(`${artist.nome} ${artist.cognome} aggiunto`, 'success');
 }
+
+// ==================== GESTIONE DATE (MODIFICATA) ====================
+function validateDates() {
+    const startDate = document.getElementById('dataInizio').value;
+    const endDate = document.getElementById('dataFine').value;
+
+    if (!startDate) return;
+
+    // Se non c'è data fine, impostala al giorno successivo
+    if (!endDate) {
+        const start = new Date(startDate);
+        start.setDate(start.getDate() + 1);
+        document.getElementById('dataFine').value = start.toISOString().split('T')[0];
+    }
+
+    if (endDate && endDate < startDate) {
+        showToast('La data di fine non può essere precedente alla data di inizio', 'warning');
+        document.getElementById('dataFine').value = startDate;
+        return;
+    }
+
+    const start = new Date(startDate);
+    const end = new Date(endDate || startDate);
+    const diffTime = Math.abs(end - start);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+    const dateInfo = document.getElementById('dateInfo');
+    if (dateInfo) {
+        dateInfo.style.display = 'block';
+        dateInfo.textContent = `Durata: ${diffDays} giorn${diffDays > 1 ? 'i' : 'o'}`;
+    }
+}
+
+// ==================== GESTIONE TAB (MODIFICATA - SENZA ANTEPRIMA) ====================
+function showTab(tabName) {
+    // Se è anteprima, salta direttamente a invio
+    if (tabName === 'anteprima') {
+        showTab('invio');
+        return;
+    }
+    
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    
+    if (event && event.target) {
+        event.target.classList.add('active');
+    }
+    
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+    
+    const tabId = 'tab' + tabName.charAt(0).toUpperCase() + tabName.slice(1);
+    const tabContent = document.getElementById(tabId);
+    if (tabContent) {
+        tabContent.classList.add('active');
+    }
+}
+
+// ==================== DOWNLOAD E SALVATAGGIO (MODIFICATO) ====================
+async function downloadAndSave() {
+    const xmlContent = generateXML();
+    const validation = validateINPSXML(xmlContent);
+    
+    if (!validation.isValid) {
+        showToast('Errori di validazione:\n' + validation.errors.join('\n'), 'error');
+        return;
+    }
+
+    // Scarica XML agibilità
+    downloadXML(xmlContent);
+    
+    // Salva agibilità nel database
+    await saveAgibilitaToDatabase(xmlContent);
+    
+    // NUOVO: Invia notifiche agli artisti
+    await sendArtistNotifications();
+    
+    // Genera e scarica XML intermittenti se ci sono artisti a chiamata
+    const artistiAChiamata = getArtistiAChiamata();
+    if (artistiAChiamata.length > 0) {
+        const xmlIntermittenti = generateXMLIntermittenti(artistiAChiamata);
+        if (xmlIntermittenti) {
+            setTimeout(() => {
+                if (confirm(`Sono stati trovati ${artistiAChiamata.length} artisti con contratto a chiamata.\n\nVuoi scaricare anche il file XML per le comunicazioni intermittenti?`)) {
+                    downloadXMLIntermittenti(xmlIntermittenti, artistiAChiamata.length);
+                    showIntermittentiSummary(artistiAChiamata);
+                }
+            }, 500);
+        }
+    }
+
+    // Rimuovi bozza se esiste
+    if (currentBozzaId) {
+        await DatabaseService.deleteBozza(currentBozzaId);
+    }
+
+    // Pulisci lock e timers
+    stopAutosave();
+    stopLockCheck();
+    currentBozzaId = null;
+    currentLock = null;
+
+    document.getElementById('btnConfirm').style.display = 'none';
+    document.getElementById('btnNewAgibilita').style.display = 'inline-block';
+
+    showToast('✅ Agibilità creata con successo!', 'success', 5000);
+}
+
+// NUOVA FUNZIONE: Invia notifiche agli artisti
+async function sendArtistNotifications() {
+    const dataInizio = document.getElementById('dataInizio').value;
+    const descrizioneLocale = document.getElementById('descrizioneLocale').value;
+    
+    for (const artist of selectedArtists) {
+        if (artist.email || artist.telefono) {
+            const message = `Ciao ${artist.nome}, è stata aperta un'agibilità per il ${new Date(dataInizio).toLocaleDateString('it-IT')} presso ${descrizioneLocale}. Ti confermiamo la tua partecipazione come ${artist.ruolo}.`;
+            
+            try {
+                if (artist.email) {
+                    await NotificationService.sendEmail(artist.email, 'Nuova Agibilità', message);
+                }
+                if (artist.telefono) {
+                    await NotificationService.sendSMS(artist.telefono, message);
+                }
+            } catch (error) {
+                console.error('Errore invio notifica:', error);
+            }
+        }
+    }
+}
+
+function confirmAndProceed() {
+    downloadAndSave();
+}
+
+// ==================== ALTRE FUNZIONI NECESSARIE ====================
+// (Il resto del codice rimane sostanzialmente lo stesso, con piccole ottimizzazioni)
 
 function determineTipoRapporto(artist) {
     if (artist.has_partita_iva) {
@@ -379,7 +1217,6 @@ function determineTipoRapporto(artist) {
     }
 }
 
-// ==================== NUOVE FUNZIONI PER COMUNICAZIONI INTERMITTENTI ====================
 function getArtistiAChiamata() {
     return selectedArtists.filter(artist => 
         artist.tipoRapporto === 'chiamata' || 
@@ -432,7 +1269,6 @@ function generateXMLIntermittenti(artistiAChiamata) {
 }
 
 function generateCodiceComunicazione() {
-    // Genera un codice temporaneo se non presente nel database
     const timestamp = Date.now();
     return `2100024${timestamp.toString().slice(-9)}`;
 }
@@ -443,7 +1279,6 @@ function downloadXMLIntermittenti(xmlContent, artistiCount) {
     const a = document.createElement('a');
     a.href = url;
     
-    // Nome file con data
     const today = new Date().toISOString().slice(0,10).replace(/-/g, '_');
     a.download = `comunicazione_intermittenti_${today}.xml`;
     
@@ -561,7 +1396,6 @@ function updateArtistRole(index, role) {
     }
 }
 
-// MODIFICA: Aggiorna updateArtistCompensation per resettare la conferma quando cambia il compenso
 function updateArtistCompensation(index, value) {
     if (selectedArtists[index]) {
         const artist = selectedArtists[index];
@@ -601,10 +1435,9 @@ function updateTotalCompensation() {
     document.getElementById('totalCompensation').textContent = total.toFixed(2);
 }
 
-// MODIFICA: Aggiorna checkCanProceed per permettere compensi a 0
 function checkCanProceed() {
     const canProceed = selectedArtists.length > 0 && 
-        selectedArtists.every(a => a.ruolo); // Rimuovi il controllo su compenso > 0
+        selectedArtists.every(a => a.ruolo);
     
     document.getElementById('btnNext1').style.display = canProceed ? 'inline-block' : 'none';
 }
@@ -614,32 +1447,7 @@ function goToRegistration() {
     window.location.href = '../registrazione-artista.html';
 }
 
-// ==================== GESTIONE DATE ====================
-function validateDates() {
-    const startDate = document.getElementById('dataInizio').value;
-    const endDate = document.getElementById('dataFine').value;
-
-    if (!startDate || !endDate) return;
-
-    if (endDate < startDate) {
-        alert('La data di fine non può essere precedente alla data di inizio');
-        document.getElementById('dataFine').value = startDate;
-        return;
-    }
-
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const diffTime = Math.abs(end - start);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-
-    const dateInfo = document.getElementById('dateInfo');
-    if (dateInfo) {
-        dateInfo.style.display = 'block';
-        dateInfo.textContent = `Durata: ${diffDays} giorn${diffDays > 1 ? 'i' : 'o'}`;
-    }
-}
-
-// ==================== GESTIONE LOCALITÀ (IDENTICA A REGISTRAZIONE) ====================
+// ==================== GESTIONE LOCALITÀ ====================
 function loadProvinces() {
     try {
         const provinceSelect = document.getElementById('provincia');
@@ -841,19 +1649,15 @@ async function saveVenueIfNew() {
     }
 }
 
-// ==================== GESTIONE FATTURAZIONE MIGLIORATA ====================
-
-// NUOVA FUNZIONE: Mostra select per dati fatturazione multipli
+// ==================== GESTIONE FATTURAZIONE ====================
 function showInvoiceDataSelector(invoiceDataList) {
-    // Rimuovi eventuale selector esistente
     const existingSelector = document.getElementById('invoiceSelector');
     if (existingSelector) {
         existingSelector.remove();
     }
     
-    // Crea il selector
     const selectorHtml = `
-        <div id="invoiceSelector" class="form-group" style="margin-bottom: 1rem; padding: 1rem; background: #f0f0f0; border-radius: 8px;">
+        <div id="invoiceSelector" class="invoice-selector">
             <label class="form-label">
                 <strong>📋 Dati fatturazione salvati per questo locale</strong>
             </label>
@@ -871,22 +1675,18 @@ function showInvoiceDataSelector(invoiceDataList) {
         </div>
     `;
     
-    // Inserisci il selector prima del primo campo fatturazione
     const ragioneSocialeGroup = document.getElementById('ragioneSociale').parentElement;
     ragioneSocialeGroup.insertAdjacentHTML('beforebegin', selectorHtml);
 }
 
-// NUOVA FUNZIONE: Mostra campo di ricerca globale
 function showGlobalInvoiceSearch() {
-    // Rimuovi eventuale ricerca esistente
     const existingSearch = document.getElementById('globalInvoiceSearch');
     if (existingSearch) {
         existingSearch.remove();
     }
     
-    // Crea il campo di ricerca
     const searchHtml = `
-        <div id="globalInvoiceSearch" class="form-group" style="margin-bottom: 1rem; padding: 1rem; background: #e8f4f8; border-radius: 8px;">
+        <div id="globalInvoiceSearch">
             <label class="form-label">
                 <strong>🔍 Cerca dati fatturazione nel database</strong>
             </label>
@@ -895,16 +1695,14 @@ function showGlobalInvoiceSearch() {
                    id="invoiceSearchInput" 
                    placeholder="Cerca per ragione sociale, P.IVA o codice fiscale..."
                    oninput="searchInvoiceData()">
-            <div id="invoiceSearchResults" class="search-results" style="display: none; margin-top: 0.5rem;"></div>
+            <div id="invoiceSearchResults" style="display: none;"></div>
         </div>
     `;
     
-    // Inserisci la ricerca prima del selector (se esiste) o prima del primo campo
     const insertPoint = document.getElementById('invoiceSelector') || document.getElementById('ragioneSociale').parentElement;
     insertPoint.insertAdjacentHTML('beforebegin', searchHtml);
 }
 
-// NUOVA FUNZIONE: Cerca dati fatturazione
 function searchInvoiceData() {
     const searchTerm = document.getElementById('invoiceSearchInput').value.toLowerCase();
     const resultsDiv = document.getElementById('invoiceSearchResults');
@@ -921,7 +1719,6 @@ function searchInvoiceData() {
     );
     
     if (matches.length > 0) {
-        // Raggruppa per ragione sociale per evitare duplicati
         const uniqueInvoices = [];
         const seen = new Set();
         
@@ -934,8 +1731,7 @@ function searchInvoiceData() {
         });
         
         resultsDiv.innerHTML = uniqueInvoices.slice(0, 5).map(invoice => `
-            <div class="search-result-item" onclick="selectInvoiceFromSearch(${invoiceDB.indexOf(invoice)})" 
-                 style="padding: 0.5rem; border: 1px solid #ddd; margin-bottom: 0.5rem; cursor: pointer; background: white;">
+            <div class="search-result-item" onclick="selectInvoiceFromSearch(${invoiceDB.indexOf(invoice)})">
                 <strong>${invoice.ragione_sociale}</strong><br>
                 <small>
                     ${invoice.piva ? `P.IVA: ${invoice.piva}` : ''} 
@@ -946,30 +1742,27 @@ function searchInvoiceData() {
         `).join('');
         resultsDiv.style.display = 'block';
     } else {
-        resultsDiv.innerHTML = '<div style="padding: 0.5rem; color: #666;">Nessun risultato trovato</div>';
+        resultsDiv.innerHTML = '<div class="no-results">Nessun risultato trovato</div>';
         resultsDiv.style.display = 'block';
     }
 }
 
-// NUOVA FUNZIONE: Seleziona dati fatturazione dalla ricerca
 function selectInvoiceFromSearch(index) {
     const invoice = invoiceDB[index];
     if (invoice) {
         fillInvoiceFields(invoice);
-        // Nascondi i risultati di ricerca
         document.getElementById('invoiceSearchResults').style.display = 'none';
         document.getElementById('invoiceSearchInput').value = '';
-        
-        // Mostra messaggio di conferma
         showInvoiceLoadedMessage(invoice.venue_name);
     }
 }
 
-// NUOVA FUNZIONE: Mostra messaggio quando i dati sono caricati
 function showInvoiceLoadedMessage(venueName) {
+    const existingMsg = document.querySelector('.invoice-loaded-message');
+    if (existingMsg) existingMsg.remove();
+    
     const msg = document.createElement('div');
-    msg.className = 'alert alert-success';
-    msg.style.marginTop = '0.5rem';
+    msg.className = 'invoice-loaded-message';
     msg.innerHTML = `✅ Dati fatturazione caricati${venueName ? ` (da: ${venueName})` : ''}`;
     
     const ragioneSocialeGroup = document.getElementById('ragioneSociale').parentElement;
@@ -978,37 +1771,23 @@ function showInvoiceLoadedMessage(venueName) {
     setTimeout(() => msg.remove(), 3000);
 }
 
-// MODIFICA della funzione esistente loadInvoiceDataForVenue
 async function loadInvoiceDataForVenue(venueName) {
     try {
-        // Mostra sempre il campo di ricerca globale
         showGlobalInvoiceSearch();
         
-        // Cerca tutti i dati fatturazione per questo venue
         const venueInvoices = invoiceDB.filter(invoice => 
             invoice.venue_name && invoice.venue_name.toLowerCase() === venueName.toLowerCase()
         );
         
         if (venueInvoices.length > 1) {
-            // Mostra selector se ci sono più opzioni
             showInvoiceDataSelector(venueInvoices);
-            // Carica il primo per default
             fillInvoiceFields(venueInvoices[0]);
         } else if (venueInvoices.length === 1) {
-            // Carica direttamente se c'è solo un set di dati
             fillInvoiceFields(venueInvoices[0]);
             showInvoiceLoadedMessage();
         } else {
-            // Nessun dato trovato per questo venue
             clearInvoiceFields();
-            // Mostra suggerimento
-            const msg = document.createElement('div');
-            msg.className = 'alert alert-info';
-            msg.innerHTML = '💡 Nessun dato fatturazione salvato per questo locale. Usa la ricerca sopra o inserisci nuovi dati.';
-            msg.style.marginBottom = '1rem';
-            const ragioneSocialeGroup = document.getElementById('ragioneSociale').parentElement;
-            ragioneSocialeGroup.insertBefore(msg, ragioneSocialeGroup.firstChild);
-            setTimeout(() => msg.remove(), 5000);
+            showToast('💡 Nessun dato fatturazione salvato per questo locale', 'info');
         }
     } catch (error) {
         console.error('❌ Errore caricamento dati fatturazione:', error);
@@ -1016,7 +1795,6 @@ async function loadInvoiceDataForVenue(venueName) {
     }
 }
 
-// NUOVA FUNZIONE: Carica dati selezionati dal dropdown
 function loadSelectedInvoiceData() {
     const select = document.getElementById('savedInvoiceSelect');
     const selectedValue = select.value;
@@ -1035,7 +1813,6 @@ function loadSelectedInvoiceData() {
     }
 }
 
-// NUOVA FUNZIONE: Compila i campi con i dati fatturazione
 function fillInvoiceFields(invoiceData) {
     document.getElementById('ragioneSociale').value = invoiceData.ragione_sociale || '';
     document.getElementById('piva').value = invoiceData.piva || '';
@@ -1078,7 +1855,6 @@ async function saveInvoiceData() {
 
     try {
         await DatabaseService.saveInvoiceData(invoiceData);
-        // Aggiorna la cache locale
         invoiceDB.push(invoiceData);
         console.log('✅ Dati fatturazione salvati');
     } catch (error) {
@@ -1097,6 +1873,8 @@ function copyVenueAddress() {
     
     document.getElementById('capFatturazione').value = document.getElementById('cap').value;
     document.getElementById('provinciaFatturazione').value = document.getElementById('provincia').value;
+    
+    showToast('Indirizzo copiato', 'success');
 }
 
 // ==================== GESTIONE RIEPILOGO ====================
@@ -1144,27 +1922,6 @@ function updateSummaries() {
             <p><strong>${ragioneSociale || 'Non specificata'}</strong></p>
             <p>P.IVA: ${piva || 'Non specificata'}</p>
         `;
-    }
-}
-
-// ==================== GESTIONE TAB ====================
-function showTab(tabName) {
-    document.querySelectorAll('.tab').forEach(tab => {
-        tab.classList.remove('active');
-    });
-    
-    if (event && event.target) {
-        event.target.classList.add('active');
-    }
-    
-    document.querySelectorAll('.tab-content').forEach(content => {
-        content.classList.remove('active');
-    });
-    
-    const tabId = 'tab' + tabName.charAt(0).toUpperCase() + tabName.slice(1);
-    const tabContent = document.getElementById(tabId);
-    if (tabContent) {
-        tabContent.classList.add('active');
     }
 }
 
@@ -1240,7 +1997,6 @@ function generateXML() {
         const codiceQualifica = getQualificaCode(artist.ruolo);
         const isLegaleRappresentante = isLegalRepresentative(artist);
         
-        // IMPORTANTE: Gestisci artisti stranieri senza CF
         const codiceFiscale = artist.codice_fiscale || '';
         if (!codiceFiscale && artist.nazionalita !== 'IT') {
             console.warn(`⚠️ Artista straniero senza CF: ${artist.nome} ${artist.cognome} - ID temp: ${artist.codice_fiscale_temp}`);
@@ -1318,7 +2074,6 @@ function generateMatricolaEnpals() {
     return Math.floor(1000000 + Math.random() * 9000000).toString();
 }
 
-// MODIFICA: Aggiorna validazione per gestire artisti stranieri senza CF
 function validateINPSXML(xmlString) {
     const errors = [];
     
@@ -1342,14 +2097,12 @@ function validateINPSXML(xmlString) {
         errors.push('TipoRetribuzione deve essere "G" (Giornaliera)');
     }
     
-    // Validazione artisti
     selectedArtists.forEach(artist => {
         if (artist.nazionalita === 'IT' && !artist.codice_fiscale) {
             errors.push(`Codice fiscale mancante per l'artista italiano ${artist.nome} ${artist.cognome}`);
         } else if (artist.codice_fiscale && !validaCodiceFiscale(artist.codice_fiscale)) {
             errors.push(`Codice fiscale non valido per ${artist.nome} ${artist.cognome}`);
         } else if (!artist.codice_fiscale && artist.nazionalita !== 'IT') {
-            // Solo warning per stranieri senza CF
             console.warn(`Artista straniero senza CF: ${artist.nome} ${artist.cognome}`);
         }
     });
@@ -1365,7 +2118,6 @@ function validaCodiceFiscale(cf) {
     return regex.test(cf.toUpperCase());
 }
 
-// ==================== DOWNLOAD E SALVATAGGIO SU SUPABASE (MODIFICATO) ====================
 function downloadXML(xmlContent) {
     const blob = new Blob([xmlContent], { type: 'text/xml' });
     const url = URL.createObjectURL(blob);
@@ -1376,55 +2128,6 @@ function downloadXML(xmlContent) {
     URL.revokeObjectURL(url);
 }
 
-async function downloadAndSave() {
-    const xmlContent = generateXML();
-    const validation = validateINPSXML(xmlContent);
-    
-    if (!validation.isValid) {
-        alert('Errori di validazione:\n' + validation.errors.join('\n'));
-        return;
-    }
-
-    // Scarica XML agibilità
-    downloadXML(xmlContent);
-    
-    // Salva agibilità nel database
-    await saveAgibilitaToDatabase(xmlContent);
-    
-    // NUOVO: Genera e scarica XML intermittenti se ci sono artisti a chiamata
-    const artistiAChiamata = getArtistiAChiamata();
-    if (artistiAChiamata.length > 0) {
-        const xmlIntermittenti = generateXMLIntermittenti(artistiAChiamata);
-        if (xmlIntermittenti) {
-            // Mostra messaggio di conferma
-            setTimeout(() => {
-                if (confirm(`Sono stati trovati ${artistiAChiamata.length} artisti con contratto a chiamata.\n\nVuoi scaricare anche il file XML per le comunicazioni intermittenti?`)) {
-                    downloadXMLIntermittenti(xmlIntermittenti, artistiAChiamata.length);
-                    
-                    // Mostra riepilogo artisti a chiamata
-                    showIntermittentiSummary(artistiAChiamata);
-                }
-            }, 500);
-        }
-    }
-
-    document.getElementById('btnConfirm').style.display = 'none';
-    document.getElementById('btnNewAgibilita').style.display = 'inline-block';
-
-    const successMsg = document.createElement('div');
-    successMsg.className = 'alert alert-success';
-    successMsg.innerHTML = `
-        ✅ XML agibilità scaricato e salvato con successo!
-        ${artistiAChiamata.length > 0 ? `<br>📞 ${artistiAChiamata.length} artisti con contratto a chiamata rilevati` : ''}
-    `;
-    
-    const tabInvio = document.getElementById('tabInvio');
-    if (tabInvio) {
-        tabInvio.insertBefore(successMsg, tabInvio.firstChild);
-        setTimeout(() => successMsg.remove(), 5000);
-    }
-}
-
 async function saveAgibilitaToDatabase(xmlContent) {
     try {
         const cittaSelect = document.getElementById('citta');
@@ -1432,7 +2135,7 @@ async function saveAgibilitaToDatabase(xmlContent) {
         const cittaNome = selectedOption ? selectedOption.textContent : '';
         
         const agibilita = {
-            codice: `AG-${new Date().getFullYear()}-${String(agibilitaDB.length + 1).padStart(3, '0')}`,
+            codice: agibilitaData.numeroRiservato || `AG-${new Date().getFullYear()}-${String(agibilitaDB.length + 1).padStart(3, '0')}`,
             data_inizio: document.getElementById('dataInizio').value,
             data_fine: document.getElementById('dataFine').value,
             locale: {
@@ -1465,7 +2168,8 @@ async function saveAgibilitaToDatabase(xmlContent) {
             xml_content: xmlContent,
             is_modifica: agibilitaData.isModifica,
             codice_originale: agibilitaData.codiceAgibilita,
-            identificativo_inps: null
+            identificativo_inps: null,
+            version: 1
         };
 
         const savedAgibilita = await DatabaseService.saveAgibilita(agibilita);
@@ -1475,20 +2179,22 @@ async function saveAgibilitaToDatabase(xmlContent) {
         
     } catch (error) {
         console.error('❌ Errore salvataggio agibilità:', error);
-        alert('Errore durante il salvataggio su database: ' + error.message);
+        showToast('Errore durante il salvataggio: ' + error.message, 'error');
     }
-}
-
-function confirmAndProceed() {
-    downloadAndSave();
 }
 
 function newAgibilita() {
     clearAllForms();
     agibilitaData.isModifica = false;
     agibilitaData.codiceAgibilita = null;
+    agibilitaData.numeroRiservato = null;
     selectedArtists = [];
-    compensiConfermati.clear(); // Reset conferme compensi
+    compensiConfermati.clear();
+    
+    stopAutosave();
+    stopLockCheck();
+    currentBozzaId = null;
+    currentLock = null;
 
     document.getElementById('btnConfirm').style.display = 'inline-block';
     document.getElementById('btnNewAgibilita').style.display = 'none';
@@ -1497,10 +2203,7 @@ function newAgibilita() {
     document.getElementById('dataInizio').value = today;
 
     showSection('tipoSection');
-}
-
-function saveDraft() {
-    alert('Funzionalità bozza in sviluppo');
+    updateDashboardStats();
 }
 
 // ==================== GESTIONE AGIBILITÀ ESISTENTI ====================
@@ -1557,9 +2260,10 @@ function editAgibilita(codice) {
 
     agibilitaData.isModifica = true;
     agibilitaData.codiceAgibilita = codice;
+    agibilitaData.numeroRiservato = codice;
 
     selectedArtists = [];
-    compensiConfermati.clear(); // Reset conferme compensi
+    compensiConfermati.clear();
     
     agibilita.artisti.forEach(artData => {
         const artist = artistsDB.find(a => 
@@ -1576,7 +2280,6 @@ function editAgibilita(codice) {
                 matricolaEnpals: artData.matricola_enpals
             });
             
-            // Se il compenso è già 0 o < 50, considera come già confermato
             if (artData.compenso === 0 || (artData.compenso > 0 && artData.compenso < 50)) {
                 const artistKey = `${artist.codice_fiscale}-${selectedArtists.length - 1}`;
                 compensiConfermati.add(artistKey);
@@ -1611,6 +2314,7 @@ function editAgibilita(codice) {
     updateArtistsList();
     document.getElementById('editListSection').style.display = 'none';
     showSection('step1');
+    startAutosave();
 }
 
 function duplicateAgibilita(codice) {
@@ -1621,10 +2325,13 @@ function duplicateAgibilita(codice) {
     
     agibilitaData.isModifica = false;
     agibilitaData.codiceAgibilita = null;
+    agibilitaData.numeroRiservato = null;
     
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('dataInizio').value = today;
     document.getElementById('dataFine').value = '';
+    
+    showToast('Agibilità duplicata - Inserisci le nuove date', 'info');
 }
 
 function cancelAgibilita(codice) {
@@ -1634,16 +2341,7 @@ function cancelAgibilita(codice) {
     if (index !== -1) {
         agibilitaDB.splice(index, 1);
         showExistingAgibilita();
-        
-        const msg = document.createElement('div');
-        msg.className = 'alert alert-success';
-        msg.textContent = `Agibilità ${codice} annullata con successo`;
-        
-        const listDiv = document.getElementById('agibilitaList');
-        if (listDiv) {
-            listDiv.insertBefore(msg, listDiv.firstChild);
-            setTimeout(() => msg.remove(), 3000);
-        }
+        showToast(`Agibilità ${codice} annullata`, 'success');
     }
 }
 
@@ -1664,7 +2362,6 @@ function clearAllForms() {
 
     clearInvoiceFields();
     
-    // Rimuovi eventuali elementi dinamici di fatturazione
     const invoiceSelector = document.getElementById('invoiceSelector');
     if (invoiceSelector) invoiceSelector.remove();
     
@@ -1672,6 +2369,8 @@ function clearAllForms() {
     if (globalSearch) globalSearch.remove();
 
     document.getElementById('editListSection').style.display = 'none';
+    document.getElementById('bozzeSection').style.display = 'none';
+    
     const dateInfo = document.getElementById('dateInfo');
     if (dateInfo) dateInfo.style.display = 'none';
     
@@ -1739,7 +2438,6 @@ function setupEventListeners() {
             if (dropdown) dropdown.style.display = 'none';
         }
         
-        // Chiudi risultati ricerca fatturazione se clicchi fuori
         if (!event.target.matches('#invoiceSearchInput') && !event.target.matches('.search-result-item')) {
             const results = document.getElementById('invoiceSearchResults');
             if (results) results.style.display = 'none';
@@ -1747,4 +2445,4 @@ function setupEventListeners() {
     });
 }
 
-console.log('🎭 Sistema agibilità v2.0 - Con gestione compensi flessibili e fatturazione avanzata!');
+console.log('🎭 Sistema agibilità v3.0 - Con bozze, notifiche e UX migliorata!');
