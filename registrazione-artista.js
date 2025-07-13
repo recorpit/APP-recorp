@@ -1,10 +1,10 @@
 /**
- * registrazione-artista.js - VERSIONE SUPABASE CON MODIFICA
+ * registrazione-artista.js - VERSIONE SUPABASE CON MODIFICA E GESTIONE PAESI ESTERI
  * 
  * Script per la gestione della registrazione e modifica artisti nel sistema RECORP ALL-IN-ONE.
  * 
  * @author RECORP ALL-IN-ONE
- * @version 3.1 - Con fix autocompilazione CF
+ * @version 3.2 - Con gestione artisti stranieri
  */
 
 // Import Supabase DatabaseService
@@ -14,6 +14,207 @@ import { DatabaseService } from './supabase-config.js';
 let currentMode = null; // 'new' o 'edit'
 let currentArtistId = null; // ID dell'artista in modifica
 let allArtists = []; // Cache degli artisti
+
+// Lista completa dei paesi esteri
+const PAESI_ESTERI = [
+    { codice: 'AF', nome: 'AFGHANISTAN' },
+    { codice: 'AL', nome: 'ALBANIA' },
+    { codice: 'DZ', nome: 'ALGERIA' },
+    { codice: 'AD', nome: 'ANDORRA' },
+    { codice: 'AO', nome: 'ANGOLA' },
+    { codice: 'AR', nome: 'ARGENTINA' },
+    { codice: 'AM', nome: 'ARMENIA' },
+    { codice: 'AU', nome: 'AUSTRALIA' },
+    { codice: 'AT', nome: 'AUSTRIA' },
+    { codice: 'AZ', nome: 'AZERBAIGIAN' },
+    { codice: 'BS', nome: 'BAHAMAS' },
+    { codice: 'BH', nome: 'BAHRAIN' },
+    { codice: 'BD', nome: 'BANGLADESH' },
+    { codice: 'BB', nome: 'BARBADOS' },
+    { codice: 'BE', nome: 'BELGIO' },
+    { codice: 'BZ', nome: 'BELIZE' },
+    { codice: 'BJ', nome: 'BENIN' },
+    { codice: 'BT', nome: 'BHUTAN' },
+    { codice: 'BY', nome: 'BIELORUSSIA' },
+    { codice: 'BO', nome: 'BOLIVIA' },
+    { codice: 'BA', nome: 'BOSNIA-ERZEGOVINA' },
+    { codice: 'BW', nome: 'BOTSWANA' },
+    { codice: 'BR', nome: 'BRASILE' },
+    { codice: 'BN', nome: 'BRUNEI' },
+    { codice: 'BG', nome: 'BULGARIA' },
+    { codice: 'BF', nome: 'BURKINA FASO' },
+    { codice: 'BI', nome: 'BURUNDI' },
+    { codice: 'KH', nome: 'CAMBOGIA' },
+    { codice: 'CM', nome: 'CAMERUN' },
+    { codice: 'CA', nome: 'CANADA' },
+    { codice: 'CV', nome: 'CAPO VERDE' },
+    { codice: 'TD', nome: 'CIAD' },
+    { codice: 'CL', nome: 'CILE' },
+    { codice: 'CN', nome: 'CINA' },
+    { codice: 'CY', nome: 'CIPRO' },
+    { codice: 'CO', nome: 'COLOMBIA' },
+    { codice: 'KM', nome: 'COMORE' },
+    { codice: 'CG', nome: 'CONGO' },
+    { codice: 'KP', nome: 'COREA DEL NORD' },
+    { codice: 'KR', nome: 'COREA DEL SUD' },
+    { codice: 'CR', nome: 'COSTA RICA' },
+    { codice: 'CI', nome: 'COSTA D\'AVORIO' },
+    { codice: 'HR', nome: 'CROAZIA' },
+    { codice: 'CU', nome: 'CUBA' },
+    { codice: 'DK', nome: 'DANIMARCA' },
+    { codice: 'DM', nome: 'DOMINICA' },
+    { codice: 'EC', nome: 'ECUADOR' },
+    { codice: 'EG', nome: 'EGITTO' },
+    { codice: 'SV', nome: 'EL SALVADOR' },
+    { codice: 'AE', nome: 'EMIRATI ARABI UNITI' },
+    { codice: 'ER', nome: 'ERITREA' },
+    { codice: 'EE', nome: 'ESTONIA' },
+    { codice: 'ET', nome: 'ETIOPIA' },
+    { codice: 'FJ', nome: 'FIGI' },
+    { codice: 'PH', nome: 'FILIPPINE' },
+    { codice: 'FI', nome: 'FINLANDIA' },
+    { codice: 'FR', nome: 'FRANCIA' },
+    { codice: 'GA', nome: 'GABON' },
+    { codice: 'GM', nome: 'GAMBIA' },
+    { codice: 'GE', nome: 'GEORGIA' },
+    { codice: 'DE', nome: 'GERMANIA' },
+    { codice: 'GH', nome: 'GHANA' },
+    { codice: 'JM', nome: 'GIAMAICA' },
+    { codice: 'JP', nome: 'GIAPPONE' },
+    { codice: 'JO', nome: 'GIORDANIA' },
+    { codice: 'GR', nome: 'GRECIA' },
+    { codice: 'GD', nome: 'GRENADA' },
+    { codice: 'GT', nome: 'GUATEMALA' },
+    { codice: 'GN', nome: 'GUINEA' },
+    { codice: 'GQ', nome: 'GUINEA EQUATORIALE' },
+    { codice: 'GW', nome: 'GUINEA-BISSAU' },
+    { codice: 'GY', nome: 'GUYANA' },
+    { codice: 'HT', nome: 'HAITI' },
+    { codice: 'HN', nome: 'HONDURAS' },
+    { codice: 'IN', nome: 'INDIA' },
+    { codice: 'ID', nome: 'INDONESIA' },
+    { codice: 'IR', nome: 'IRAN' },
+    { codice: 'IQ', nome: 'IRAQ' },
+    { codice: 'IE', nome: 'IRLANDA' },
+    { codice: 'IS', nome: 'ISLANDA' },
+    { codice: 'IL', nome: 'ISRAELE' },
+    { codice: 'KZ', nome: 'KAZAKISTAN' },
+    { codice: 'KE', nome: 'KENYA' },
+    { codice: 'KI', nome: 'KIRIBATI' },
+    { codice: 'KW', nome: 'KUWAIT' },
+    { codice: 'KG', nome: 'KIRGHIZISTAN' },
+    { codice: 'LA', nome: 'LAOS' },
+    { codice: 'LS', nome: 'LESOTHO' },
+    { codice: 'LV', nome: 'LETTONIA' },
+    { codice: 'LB', nome: 'LIBANO' },
+    { codice: 'LR', nome: 'LIBERIA' },
+    { codice: 'LY', nome: 'LIBIA' },
+    { codice: 'LI', nome: 'LIECHTENSTEIN' },
+    { codice: 'LT', nome: 'LITUANIA' },
+    { codice: 'LU', nome: 'LUSSEMBURGO' },
+    { codice: 'MK', nome: 'MACEDONIA DEL NORD' },
+    { codice: 'MG', nome: 'MADAGASCAR' },
+    { codice: 'MW', nome: 'MALAWI' },
+    { codice: 'MY', nome: 'MALAYSIA' },
+    { codice: 'MV', nome: 'MALDIVE' },
+    { codice: 'ML', nome: 'MALI' },
+    { codice: 'MT', nome: 'MALTA' },
+    { codice: 'MA', nome: 'MAROCCO' },
+    { codice: 'MH', nome: 'MARSHALL' },
+    { codice: 'MR', nome: 'MAURITANIA' },
+    { codice: 'MU', nome: 'MAURITIUS' },
+    { codice: 'MX', nome: 'MESSICO' },
+    { codice: 'FM', nome: 'MICRONESIA' },
+    { codice: 'MD', nome: 'MOLDAVIA' },
+    { codice: 'MC', nome: 'MONACO' },
+    { codice: 'MN', nome: 'MONGOLIA' },
+    { codice: 'ME', nome: 'MONTENEGRO' },
+    { codice: 'MZ', nome: 'MOZAMBICO' },
+    { codice: 'MM', nome: 'MYANMAR' },
+    { codice: 'NA', nome: 'NAMIBIA' },
+    { codice: 'NR', nome: 'NAURU' },
+    { codice: 'NP', nome: 'NEPAL' },
+    { codice: 'NI', nome: 'NICARAGUA' },
+    { codice: 'NE', nome: 'NIGER' },
+    { codice: 'NG', nome: 'NIGERIA' },
+    { codice: 'NO', nome: 'NORVEGIA' },
+    { codice: 'NZ', nome: 'NUOVA ZELANDA' },
+    { codice: 'OM', nome: 'OMAN' },
+    { codice: 'NL', nome: 'PAESI BASSI' },
+    { codice: 'PK', nome: 'PAKISTAN' },
+    { codice: 'PW', nome: 'PALAU' },
+    { codice: 'PA', nome: 'PANAMA' },
+    { codice: 'PG', nome: 'PAPUA NUOVA GUINEA' },
+    { codice: 'PY', nome: 'PARAGUAY' },
+    { codice: 'PE', nome: 'PERÙ' },
+    { codice: 'PL', nome: 'POLONIA' },
+    { codice: 'PT', nome: 'PORTOGALLO' },
+    { codice: 'QA', nome: 'QATAR' },
+    { codice: 'GB', nome: 'REGNO UNITO' },
+    { codice: 'CZ', nome: 'REPUBBLICA CECA' },
+    { codice: 'CF', nome: 'REPUBBLICA CENTRAFRICANA' },
+    { codice: 'CD', nome: 'REPUBBLICA DEMOCRATICA DEL CONGO' },
+    { codice: 'DO', nome: 'REPUBBLICA DOMINICANA' },
+    { codice: 'RO', nome: 'ROMANIA' },
+    { codice: 'RW', nome: 'RUANDA' },
+    { codice: 'RU', nome: 'RUSSIA' },
+    { codice: 'KN', nome: 'SAINT KITTS E NEVIS' },
+    { codice: 'LC', nome: 'SAINT LUCIA' },
+    { codice: 'VC', nome: 'SAINT VINCENT E GRENADINE' },
+    { codice: 'WS', nome: 'SAMOA' },
+    { codice: 'SM', nome: 'SAN MARINO' },
+    { codice: 'ST', nome: 'SAO TOMÉ E PRINCIPE' },
+    { codice: 'SN', nome: 'SENEGAL' },
+    { codice: 'RS', nome: 'SERBIA' },
+    { codice: 'SC', nome: 'SEYCHELLES' },
+    { codice: 'SL', nome: 'SIERRA LEONE' },
+    { codice: 'SG', nome: 'SINGAPORE' },
+    { codice: 'SY', nome: 'SIRIA' },
+    { codice: 'SK', nome: 'SLOVACCHIA' },
+    { codice: 'SI', nome: 'SLOVENIA' },
+    { codice: 'SO', nome: 'SOMALIA' },
+    { codice: 'ES', nome: 'SPAGNA' },
+    { codice: 'LK', nome: 'SRI LANKA' },
+    { codice: 'US', nome: 'STATI UNITI' },
+    { codice: 'ZA', nome: 'SUDAFRICA' },
+    { codice: 'SD', nome: 'SUDAN' },
+    { codice: 'SS', nome: 'SUD SUDAN' },
+    { codice: 'SR', nome: 'SURINAME' },
+    { codice: 'SE', nome: 'SVEZIA' },
+    { codice: 'CH', nome: 'SVIZZERA' },
+    { codice: 'SZ', nome: 'SWAZILAND' },
+    { codice: 'TJ', nome: 'TAGIKISTAN' },
+    { codice: 'TW', nome: 'TAIWAN' },
+    { codice: 'TZ', nome: 'TANZANIA' },
+    { codice: 'TH', nome: 'THAILANDIA' },
+    { codice: 'TL', nome: 'TIMOR EST' },
+    { codice: 'TG', nome: 'TOGO' },
+    { codice: 'TO', nome: 'TONGA' },
+    { codice: 'TT', nome: 'TRINIDAD E TOBAGO' },
+    { codice: 'TN', nome: 'TUNISIA' },
+    { codice: 'TR', nome: 'TURCHIA' },
+    { codice: 'TM', nome: 'TURKMENISTAN' },
+    { codice: 'TV', nome: 'TUVALU' },
+    { codice: 'UA', nome: 'UCRAINA' },
+    { codice: 'UG', nome: 'UGANDA' },
+    { codice: 'HU', nome: 'UNGHERIA' },
+    { codice: 'UY', nome: 'URUGUAY' },
+    { codice: 'UZ', nome: 'UZBEKISTAN' },
+    { codice: 'VU', nome: 'VANUATU' },
+    { codice: 'VA', nome: 'CITTÀ DEL VATICANO' },
+    { codice: 'VE', nome: 'VENEZUELA' },
+    { codice: 'VN', nome: 'VIETNAM' },
+    { codice: 'YE', nome: 'YEMEN' },
+    { codice: 'ZM', nome: 'ZAMBIA' },
+    { codice: 'ZW', nome: 'ZIMBABWE' }
+];
+
+// Paesi UE (Unione Europea)
+const PAESI_UE = [
+    'AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 
+    'DE', 'GR', 'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 
+    'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE'
+];
 
 // Inizializzazione sistema registrazione artista
 document.addEventListener('DOMContentLoaded', async function() {
@@ -292,23 +493,47 @@ function populateFormWithArtist(artist) {
         // Indirizzo
         document.getElementById('indirizzo').value = artist.indirizzo || '';
         
-        // Preseleziona provincia e aspetta il caricamento delle città
-        if (artist.provincia) {
-            document.getElementById('provincia').value = artist.provincia;
-            loadCitta(artist.provincia);
+        // Gestisci indirizzo in base alla nazionalità
+        if (artist.nazionalita === 'IT' || !artist.nazionalita) {
+            // Artista italiano
+            showItalianAddressFields();
             
-            setTimeout(() => {
-                if (artist.codice_istat_citta) {
-                    document.getElementById('citta').value = artist.codice_istat_citta;
-                    loadCAP(artist.codice_istat_citta);
-                    
-                    setTimeout(() => {
-                        if (artist.cap) {
-                            document.getElementById('cap').value = artist.cap;
-                        }
-                    }, 500);
-                }
-            }, 1000);
+            // Preseleziona provincia e aspetta il caricamento delle città
+            if (artist.provincia && artist.provincia !== 'EE') {
+                document.getElementById('provincia').value = artist.provincia;
+                loadCitta(artist.provincia);
+                
+                setTimeout(() => {
+                    if (artist.codice_istat_citta) {
+                        document.getElementById('citta').value = artist.codice_istat_citta;
+                        loadCAP(artist.codice_istat_citta);
+                        
+                        setTimeout(() => {
+                            if (artist.cap && artist.cap !== '00000') {
+                                document.getElementById('cap').value = artist.cap;
+                            }
+                        }, 500);
+                    }
+                }, 1000);
+            }
+        } else {
+            // Artista straniero
+            showForeignAddressFields();
+            
+            const paeseResidenzaGroup = document.getElementById('paeseResidenzaGroup');
+            if (paeseResidenzaGroup) {
+                paeseResidenzaGroup.style.display = 'block';
+                
+                // Carica i paesi in base al tipo di nazionalità
+                loadPaesiEsteri(artist.nazionalita);
+                
+                // Seleziona il paese di residenza se presente
+                setTimeout(() => {
+                    if (artist.paese_residenza) {
+                        document.getElementById('paeseResidenza').value = artist.paese_residenza;
+                    }
+                }, 500);
+            }
         }
         
         // Dati professionali
@@ -385,6 +610,121 @@ function hideCodiceComunicazioneField() {
     document.getElementById('codiceComunicazioneGroup').style.display = 'none';
     document.getElementById('codiceComunicazione').required = false;
     document.getElementById('codiceComunicazione').value = '';
+}
+
+// ==================== GESTIONE PAESI ESTERI ====================
+
+function setupNazionalitaHandling() {
+    const nazionalitaSelect = document.getElementById('nazionalita');
+    const paeseResidenzaGroup = document.getElementById('paeseResidenzaGroup');
+    const foreignNotice = document.getElementById('foreignAddressNotice');
+    
+    if (nazionalitaSelect) {
+        nazionalitaSelect.addEventListener('change', function(e) {
+            const selectedValue = e.target.value;
+            
+            if (selectedValue === 'IT') {
+                // Italiano: mostra campi provincia/città/CAP standard
+                showItalianAddressFields();
+                if (paeseResidenzaGroup) {
+                    paeseResidenzaGroup.style.display = 'none';
+                }
+                if (foreignNotice) {
+                    foreignNotice.style.display = 'none';
+                }
+            } else if (selectedValue === 'EU' || selectedValue === 'EX') {
+                // Straniero: mostra selezione paese e nascondi provincia/città/CAP
+                showForeignAddressFields();
+                if (paeseResidenzaGroup) {
+                    paeseResidenzaGroup.style.display = 'block';
+                    loadPaesiEsteri(selectedValue);
+                }
+                if (foreignNotice) {
+                    foreignNotice.style.display = 'block';
+                }
+            }
+        });
+    }
+}
+
+// Funzione per caricare i paesi esteri nel select
+function loadPaesiEsteri(tipo) {
+    const paeseSelect = document.getElementById('paeseResidenza');
+    if (!paeseSelect) return;
+    
+    paeseSelect.innerHTML = '<option value="">Seleziona paese...</option>';
+    
+    let paesiDaMostrare = [];
+    
+    if (tipo === 'EU') {
+        // Mostra solo paesi UE
+        paesiDaMostrare = PAESI_ESTERI.filter(paese => 
+            PAESI_UE.includes(paese.codice) && paese.codice !== 'IT'
+        );
+    } else if (tipo === 'EX') {
+        // Mostra paesi extra-UE
+        paesiDaMostrare = PAESI_ESTERI.filter(paese => 
+            !PAESI_UE.includes(paese.codice)
+        );
+    }
+    
+    // Ordina alfabeticamente
+    paesiDaMostrare.sort((a, b) => a.nome.localeCompare(b.nome));
+    
+    // Popola il select
+    paesiDaMostrare.forEach(paese => {
+        const option = document.createElement('option');
+        option.value = paese.codice;
+        option.textContent = paese.nome;
+        paeseSelect.appendChild(option);
+    });
+}
+
+// Funzione per mostrare i campi indirizzo italiani
+function showItalianAddressFields() {
+    const provinciaGroup = document.getElementById('provincia').parentElement;
+    const cittaGroup = document.getElementById('citta').parentElement;
+    const capGroup = document.getElementById('cap').parentElement;
+    
+    // Mostra i campi italiani
+    provinciaGroup.style.display = 'block';
+    cittaGroup.style.display = 'block';
+    capGroup.style.display = 'block';
+    
+    // Rendi i campi obbligatori
+    document.getElementById('provincia').required = true;
+    document.getElementById('citta').required = true;
+    document.getElementById('cap').required = true;
+    
+    // Reset dei valori se erano nascosti
+    if (document.getElementById('provincia').value === '') {
+        document.getElementById('citta').innerHTML = '<option value="">Prima seleziona la provincia</option>';
+        document.getElementById('citta').disabled = true;
+        document.getElementById('cap').innerHTML = '<option value="">Prima seleziona la città</option>';
+        document.getElementById('cap').disabled = true;
+    }
+}
+
+// Funzione per mostrare i campi indirizzo stranieri
+function showForeignAddressFields() {
+    const provinciaGroup = document.getElementById('provincia').parentElement;
+    const cittaGroup = document.getElementById('citta').parentElement;
+    const capGroup = document.getElementById('cap').parentElement;
+    
+    // Nascondi i campi italiani
+    provinciaGroup.style.display = 'none';
+    cittaGroup.style.display = 'none';
+    capGroup.style.display = 'none';
+    
+    // Rendi i campi non obbligatori
+    document.getElementById('provincia').required = false;
+    document.getElementById('citta').required = false;
+    document.getElementById('cap').required = false;
+    
+    // Svuota i valori
+    document.getElementById('provincia').value = '';
+    document.getElementById('citta').value = '';
+    document.getElementById('cap').value = '';
 }
 
 // Cerca comune per codice catastale/Belfiore
@@ -842,6 +1182,9 @@ function setupEventListeners() {
             e.target.value = e.target.value.toUpperCase();
         });
     }
+    
+    // Setup gestione nazionalità
+    setupNazionalitaHandling();
 }
 
 function loadCitta(provincia) {
@@ -948,6 +1291,7 @@ function handleFormSubmit(e) {
     // Raccogli i dati del form
     const formData = new FormData(e.target);
     const dataNascita = formData.get('dataNascita');
+    const nazionalita = formData.get('nazionalita');
     
     const artistData = {
         nome: formData.get('nome').toUpperCase(),
@@ -960,23 +1304,39 @@ function handleFormSubmit(e) {
         luogoNascita: formData.get('luogoNascita') || '',
         provinciaNascita: formData.get('provinciaNascita')?.toUpperCase() || '',
         eta: calculateAge(dataNascita),
-        nazionalita: formData.get('nazionalita'),
+        nazionalita: nazionalita,
         telefono: formData.get('telefono'),
         email: formData.get('email'),
         indirizzo: formData.get('indirizzo'),
-        provincia: formData.get('provincia'),
-        citta: document.querySelector('#citta option:checked')?.textContent || '',
-        cap: formData.get('cap'),
-        codiceIstatCitta: formData.get('citta'), // Salva anche il codice ISTAT
         hasPartitaIva: formData.get('hasPartitaIva'),
         partitaIva: formData.get('hasPartitaIva') === 'si' ? formData.get('partitaIva') : '',
         tipoRapporto: formData.get('hasPartitaIva') === 'no' ? formData.get('tipoRapporto') : '',
-        codiceComunicazione: formData.get('codiceComunicazione') || '', // NUOVO CAMPO
+        codiceComunicazione: formData.get('codiceComunicazione') || '',
         iban: formData.get('iban').toUpperCase().replace(/\s/g, ''),
         mansione: formData.get('mansione'),
         note: formData.get('note'),
         dataRegistrazione: new Date().toISOString()
     };
+    
+    // Gestione campi indirizzo in base alla nazionalità
+    if (nazionalita === 'IT') {
+        // Per italiani, usa i campi standard
+        artistData.provincia = formData.get('provincia');
+        artistData.citta = document.querySelector('#citta option:checked')?.textContent || '';
+        artistData.cap = formData.get('cap');
+        artistData.codiceIstatCitta = formData.get('citta');
+        artistData.paeseResidenza = 'IT';
+    } else {
+        // Per stranieri, imposta i campi diversamente
+        const paeseResidenza = formData.get('paeseResidenza');
+        const paiseName = document.querySelector('#paeseResidenza option:checked')?.textContent || '';
+        
+        artistData.provincia = 'EE'; // EE = Estero
+        artistData.citta = paiseName;
+        artistData.cap = '00000'; // CAP generico per esteri
+        artistData.codiceIstatCitta = null;
+        artistData.paeseResidenza = paeseResidenza;
+    }
     
     // Validazione base
     if (!validateCodiceFiscale(artistData.codiceFiscale)) {
@@ -1027,6 +1387,12 @@ function handleFormSubmit(e) {
     // Verifica codice comunicazione per contratti a chiamata
     if (artistData.tipoRapporto === 'chiamata' && !artistData.codiceComunicazione) {
         showError('Codice comunicazione INPS obbligatorio per contratti a chiamata');
+        return;
+    }
+    
+    // Verifica campi indirizzo per stranieri
+    if (nazionalita !== 'IT' && !artistData.paeseResidenza) {
+        showError('Seleziona il paese di residenza');
         return;
     }
     
@@ -1422,6 +1788,20 @@ function resetForm() {
         document.getElementById('tipoRapportoGroup').style.display = 'none';
         document.getElementById('codiceComunicazioneGroup').style.display = 'none';
         
+        // Nascondi campi per stranieri
+        const paeseResidenzaGroup = document.getElementById('paeseResidenzaGroup');
+        if (paeseResidenzaGroup) {
+            paeseResidenzaGroup.style.display = 'none';
+        }
+        
+        const foreignNotice = document.getElementById('foreignAddressNotice');
+        if (foreignNotice) {
+            foreignNotice.style.display = 'none';
+        }
+        
+        // Mostra campi italiani
+        showItalianAddressFields();
+        
         // Rimuovi eventuali span di età e alert
         const ageDisplay = document.querySelector('.age-display');
         if (ageDisplay) ageDisplay.remove();
@@ -1439,14 +1819,7 @@ function resetForm() {
     }
 }
 
-// Non rendere più le funzioni globali poiché usiamo event listeners
-// window.cancelRegistration = cancelRegistration;
-// window.selectMode = selectMode;
-// window.goBackToModeSelection = goBackToModeSelection;
-// window.selectArtistForEdit = selectArtistForEdit;
-// window.debugDatabaseStatus = debugDatabaseStatus;
-
 // Esporta solo per debug
 window.debugDatabaseStatus = debugDatabaseStatus;
 
-console.log('📝 Sistema gestione artisti v3.1 - Con fix autocompilazione CF!');
+console.log('📝 Sistema gestione artisti v3.2 - Con gestione paesi esteri!');
