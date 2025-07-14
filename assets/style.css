@@ -533,6 +533,10 @@ a:hover {
     max-width: 900px;
 }
 
+.modal-content-small {
+    max-width: 400px;
+}
+
 .modal-header {
     display: flex;
     justify-content: space-between;
@@ -761,6 +765,32 @@ textarea.form-control:focus {
 
 .tab-content.active {
     display: block;
+}
+
+.tab-badge {
+    background: #dc3545;
+    color: white;
+    border-radius: 12px;
+    padding: 2px 8px;
+    font-size: 0.8rem;
+    margin-left: 0.5rem;
+}
+
+.tab-icon {
+    margin-right: 0.5rem;
+}
+
+/* Tab Header */
+.tab-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.tab-actions {
+    display: flex;
+    gap: 0.5rem;
 }
 
 /* ==================== TABLE STYLES ==================== */
@@ -1296,6 +1326,16 @@ textarea.form-control::placeholder {
     font-size: 0.875rem;
 }
 
+.artist-info .nationality-badge {
+    display: inline-block;
+    background: #2196f3;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    margin-left: 0.5rem;
+}
+
 .artist-role-compensation {
     display: flex;
     gap: 1rem;
@@ -1304,6 +1344,16 @@ textarea.form-control::placeholder {
 
 .compensation-input {
     width: 150px;
+}
+
+.compensation-input.warning {
+    border-color: #ff9800 !important;
+    background-color: #fff3e0 !important;
+}
+
+.compensation-input.gratuito {
+    border-color: #4caf50 !important;
+    background-color: #e8f5e9 !important;
 }
 
 /* Tipo rapporto badges */
@@ -1577,7 +1627,8 @@ textarea.form-control::placeholder {
 /* No data messages specific to agibilità */
 .no-artists-message,
 .no-results,
-.no-data-message {
+.no-data-message,
+.no-data {
     text-align: center;
     color: var(--text-muted);
     font-style: italic;
@@ -1632,28 +1683,6 @@ textarea.form-control::placeholder {
     margin-top: 0.5rem;
 }
 
-/* Evidenziazione compensi speciali */
-.compensation-input.warning {
-    border-color: #ff9800 !important;
-    background-color: #fff3e0 !important;
-}
-
-.compensation-input.gratuito {
-    border-color: #4caf50 !important;
-    background-color: #e8f5e9 !important;
-}
-
-/* Badge per artisti stranieri */
-.artist-info .nationality-badge {
-    display: inline-block;
-    background: #2196f3;
-    color: white;
-    padding: 2px 8px;
-    border-radius: 12px;
-    font-size: 0.75rem;
-    margin-left: 0.5rem;
-}
-
 /* Messaggio di conferma fatturazione */
 .invoice-loaded-message {
     background-color: #d4edda;
@@ -1663,6 +1692,312 @@ textarea.form-control::placeholder {
     border-radius: 4px;
     margin-bottom: 1rem;
     animation: slideDown 0.3s ease-out;
+}
+
+/* ==================== PAGAMENTI MODULE STYLES ==================== */
+/* Stats Row per pagamenti */
+.stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+/* Filtri */
+.filters-section {
+    background: #f8f9fa;
+    padding: 1.5rem;
+    border-radius: 8px;
+    margin-bottom: 2rem;
+}
+
+.filters-row {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-end;
+    flex-wrap: wrap;
+}
+
+.filter-group {
+    flex: 1;
+    min-width: 200px;
+}
+
+.filter-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: #495057;
+}
+
+.date-range {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.filter-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* Payment List */
+.payment-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.payment-item {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: all 0.3s ease;
+}
+
+.payment-item:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.payment-item.selected {
+    background: #e3f2fd;
+    border-color: #2196f3;
+}
+
+.payment-item.pagato {
+    opacity: 0.7;
+    background: #f5f5f5;
+}
+
+.payment-checkbox {
+    flex-shrink: 0;
+}
+
+.payment-info {
+    flex: 1;
+}
+
+.artist-name {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.cf-badge, .piva-badge {
+    background: #e9ecef;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    margin-left: 0.5rem;
+}
+
+.payment-details {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+.agibilita-ref {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.payment-amounts {
+    display: flex;
+    gap: 1.5rem;
+    align-items: center;
+}
+
+.amount-lordo {
+    color: #6c757d;
+}
+
+.amount-ritenuta {
+    color: #dc3545;
+    font-size: 0.9rem;
+}
+
+.amount-netto {
+    color: #28a745;
+}
+
+.payment-actions {
+    flex-shrink: 0;
+    display: flex;
+    gap: 0.5rem;
+}
+
+.status-badge {
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.status-da_pagare {
+    background: #ffeaa7;
+    color: #d63031;
+}
+
+.status-in_elaborazione {
+    background: #74b9ff;
+    color: #0984e3;
+}
+
+.status-pagato {
+    background: #55efc4;
+    color: #00b894;
+}
+
+.status-annullato {
+    background: #636e72;
+    color: white;
+}
+
+.status-cedolino {
+    background: #a29bfe;
+    color: #6c5ce7;
+}
+
+/* Invoice Check */
+.invoice-check {
+    margin: 0.5rem 0;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+.checkbox-label input {
+    margin-right: 0.5rem;
+}
+
+.invoice-date {
+    margin-left: 1rem;
+    color: #28a745;
+    font-size: 0.85rem;
+}
+
+/* Contract Badge */
+.contract-badge {
+    background: #6c5ce7;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    margin-left: 0.5rem;
+}
+
+/* Month Group */
+.month-group {
+    margin-bottom: 2rem;
+}
+
+.month-header {
+    background: #f8f9fa;
+    padding: 0.75rem 1rem;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+    font-weight: 600;
+}
+
+/* Riepilogo CIV */
+.riepilogo-section {
+    margin-top: 2rem;
+}
+
+.riepilogo-grid {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 1rem;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.civ-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.75rem;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.civ-item:last-child {
+    border-bottom: none;
+}
+
+.civ-beneficiary strong {
+    display: block;
+    margin-bottom: 0.25rem;
+}
+
+.iban {
+    font-size: 0.85rem;
+    color: #6c757d;
+    font-family: monospace;
+}
+
+.civ-amount {
+    font-weight: 600;
+    color: #28a745;
+}
+
+/* Summary Totals */
+.summary-totals {
+    margin-top: 2rem;
+    background: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.total-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.total-row:last-child {
+    border-bottom: none;
+}
+
+.total-final {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #2c3e50;
+    padding-top: 1rem;
+    border-top: 2px solid #dee2e6;
+    margin-top: 0.5rem;
+}
+
+/* Payment Detail Modal */
+.payment-detail h3 {
+    color: #2c3e50;
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.payment-detail h3:first-child {
+    margin-top: 0;
+}
+
+.payment-detail p {
+    margin: 0.5rem 0;
+    line-height: 1.6;
+}
+
+.payment-detail strong {
+    color: #495057;
 }
 
 /* ==================== TOAST NOTIFICATIONS ==================== */
@@ -1928,7 +2263,7 @@ textarea.form-control::placeholder {
         grid-template-columns: 1fr;
     }
     
-    .stats-grid {
+    .stats-grid, .stats-row {
         grid-template-columns: repeat(2, 1fr);
         gap: 1rem;
     }
@@ -2070,10 +2405,35 @@ textarea.form-control::placeholder {
     .calendar-body {
         font-size: 0.75rem;
     }
+    
+    /* Pagamenti responsive */
+    .filters-row {
+        flex-direction: column;
+    }
+    
+    .filter-group {
+        width: 100%;
+    }
+    
+    .payment-item {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .payment-amounts {
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+    
+    .payment-actions {
+        width: 100%;
+        justify-content: flex-end;
+        margin-top: 1rem;
+    }
 }
 
 @media (max-width: 480px) {
-    .stats-grid {
+    .stats-grid, .stats-row {
         grid-template-columns: 1fr;
     }
     
