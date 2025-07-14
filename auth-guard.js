@@ -40,9 +40,7 @@ export class AuthGuard {
    * Reindirizza alla pagina di login salvando l'URL corrente
    */
   static redirectToLogin() {
-    // Salva URL corrente per redirect post-login
-    const currentUrl = window.location.href;
-    const loginUrl = new URL('/login.html', window.location.origin);
+    const redirectUrl = new URLSearchParams(window.location.search).get('redirect') || '/index.html';
     loginUrl.searchParams.set('redirect', currentUrl);
     
     console.log('🔄 Redirect a login:', loginUrl.href);

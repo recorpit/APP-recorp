@@ -367,11 +367,21 @@
             }
 
             redirectToDashboard() {
-                // Salva URL corrente per possibili redirect futuri
-                const redirectUrl = new URLSearchParams(window.location.search).get('redirect') || '/index.html';
+                // Ottieni base path per GitHub Pages
+                const basePath = this.getBasePath();
+                const redirectUrl = new URLSearchParams(window.location.search).get('redirect') || `${basePath}/index.html`;
                 
                 console.log('🔄 Redirect a dashboard:', redirectUrl);
                 window.location.href = redirectUrl;
+            }
+
+            getBasePath() {
+                // Se siamo su GitHub Pages
+                if (window.location.hostname === 'recorpit.github.io') {
+                    return '/APP-recorp';
+                }
+                // Se siamo in locale
+                return '';
             }
 
             isValidEmail(email) {
