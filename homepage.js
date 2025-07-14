@@ -57,7 +57,7 @@ async function updateStatistics() {
     try {
         const stats = await DatabaseService.getStatistiche();
         
-        // Aggiorna i display
+        // Aggiorna i display esistenti
         document.getElementById('totalArtists').textContent = stats.artisti || 0;
         document.getElementById('monthlyAgibilita').textContent = stats.agibilita_mese || 0;
         
@@ -80,11 +80,11 @@ async function updateStatistics() {
         }
         document.getElementById('totalCompensation').textContent = compText;
         
-        // Calcola completion rate
-        const completionRate = stats.agibilita_totali > 0 
-            ? Math.round((stats.agibilita_totali - stats.bozze_sospese) / stats.agibilita_totali * 100)
-            : 0;
-        document.getElementById('completionRate').textContent = completionRate + '%';
+        // Mostra artisti totali messi in regola questo mese (con ripetizioni)
+        document.getElementById('completionRate').textContent = stats.artisti_totali_mese || 0;
+        
+        // Aggiorna le label delle statistiche
+        updateStatLabels(stats);
         
     } catch (error) {
         console.error('❌ Errore aggiornamento statistiche:', error);
@@ -92,7 +92,53 @@ async function updateStatistics() {
         document.getElementById('totalArtists').textContent = artistsDB.length;
         document.getElementById('monthlyAgibilita').textContent = '0';
         document.getElementById('totalCompensation').textContent = '€0';
-        document.getElementById('completionRate').textContent = '0%';
+        document.getElementById('completionRate').textContent = '0';
+    }
+}
+
+function updateStatLabels(stats) {
+    // Trova e aggiorna la label per mostrare "Prestazioni Totali/Mese"
+    const completionRateCard = document.querySelector('#completionRate').closest('.stat-card');
+    if (completionRateCard) {
+        const label = completionRateCard.querySelector('.stat-label');
+        if (label) {
+            label.textContent = 'Prestazioni Totali/Mese';
+        }
+        
+        // Aggiungi info sugli artisti unici se diverso dal totale
+        if (stats.artisti_unici_mese > 0 && stats.artisti_unici_mese !== stats.artisti_totali_mese) {
+            const existingInfo = completionRateCard.querySelector('.stat-info');
+            if (!existingInfo) {
+                const infoDiv = document.createElement('div');
+                infoDiv.className = 'stat-info';
+                infoDiv.style.fontSize = '0.8rem';
+                infoDiv.style.color = '#666';
+                infoDiv.style.marginTop = '5px';
+                infoDiv.textContent = `(${stats.artisti_unici_mese} artisti unici)`;
+                completionRateCard.appendChild(infoDiv);
+            } else {
+                existingInfo.textContent = `(${stats.artisti_unici_mese} artisti unici)`;
+            }
+        }
+    }
+    
+    // Aggiungi media artisti per agibilità
+    if (stats.media_artisti_agibilita > 0) {
+        const agibilitaCard = document.querySelector('#monthlyAgibilita').closest('.stat-card');
+        if (agibilitaCard) {
+            const existingAvg = agibilitaCard.querySelector('.stat-avg');
+            if (!existingAvg) {
+                const avgIndicator = document.createElement('div');
+                avgIndicator.className = 'stat-avg';
+                avgIndicator.style.fontSize = '0.8rem';
+                avgIndicator.style.color = '#666';
+                avgIndicator.style.marginTop = '5px';
+                avgIndicator.textContent = `Media: ${stats.media_artisti_agibilita} artisti/agibilità`;
+                agibilitaCard.appendChild(avgIndicator);
+            } else {
+                existingAvg.textContent = `Media: ${stats.media_artisti_agibilita} artisti/agibilità`;
+            }
+        }
     }
 }
 
