@@ -1,7 +1,7 @@
 // homepage.js - Sistema Gestione Homepage RECORP
 
 // Import Supabase DatabaseService
-import { DatabaseService, testConnection } from './supabase-config.js';
+import { DatabaseService } from './supabase-config.js';
 
 // ==================== VARIABILI GLOBALI ====================
 let artistsDB = [];
@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     console.log('🚀 Inizializzazione sistema RECORP...');
     
     // Test connessione Supabase
-    const connected = await testConnection();
+    const connected = await DatabaseService.testConnection();
     if (!connected) {
         alert('⚠️ Errore connessione database. Controlla la configurazione.');
         return;
@@ -35,7 +35,7 @@ async function loadDataFromSupabase() {
         console.log('📥 Caricamento dati da Supabase...');
         
         // Carica artisti
-        artistsDB = await DatabaseService.getAllArtisti();
+        artistsDB = await DatabaseService.getArtists();
         console.log(`✅ ${artistsDB.length} artisti caricati`);
         
         // Carica agibilità
@@ -55,22 +55,36 @@ async function loadDataFromSupabase() {
 // ==================== STATISTICHE ====================
 async function updateStatistics() {
     try {
-        const stats = await DatabaseService.getStats();
+        const stats = await DatabaseService.getStatistiche();
         
         // Aggiorna i display
-        document.getElementById('totalArtists').textContent = stats.totalArtists;
-        document.getElementById('monthlyAgibilita').textContent = stats.monthlyAgibilita;
+        document.getElementById('totalArtists').textContent = stats.artisti || 0;
+        document.getElementById('monthlyAgibilita').textContent = stats.agibilita_mese || 0;
+        
+        // Calcola compenso totale dalle agibilità caricate
+        let totalCompensation = 0;
+        agibilitaDB.forEach(agibilita => {
+            if (agibilita.artisti && Array.isArray(agibilita.artisti)) {
+                agibilita.artisti.forEach(artista => {
+                    totalCompensation += parseFloat(artista.compenso || 0);
+                });
+            }
+        });
         
         // Formatta compenso
         let compText = '€0';
-        if (stats.totalCompensation >= 1000) {
-            compText = '€' + (stats.totalCompensation / 1000).toFixed(1) + 'k';
-        } else if (stats.totalCompensation > 0) {
-            compText = '€' + stats.totalCompensation.toFixed(0);
+        if (totalCompensation >= 1000) {
+            compText = '€' + (totalCompensation / 1000).toFixed(1) + 'k';
+        } else if (totalCompensation > 0) {
+            compText = '€' + totalCompensation.toFixed(0);
         }
         document.getElementById('totalCompensation').textContent = compText;
         
-        document.getElementById('completionRate').textContent = stats.completionRate + '%';
+        // Calcola completion rate
+        const completionRate = stats.agibilita_totali > 0 
+            ? Math.round((stats.agibilita_totali - stats.bozze_sospese) / stats.agibilita_totali * 100)
+            : 0;
+        document.getElementById('completionRate').textContent = completionRate + '%';
         
     } catch (error) {
         console.error('❌ Errore aggiornamento statistiche:', error);
@@ -98,7 +112,7 @@ function openChatAI() {
 
 // ==================== RICERCA ARTISTI ====================
 async function searchArtist() {
-    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const searchTerm = document.getElementById('searchInput').value.trim();
     
     if (!searchTerm) {
         alert('Inserisci un nome o codice fiscale per la ricerca');
@@ -107,7 +121,7 @@ async function searchArtist() {
 
     try {
         // Cerca in Supabase
-        const results = await DatabaseService.searchArtisti(searchTerm);
+        const results = await DatabaseService.searchArtistsForAgibilita(searchTerm);
         displaySearchResults(results, searchTerm);
     } catch (error) {
         console.error('❌ Errore ricerca:', error);
@@ -146,7 +160,7 @@ function displaySearchResults(results, searchTerm) {
                         <h4>Agibilità Recenti:</h4>
                         ${artistAgibilita.slice(-3).map(a => `
                             <div class="agibilita-item">
-                                <span>${new Date(a.data_inizio).toLocaleDateString('it-IT')} | ${a.locale.descrizione}</span>
+                                <span>${a.data_inizio ? new Date(a.data_inizio).toLocaleDateString('it-IT') : 'Data N/D'} | ${a.locale?.descrizione || 'Locale N/D'}</span>
                                 <span>€${a.artisti.find(art => art.cf === artist.codice_fiscale)?.compenso || 0}</span>
                             </div>
                         `).join('')}
@@ -160,7 +174,7 @@ function displaySearchResults(results, searchTerm) {
                         <div class="result-info">
                             <h3>${displayName}</h3>
                             <p>CF: ${artist.codice_fiscale} | Tel: ${artist.telefono || 'N/D'}</p>
-                            <p class="artist-role">${artist.mansione}</p>
+                            <p class="artist-role">${artist.mansione || 'Mansione N/D'}</p>
                         </div>
                         <div class="result-actions">
                             <button class="btn btn-primary btn-sm" onclick="createAgibilitaForArtist('${artist.id}')">
@@ -182,7 +196,7 @@ function displaySearchResults(results, searchTerm) {
 
 // ==================== SUGGERIMENTI RICERCA ====================
 async function showSuggestions() {
-    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const searchTerm = document.getElementById('searchInput').value.trim();
     const suggestionsDiv = document.getElementById('suggestions');
     
     if (searchTerm.length < 2) {
@@ -191,7 +205,7 @@ async function showSuggestions() {
     }
     
     try {
-        const matches = await DatabaseService.searchArtisti(searchTerm);
+        const matches = await DatabaseService.searchArtistsForAgibilita(searchTerm);
         
         if (matches.length === 0) {
             suggestionsDiv.innerHTML = '<div class="no-suggestions">Nessun artista trovato</div>';
@@ -206,7 +220,7 @@ async function showSuggestions() {
             return `
                 <div class="suggestion-item" onclick="selectArtist('${artist.id}')">
                     <div>${highlightedName}</div>
-                    <div class="suggestion-info">${artist.mansione} | CF: ${artist.codice_fiscale}</div>
+                    <div class="suggestion-info">${artist.mansione || 'N/D'} | CF: ${artist.codice_fiscale}</div>
                 </div>
             `;
         }).join('');
@@ -295,7 +309,7 @@ async function loadDBArtists() {
             <tr>
                 <td>${artist.nome} ${artist.cognome}${artist.nome_arte ? ' - ' + artist.nome_arte : ''}</td>
                 <td>${artist.codice_fiscale}</td>
-                <td>${artist.mansione}</td>
+                <td>${artist.mansione || 'N/D'}</td>
                 <td class="text-center">
                     <button class="btn btn-danger btn-sm" onclick="removeArtistFromDB('${artist.id}')">
                         🗑️ Rimuovi
@@ -318,8 +332,8 @@ async function loadDBVenues() {
         tbody.innerHTML = venuesDB.map(venue => `
             <tr>
                 <td>${venue.nome}</td>
-                <td>${venue.citta_nome}</td>
-                <td>${venue.indirizzo}</td>
+                <td>${venue.citta_nome || 'N/D'}</td>
+                <td>${venue.indirizzo || 'N/D'}</td>
                 <td class="text-center">
                     <button class="btn btn-danger btn-sm" onclick="removeVenueFromDB('${venue.id}')">
                         🗑️ Rimuovi
@@ -348,34 +362,64 @@ function filterDBVenues() {
     });
 }
 
-function removeArtistFromDB(artistId) {
-    alert('Funzione di rimozione in implementazione - Step successivo!');
+async function removeArtistFromDB(artistId) {
+    if (!confirm('Sei sicuro di voler rimuovere questo artista?')) {
+        return;
+    }
+    
+    try {
+        await DatabaseService.deleteArtist(artistId);
+        alert('Artista rimosso con successo!');
+        // Ricarica i dati
+        await loadDataFromSupabase();
+        await loadDBArtists();
+        updateStatistics();
+    } catch (error) {
+        console.error('❌ Errore rimozione artista:', error);
+        alert('Errore durante la rimozione: ' + error.message);
+    }
 }
 
-function removeVenueFromDB(venueId) {
-    alert('Funzione di rimozione in implementazione - Step successivo!');
+async function removeVenueFromDB(venueId) {
+    if (!confirm('Sei sicuro di voler rimuovere questo locale?')) {
+        return;
+    }
+    
+    try {
+        await DatabaseService.deleteVenue(venueId);
+        alert('Locale rimosso con successo!');
+        // Ricarica i dati
+        await loadDataFromSupabase();
+        await loadDBVenues();
+    } catch (error) {
+        console.error('❌ Errore rimozione locale:', error);
+        alert('Errore durante la rimozione: ' + error.message);
+    }
 }
 
 function exportDatabase(type) {
     let data = {};
     let filename = '';
+    const timestamp = new Date().toISOString().split('T')[0];
     
     switch(type) {
         case 'artisti':
             data = { artisti: artistsDB };
-            filename = 'recorp_artisti_export.json';
+            filename = `recorp_artisti_export_${timestamp}.json`;
             break;
         case 'locali':
             data = { locali: venuesDB };
-            filename = 'recorp_locali_export.json';
+            filename = `recorp_locali_export_${timestamp}.json`;
             break;
         case 'all':
             data = { 
                 artisti: artistsDB, 
                 locali: venuesDB, 
-                agibilita: agibilitaDB 
+                agibilita: agibilitaDB,
+                export_date: new Date().toISOString(),
+                version: '1.0'
             };
-            filename = 'recorp_database_completo.json';
+            filename = `recorp_database_completo_${timestamp}.json`;
             break;
     }
     
@@ -386,10 +430,59 @@ function exportDatabase(type) {
     a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
+    
+    alert(`Export completato: ${filename}`);
 }
 
-function importDatabase(event) {
-    alert('Funzione di import in implementazione - Step successivo!');
+async function importDatabase(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        
+        let importedCount = 0;
+        
+        // Import artisti
+        if (data.artisti && Array.isArray(data.artisti)) {
+            for (const artist of data.artisti) {
+                try {
+                    await DatabaseService.saveArtist(artist);
+                    importedCount++;
+                } catch (e) {
+                    console.error('Errore import artista:', e);
+                }
+            }
+        }
+        
+        // Import locali
+        if (data.locali && Array.isArray(data.locali)) {
+            for (const venue of data.locali) {
+                try {
+                    await DatabaseService.saveVenue(venue);
+                    importedCount++;
+                } catch (e) {
+                    console.error('Errore import locale:', e);
+                }
+            }
+        }
+        
+        alert(`Import completato! ${importedCount} record importati.`);
+        
+        // Ricarica i dati
+        await loadDataFromSupabase();
+        await loadDBArtists();
+        await loadDBVenues();
+        updateStatistics();
+        
+    } catch (error) {
+        console.error('❌ Errore import:', error);
+        alert('Errore durante l\'import: ' + error.message);
+    }
+    
+    // Reset input
+    event.target.value = '';
 }
 
 // ==================== SETUP EVENT LISTENERS ====================
