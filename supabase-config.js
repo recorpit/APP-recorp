@@ -1,12 +1,33 @@
-// supabase-config.js - Configurazione e servizio database Supabase
+// supabase-config.js - Configurazione SICURA per RECORP
+// Le credenziali sono ora caricate da variabili ambiente
 
-const SUPABASE_URL = 'https://nommluymuwioddhaujxu.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5vbW1sdXltdXdpb2RkaGF1anh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE5ODA5MjgsImV4cCI6MjA2NzU1NjkyOH0.oaF5uaNe21W8NU67n1HjngngMUClkss2achTQ7BZ5tE';
+// =====================================================
+// CONFIGURAZIONE SICURA SUPABASE
+// =====================================================
 
-// Inizializza Supabase client
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// Servizio database centralizzato
+// Verifica che le variabili ambiente siano configurate
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('❌ Configurazione Supabase mancante. Controlla file .env');
+}
+
+// Inizializza Supabase client con configurazione sicura
+const supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true
+  }
+});
+
+console.log('✅ Supabase configurato tramite environment variables');
+
+// =====================================================
+// SERVIZIO DATABASE CENTRALIZZATO (MANTENUTO)
+// =====================================================
+
 class DatabaseService {
     constructor() {
         this.supabase = supabase;
@@ -998,6 +1019,10 @@ class DatabaseService {
     }
 }
 
+// =====================================================
+// EXPORTS E COMPATIBILITÀ
+// =====================================================
+
 // Crea istanza singleton del servizio
 const dbService = new DatabaseService();
 
@@ -1008,4 +1033,4 @@ export { dbService as DatabaseService, supabase };
 window.DatabaseService = dbService;
 window.supabase = supabase;
 
-console.log('🔌 Supabase configurato e pronto');
+console.log('🔌 Supabase configurato SICURAMENTE e pronto');
