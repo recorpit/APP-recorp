@@ -165,6 +165,21 @@ class DatabaseService {
         }
     }
 
+    async deleteVenue(id) {
+        try {
+            const { error } = await this.supabase
+                .from('venues')
+                .delete()
+                .eq('id', id);
+            
+            if (error) throw error;
+            return true;
+        } catch (error) {
+            console.error('Errore eliminazione venue:', error);
+            throw error;
+        }
+    }
+
     // ==================== GESTIONE COMUNICAZIONI ====================
     async getComunicazioni() {
         try {
