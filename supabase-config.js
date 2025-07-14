@@ -16,7 +16,7 @@ class DatabaseService {
     async getArtists() {
         try {
             const { data, error } = await this.supabase
-                .from('artists')
+                .from('artisti')
                 .select('*')
                 .order('created_at', { ascending: false });
             
@@ -309,7 +309,7 @@ class DatabaseService {
     async getDatiFatturazione() {
         try {
             const { data, error } = await this.supabase
-                .from('dati_fatturazione')
+                .from('invoice_data')
                 .select('*')
                 .order('ragione_sociale', { ascending: true });
             
