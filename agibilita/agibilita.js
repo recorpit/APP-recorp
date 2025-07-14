@@ -987,7 +987,7 @@ function goToStep3() {
     showSection('step3');
 }
 
-// ==================== GESTIONE ARTISTI (MODIFICATA) ====================
+// ==================== GESTIONE ARTISTI (CORRETTA) ====================
 function showAddArtistModal() {
     console.log('Opening artist modal');
     const modal = document.getElementById('addArtistModal');
@@ -1006,8 +1006,9 @@ function closeModal() {
     }
 }
 
+// CORREZIONE 1: Funzione searchArtists migliorata per cercare nome E cognome insieme
 async function searchArtists() {
-    const searchTerm = document.getElementById('artistSearch').value.toLowerCase();
+    const searchTerm = document.getElementById('artistSearch').value.toLowerCase().trim();
     
     if (!searchTerm) {
         document.getElementById('searchResults').innerHTML = '';
@@ -1015,8 +1016,27 @@ async function searchArtists() {
     }
     
     try {
-        // Cerca in Supabase
-        const results = await DatabaseService.searchArtisti(searchTerm);
+        // Dividi il termine di ricerca in parole
+        const searchWords = searchTerm.split(/\s+/).filter(word => word.length > 0);
+        
+        // Cerca in Supabase con logica migliorata
+        let results = await DatabaseService.searchArtisti(searchTerm);
+        
+        // Se non ci sono risultati con la ricerca standard, prova con le singole parole
+        if (results.length === 0 && searchWords.length > 1) {
+            // Cerca artisti che contengono TUTTE le parole nel nome o cognome
+            const allArtists = await DatabaseService.getAllArtisti();
+            results = allArtists.filter(artist => {
+                const fullName = `${artist.nome} ${artist.cognome} ${artist.nome_arte || ''}`.toLowerCase();
+                const cfSearch = artist.codice_fiscale ? artist.codice_fiscale.toLowerCase() : '';
+                
+                // Verifica se tutte le parole di ricerca sono presenti
+                return searchWords.every(word => 
+                    fullName.includes(word) || cfSearch.includes(word)
+                );
+            });
+        }
+        
         displayArtistResults(results);
     } catch (error) {
         console.error('❌ Errore ricerca artisti:', error);
@@ -1052,6 +1072,7 @@ function displayArtistResults(results) {
     }
 }
 
+// CORREZIONE 2: Funzione addArtistToList con autocompilazione mansione corretta
 function addArtistToList(artistId) {
     console.log('Adding artist:', artistId);
     
@@ -1078,10 +1099,49 @@ function addArtistToList(artistId) {
     }
 
     const tipoRapporto = determineTipoRapporto(artist);
+    
+    // CORREZIONE: Mappa correttamente la mansione al ruolo
+    let ruoloPrecompilato = '';
+    if (artist.mansione) {
+        // Mappa diretta delle mansioni ai ruoli del dropdown
+        const mansioneToRuoloMap = {
+            'DJ': 'DJ',
+            'Vocalist': 'Vocalist',
+            'Musicista': 'Musicista',
+            'Cantante': 'Cantante',
+            'Ballerino': 'Ballerino/a',
+            'Ballerina': 'Ballerino/a',
+            'Performer': 'Performer',
+            'Animatore': 'Animatore',
+            'Tecnico Audio': 'Tecnico Audio',
+            'Tecnico Luci': 'Tecnico Luci',
+            'Fotografo': 'Fotografo',
+            'Videomaker': 'Videomaker',
+            'Truccatore': 'Truccatore',
+            'Costumista': 'Costumista',
+            'Scenografo': 'Scenografo'
+        };
+        
+        // Cerca corrispondenza esatta o parziale
+        ruoloPrecompilato = mansioneToRuoloMap[artist.mansione] || '';
+        
+        // Se non trova corrispondenza esatta, prova con ricerca case-insensitive
+        if (!ruoloPrecompilato) {
+            const mansioneLower = artist.mansione.toLowerCase();
+            for (const [key, value] of Object.entries(mansioneToRuoloMap)) {
+                if (key.toLowerCase() === mansioneLower) {
+                    ruoloPrecompilato = value;
+                    break;
+                }
+            }
+        }
+        
+        console.log(`Mansione: ${artist.mansione} -> Ruolo: ${ruoloPrecompilato}`);
+    }
 
     selectedArtists.push({
         ...artist,
-        ruolo: artist.mansione || '', // MODIFICA: Precompila la mansione dal database
+        ruolo: ruoloPrecompilato, // Usa il ruolo mappato, non la mansione diretta
         compenso: 0,
         matricolaEnpals: artist.matricola_enpals || generateMatricolaEnpals(),
         tipoRapporto: tipoRapporto
@@ -1339,6 +1399,7 @@ function showIntermittentiSummary(artistiAChiamata) {
     }
 }
 
+// CORREZIONE 4: Aggiornamento della funzione updateArtistsList per gestire meglio il ruolo preselezionato
 function updateArtistsList() {
     const listDiv = document.getElementById('artistList');
     if (!listDiv) return;
@@ -1353,26 +1414,8 @@ function updateArtistsList() {
             const identificativo = artist.codice_fiscale || artist.codice_fiscale_temp || 'NO-ID';
             const nazionalitaLabel = artist.nazionalita !== 'IT' ? ` 🌍 ${artist.nazionalita}` : '';
             
-            // MODIFICA: Mappa le mansioni dal database ai ruoli del dropdown
-            const mansioneToRuoloMap = {
-                'DJ': 'DJ',
-                'Vocalist': 'Vocalist',
-                'Musicista': 'Musicista',
-                'Cantante': 'Cantante',
-                'Ballerino': 'Ballerino/a',
-                'Ballerina': 'Ballerino/a',
-                'Performer': 'Performer',
-                'Animatore': 'Animatore',
-                'Tecnico Audio': 'Tecnico Audio',
-                'Tecnico Luci': 'Tecnico Luci',
-                'Fotografo': 'Fotografo',
-                'Videomaker': 'Videomaker',
-                'Truccatore': 'Truccatore',
-                'Costumista': 'Costumista',
-                'Scenografo': 'Scenografo'
-            };
-            
-            const ruoloSelezionato = mansioneToRuoloMap[artist.ruolo] || artist.ruolo;
+            // Il ruolo è già stato mappato correttamente in addArtistToList
+            const ruoloSelezionato = artist.ruolo || '';
             
             return `
             <div class="artist-item ${isAChiamata ? 'artist-chiamata' : ''}">
@@ -2206,59 +2249,60 @@ function downloadXML(xmlContent) {
    URL.revokeObjectURL(url);
 }
 
+// CORREZIONE 3: Funzione saveAgibilitaToDatabase senza il campo 'version'
 async function saveAgibilitaToDatabase(xmlContent) {
-   try {
-       const cittaSelect = document.getElementById('citta');
-       const selectedOption = cittaSelect.options[cittaSelect.selectedIndex];
-       const cittaNome = selectedOption ? selectedOption.textContent : '';
-       
-       const agibilita = {
-           codice: agibilitaData.numeroRiservato || `AG-${new Date().getFullYear()}-${String(agibilitaDB.length + 1).padStart(3, '0')}`,
-           data_inizio: document.getElementById('dataInizio').value,
-           data_fine: document.getElementById('dataFine').value,
-           locale: {
-               descrizione: document.getElementById('descrizioneLocale').value,
-               indirizzo: document.getElementById('indirizzo').value,
-               citta_codice: document.getElementById('citta').value,
-               citta_nome: cittaNome,
-               cap: document.getElementById('cap').value,
-               provincia: document.getElementById('provincia').value,
-               codice_comune: getCodicebelfioreFromCity()
-           },
-           fatturazione: {
-               ragione_sociale: document.getElementById('ragioneSociale').value,
-               piva: document.getElementById('piva').value,
-               codice_fiscale: document.getElementById('codiceFiscale').value,
-               codice_sdi: document.getElementById('codiceSDI').value
-           },
-           artisti: selectedArtists.map(a => ({
-               cf: a.codice_fiscale || a.codice_fiscale_temp,
-               nome: a.nome,
-               cognome: a.cognome,
-               nome_arte: a.nome_arte,
-               ruolo: a.ruolo,
-               compenso: a.compenso,
-               matricola_enpals: a.matricolaEnpals,
-               tipo_rapporto: a.tipoRapporto,
-               codice_comunicazione: a.codice_comunicazione || null,
-               nazionalita: a.nazionalita || 'IT'
-           })),
-           xml_content: xmlContent,
-           is_modifica: agibilitaData.isModifica,
-           codice_originale: agibilitaData.codiceAgibilita,
-           identificativo_inps: null,
-           version: 1
-       };
+    try {
+        const cittaSelect = document.getElementById('citta');
+        const selectedOption = cittaSelect.options[cittaSelect.selectedIndex];
+        const cittaNome = selectedOption ? selectedOption.textContent : '';
+        
+        const agibilita = {
+            codice: agibilitaData.numeroRiservato || `AG-${new Date().getFullYear()}-${String(agibilitaDB.length + 1).padStart(3, '0')}`,
+            data_inizio: document.getElementById('dataInizio').value,
+            data_fine: document.getElementById('dataFine').value,
+            locale: {
+                descrizione: document.getElementById('descrizioneLocale').value,
+                indirizzo: document.getElementById('indirizzo').value,
+                citta_codice: document.getElementById('citta').value,
+                citta_nome: cittaNome,
+                cap: document.getElementById('cap').value,
+                provincia: document.getElementById('provincia').value,
+                codice_comune: getCodicebelfioreFromCity()
+            },
+            fatturazione: {
+                ragione_sociale: document.getElementById('ragioneSociale').value,
+                piva: document.getElementById('piva').value,
+                codice_fiscale: document.getElementById('codiceFiscale').value,
+                codice_sdi: document.getElementById('codiceSDI').value
+            },
+            artisti: selectedArtists.map(a => ({
+                cf: a.codice_fiscale || a.codice_fiscale_temp,
+                nome: a.nome,
+                cognome: a.cognome,
+                nome_arte: a.nome_arte,
+                ruolo: a.ruolo,
+                compenso: a.compenso,
+                matricola_enpals: a.matricolaEnpals,
+                tipo_rapporto: a.tipoRapporto,
+                codice_comunicazione: a.codice_comunicazione || null,
+                nazionalita: a.nazionalita || 'IT'
+            })),
+            xml_content: xmlContent,
+            is_modifica: agibilitaData.isModifica,
+            codice_originale: agibilitaData.codiceAgibilita,
+            identificativo_inps: null
+            // RIMOSSO: version: 1
+        };
 
-       const savedAgibilita = await DatabaseService.saveAgibilita(agibilita);
-       agibilitaDB.push(savedAgibilita);
-       
-       console.log('✅ Agibilità salvata su Supabase:', savedAgibilita);
-       
-   } catch (error) {
-       console.error('❌ Errore salvataggio agibilità:', error);
-       showToast('Errore durante il salvataggio: ' + error.message, 'error');
-   }
+        const savedAgibilita = await DatabaseService.saveAgibilita(agibilita);
+        agibilitaDB.push(savedAgibilita);
+        
+        console.log('✅ Agibilità salvata su Supabase:', savedAgibilita);
+        
+    } catch (error) {
+        console.error('❌ Errore salvataggio agibilità:', error);
+        showToast('Errore durante il salvataggio: ' + error.message, 'error');
+    }
 }
 
 function newAgibilita() {
