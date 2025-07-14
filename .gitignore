@@ -1,0 +1,28 @@
+# File environment con credenziali sensibili
+.env
+.env.local
+.env.production
+.env.development
+
+# Node modules
+node_modules/
+
+# Build files
+dist/
+build/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Backup files
+*.backup
+security-backup/
