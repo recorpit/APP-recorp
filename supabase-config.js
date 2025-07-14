@@ -36,7 +36,7 @@ class DatabaseService {
     async saveArtist(artistData) {
         try {
             const { data, error } = await this.supabase
-                .from('artists')
+                .from('artisti')
                 .insert(artistData)
                 .select();
             
@@ -51,7 +51,7 @@ class DatabaseService {
     async getArtist(id) {
         try {
             const { data, error } = await this.supabase
-                .from('artists')
+                .from('artisti')
                 .select('*')
                 .eq('id', id)
                 .single();
@@ -67,7 +67,7 @@ class DatabaseService {
     async updateArtist(id, updates) {
         try {
             const { data, error } = await this.supabase
-                .from('artists')
+                .from('artisti')
                 .update(updates)
                 .eq('id', id)
                 .select();
@@ -83,7 +83,7 @@ class DatabaseService {
     async deleteArtist(id) {
         try {
             const { error } = await this.supabase
-                .from('artists')
+                .from('artisti')
                 .delete()
                 .eq('id', id);
             
@@ -99,7 +99,7 @@ class DatabaseService {
     async searchArtistsForAgibilita(searchTerm) {
         try {
             const { data, error } = await this.supabase
-                .from('artists')
+                .from('artisti')
                 .select('id, nome, cognome, codice_fiscale, codice_fiscale_temp, tipo_registrazione, mansione, email, telefono, compenso_default, nazionalita, nome_arte, matricola_enpals, has_partita_iva, tipo_rapporto, codice_comunicazione')
                 .or(`nome.ilike.%${searchTerm}%,cognome.ilike.%${searchTerm}%,codice_fiscale.ilike.%${searchTerm}%`)
                 .limit(10);
@@ -329,7 +329,7 @@ class DatabaseService {
     async saveDatiFatturazione(datiData) {
         try {
             const { data, error } = await this.supabase
-                .from('dati_fatturazione')
+                .from('invoice_data')
                 .insert(datiData)
                 .select();
             
@@ -349,7 +349,7 @@ class DatabaseService {
     async searchDatiFatturazione(searchTerm) {
         try {
             const { data, error } = await this.supabase
-                .from('dati_fatturazione')
+                .from('invoice_data')
                 .select('*')
                 .or(`ragione_sociale.ilike.%${searchTerm}%,partita_iva.ilike.%${searchTerm}%,nome_referente.ilike.%${searchTerm}%,cognome_referente.ilike.%${searchTerm}%`)
                 .limit(10);
@@ -669,7 +669,7 @@ class DatabaseService {
             
             // Conta artisti registrati
             const { count: totalArtisti } = await this.supabase
-                .from('artists')
+                .from('artisti')
                 .select('*', { count: 'exact', head: true });
             
             // Conta agibilità totali
@@ -717,7 +717,7 @@ class DatabaseService {
     async testConnection() {
         try {
             const { data, error } = await this.supabase
-                .from('artists')
+                .from('artisti')
                 .select('count')
                 .limit(1);
             
@@ -733,13 +733,13 @@ class DatabaseService {
     // ==================== VERIFICA TABELLE ====================
     async checkTables() {
         const tables = [
-            'artists',
+            'artisti',
             'agibilita',
             'agibilita_bozze',
             'agibilita_numeri_riservati',
             'notifiche_log',
             'venues',
-            'dati_fatturazione',
+            'invoice_data',
             'comunicazioni',
             'locali'
         ];
