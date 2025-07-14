@@ -100,7 +100,7 @@ class DatabaseService {
         try {
             const { data, error } = await this.supabase
                 .from('artisti')
-                .select('id, nome, cognome, codice_fiscale, codice_fiscale_temp, tipo_registrazione, mansione, email, telefono, compenso_default, nazionalita, nome_arte, matricola_enpals, has_partita_iva, tipo_rapporto, codice_comunicazione')
+                .select('id, nome, cognome, codice_fiscale, codice_fiscale_temp, tipo_registrazione, mansione, email, telefono, compenso_default, nazionalita, nome_arte, matricola_enpals, has_partita_iva, tipo_rapporto, codice_comunicazione, partita_iva, iban')
                 .or(`nome.ilike.%${searchTerm}%,cognome.ilike.%${searchTerm}%,codice_fiscale.ilike.%${searchTerm}%`)
                 .limit(10);
             
@@ -675,6 +675,190 @@ class DatabaseService {
         }
     }
 
+    // ==================== GESTIONE PAGAMENTI ====================
+    async getPagamenti(filters = {}) {
+        try {
+            let query = this.supabase
+                .from('pagamenti')
+                .select(`
+                    *,
+                    artisti!artista_id(
+                        id,
+                        nome, 
+                        cognome, 
+                        codice_fiscale, 
+                        tipo_rapporto, 
+                        iban, 
+                        email, 
+                        telefono,
+                        partita_iva
+                    ),
+                    agibilita!agibilita_id(
+                        codice, 
+                        data_inizio, 
+                        locale
+                    )
+                `)
+                .order('created_at', { ascending: false });
+            
+            // Applica filtri
+            if (filters.stato) {
+                query = query.eq('stato', filters.stato);
+            }
+            if (filters.dateFrom) {
+                query = query.gte('created_at', filters.dateFrom);
+            }
+            if (filters.dateTo) {
+                query = query.lte('created_at', filters.dateTo);
+            }
+            if (filters.locale && filters.locale.trim() !== '') {
+                // Filtro per locale (richiede join con agibilita)
+                query = query.ilike('agibilita.locale->descrizione', `%${filters.locale}%`);
+            }
+            
+            const { data, error } = await query;
+            
+            if (error) throw error;
+            return data || [];
+        } catch (error) {
+            console.error('Errore recupero pagamenti:', error);
+            return [];
+        }
+    }
+
+    async savePagamento(pagamentoData) {
+        try {
+            const { data, error } = await this.supabase
+                .from('pagamenti')
+                .insert(pagamentoData)
+                .select();
+            
+            if (error) throw error;
+            return data[0];
+        } catch (error) {
+            console.error('Errore salvataggio pagamento:', error);
+            throw error;
+        }
+    }
+
+    async updatePagamento(id, updates) {
+        try {
+            const { data, error } = await this.supabase
+                .from('pagamenti')
+                .update({
+                    ...updates,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', id)
+                .select();
+            
+            if (error) throw error;
+            return data[0];
+        } catch (error) {
+            console.error('Errore aggiornamento pagamento:', error);
+            throw error;
+        }
+    }
+
+    async deletePagamento(id) {
+        try {
+            const { error } = await this.supabase
+                .from('pagamenti')
+                .delete()
+                .eq('id', id);
+            
+            if (error) throw error;
+            return true;
+        } catch (error) {
+            console.error('Errore eliminazione pagamento:', error);
+            throw error;
+        }
+    }
+
+    // Metodo per creare pagamenti da agibilità
+    async createPagamentiFromAgibilita(agibilita, userSession) {
+        try {
+            const pagamenti = [];
+            
+            for (const artista of agibilita.artisti) {
+                const pagamentoData = {
+                    agibilita_id: agibilita.codice,
+                    artista_id: artista.artista_id || artista.id,
+                    importo_lordo: artista.compenso || 0,
+                    importo_netto: artista.tipo_rapporto === 'occasionale' ? 
+                        (artista.compenso || 0) * 0.8 : (artista.compenso || 0),
+                    ritenuta: artista.tipo_rapporto === 'occasionale' ? 
+                        (artista.compenso || 0) * 0.2 : 0,
+                    stato: 'da_pagare',
+                    created_by: userSession?.name || 'Sistema'
+                };
+                
+                const saved = await this.savePagamento(pagamentoData);
+                pagamenti.push(saved);
+            }
+            
+            return pagamenti;
+        } catch (error) {
+            console.error('Errore creazione pagamenti da agibilità:', error);
+            throw error;
+        }
+    }
+
+    // Metodo per ottenere statistiche pagamenti
+    async getStatistichePagamenti() {
+        try {
+            const today = new Date();
+            const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+            
+            // Totale da pagare
+            const { data: daPagare } = await this.supabase
+                .from('pagamenti')
+                .select('importo_lordo, ritenuta')
+                .eq('stato', 'da_pagare');
+            
+            const totaleDaPagare = daPagare?.reduce((sum, p) => sum + (p.importo_lordo || 0), 0) || 0;
+            const totaleRitenute = daPagare?.reduce((sum, p) => sum + (p.ritenuta || 0), 0) || 0;
+            
+            // Pagamenti del mese
+            const { count: pagamentiMese } = await this.supabase
+                .from('pagamenti')
+                .select('*', { count: 'exact', head: true })
+                .eq('stato', 'pagato')
+                .gte('data_pagamento', firstDayOfMonth.toISOString());
+            
+            return {
+                totale_da_pagare: totaleDaPagare,
+                totale_ritenute: totaleRitenute,
+                numero_da_pagare: daPagare?.length || 0,
+                pagamenti_mese: pagamentiMese || 0
+            };
+        } catch (error) {
+            console.error('Errore calcolo statistiche pagamenti:', error);
+            return {
+                totale_da_pagare: 0,
+                totale_ritenute: 0,
+                numero_da_pagare: 0,
+                pagamenti_mese: 0
+            };
+        }
+    }
+
+    // Metodo per verificare pagamenti duplicati
+    async checkPagamentoDuplicato(agibilitaId, artistaId) {
+        try {
+            const { data, error } = await this.supabase
+                .from('pagamenti')
+                .select('id')
+                .eq('agibilita_id', agibilitaId)
+                .eq('artista_id', artistaId)
+                .single();
+            
+            return !error && data !== null;
+        } catch (error) {
+            return false;
+        }
+    }
+
     // ==================== STATISTICHE ====================
     async getStatistiche() {
         try {
@@ -756,7 +940,8 @@ class DatabaseService {
             'venues',
             'invoice_data',
             'comunicazioni',
-            'locali'
+            'locali',
+            'pagamenti'
         ];
         
         const results = {};
