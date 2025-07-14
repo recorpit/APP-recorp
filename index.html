@@ -1,5 +1,21 @@
 <!DOCTYPE html>
 <html lang="it">
+    <!-- All'inizio del <head> di ogni pagina -->
+<script type="module">
+import { AuthGuard } from './auth-guard.js';
+
+// Richiedi autenticazione prima di caricare la pagina
+document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        await AuthGuard.requireAuth();
+        console.log('✅ Accesso autorizzato alla pagina');
+        // La pagina continua a caricare normalmente
+    } catch (error) {
+        console.log('❌ Accesso negato, redirect in corso...');
+        // AuthGuard ha già fatto il redirect a login
+    }
+});
+</script>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
