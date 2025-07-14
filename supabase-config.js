@@ -882,6 +882,35 @@ class DatabaseService {
                 .select('*', { count: 'exact', head: true })
                 .gte('created_at', firstDayOfMonth.toISOString());
             
+            // Recupera agibilità del mese per contare artisti
+            const { data: agibilitaMeseData } = await this.supabase
+                .from('agibilita')
+                .select('artisti')
+                .gte('created_at', firstDayOfMonth.toISOString());
+            
+            // Conta artisti nel mese (sia unici che totali)
+            let artistiUniciMese = 0;
+            let artistiTotaliMese = 0;
+            const setArtistiUnici = new Set();
+            
+            if (agibilitaMeseData) {
+                agibilitaMeseData.forEach(agibilita => {
+                    if (agibilita.artisti && Array.isArray(agibilita.artisti)) {
+                        artistiTotaliMese += agibilita.artisti.length;
+                        agibilita.artisti.forEach(artista => {
+                            if (artista.cf) {
+                                setArtistiUnici.add(artista.cf);
+                            }
+                        });
+                    }
+                });
+                artistiUniciMese = setArtistiUnici.size;
+            }
+            
+            // Calcola media artisti per agibilità
+            const mediaArtistiPerAgibilita = agibilitaMese > 0 ? 
+                (artistiTotaliMese / agibilitaMese).toFixed(1) : 0;
+            
             // Conta bozze in sospeso
             const { count: bozzeSospese } = await this.supabase
                 .from('agibilita_bozze')
@@ -897,6 +926,9 @@ class DatabaseService {
                 artisti: totalArtisti || 0,
                 agibilita_totali: totalAgibilita || 0,
                 agibilita_mese: agibilitaMese || 0,
+                artisti_unici_mese: artistiUniciMese,
+                artisti_totali_mese: artistiTotaliMese,
+                media_artisti_agibilita: mediaArtistiPerAgibilita,
                 bozze_sospese: bozzeSospese || 0,
                 comunicazioni_anno: comunicazioniAnno || 0
             };
@@ -906,6 +938,9 @@ class DatabaseService {
                 artisti: 0,
                 agibilita_totali: 0,
                 agibilita_mese: 0,
+                artisti_unici_mese: 0,
+                artisti_totali_mese: 0,
+                media_artisti_agibilita: 0,
                 bozze_sospese: 0,
                 comunicazioni_anno: 0
             };
