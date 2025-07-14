@@ -1,10 +1,10 @@
 /**
- * registrazione-artista.js - VERSIONE COMPLETA CON GESTIONE PAESI ESTERI E CF OPZIONALE
+ * registrazione-artista.js - VERSIONE CORRETTA CON MAPPATURE DATABASE
  * 
  * Script per la gestione della registrazione e modifica artisti nel sistema RECORP ALL-IN-ONE.
  * 
  * @author RECORP ALL-IN-ONE
- * @version 3.3 - Con gestione artisti stranieri e CF opzionale
+ * @version 4.0 - Con mappature corrette per Supabase
  */
 
 // Import Supabase DatabaseService
@@ -480,7 +480,7 @@ function populateFormWithArtist(artist) {
     try {
         console.log('📝 Popolamento form con dati artista:', artist);
         
-        // Dati anagrafici
+        // Dati anagrafici - MAPPATURA CORRETTA
         document.getElementById('codiceFiscale').value = artist.codice_fiscale || '';
         document.getElementById('nome').value = artist.nome || '';
         document.getElementById('cognome').value = artist.cognome || '';
@@ -608,7 +608,7 @@ function populateAddressFields(artist) {
 
 // Funzione per completare il popolamento dei dati professionali
 function continueProfessionalDataPopulation(artist) {
-    // Dati professionali
+    // Dati professionali - MAPPATURA CORRETTA
     document.getElementById('mansione').value = artist.mansione || '';
     document.getElementById('hasPartitaIva').value = artist.has_partita_iva ? 'si' : 'no';
     
@@ -1420,29 +1420,29 @@ function handleFormSubmit(e) {
     const nazionalita = formData.get('nazionalita');
     const codiceFiscale = formData.get('codiceFiscale').toUpperCase();
     
+    // MAPPATURA CORRETTA DEI CAMPI PER IL DATABASE
     const artistData = {
         nome: formData.get('nome').toUpperCase(),
         cognome: formData.get('cognome').toUpperCase(),
-        nomeArte: formData.get('nomeArte'),
-        codiceFiscale: codiceFiscale,
-        matricolaENPALS: formData.get('matricolaENPALS')?.toUpperCase() || '',
-        dataNascita: dataNascita,
+        nome_arte: formData.get('nomeArte'),  // Corretto: nome_arte
+        codice_fiscale: codiceFiscale,        // Corretto: codice_fiscale
+        matricola_enpals: formData.get('matricolaENPALS')?.toUpperCase() || '', // Corretto: matricola_enpals
+        data_nascita: dataNascita,            // Corretto: data_nascita
         sesso: formData.get('sesso') || '',
-        luogoNascita: formData.get('luogoNascita') || '',
-        provinciaNascita: formData.get('provinciaNascita')?.toUpperCase() || '',
-        eta: calculateAge(dataNascita),
+        luogo_nascita: formData.get('luogoNascita') || '',     // Corretto: luogo_nascita
+        provincia_nascita: formData.get('provinciaNascita')?.toUpperCase() || '', // Corretto: provincia_nascita
         nazionalita: nazionalita,
         telefono: formData.get('telefono'),
         email: formData.get('email'),
         indirizzo: formData.get('indirizzo'),
-        hasPartitaIva: formData.get('hasPartitaIva'),
-        partitaIva: formData.get('hasPartitaIva') === 'si' ? formData.get('partitaIva') : '',
-        tipoRapporto: formData.get('hasPartitaIva') === 'no' ? formData.get('tipoRapporto') : '',
-        codiceComunicazione: formData.get('codiceComunicazione') || '',
+        has_partita_iva: formData.get('hasPartitaIva') === 'si',  // Corretto: boolean
+        partita_iva: formData.get('hasPartitaIva') === 'si' ? formData.get('partitaIva') : '', // Corretto: partita_iva
+        tipo_rapporto: formData.get('hasPartitaIva') === 'no' ? formData.get('tipoRapporto') : '', // Corretto: tipo_rapporto
+        codice_comunicazione: formData.get('codiceComunicazione') || '', // Corretto: codice_comunicazione
         iban: formData.get('iban').toUpperCase().replace(/\s/g, ''),
         mansione: formData.get('mansione'),
-        note: formData.get('note'),
-        dataRegistrazione: new Date().toISOString()
+        note: formData.get('note')
+        // Non includiamo: eta, dataRegistrazione (usa created_at automatico)
     };
     
     // Gestione campi indirizzo in base alla nazionalità
@@ -1451,13 +1451,13 @@ function handleFormSubmit(e) {
         artistData.provincia = formData.get('provincia');
         artistData.citta = document.querySelector('#citta option:checked')?.textContent || '';
         artistData.cap = formData.get('cap');
-        artistData.codiceIstatCitta = formData.get('citta'); // Salva il codice ISTAT
-        artistData.paeseResidenza = 'IT';
+        artistData.codice_istat_citta = formData.get('citta'); // Corretto: codice_istat_citta
+        artistData.paese_residenza = 'IT';  // Corretto: paese_residenza
         
         console.log('🏛️ Dati indirizzo italiano:', {
             provincia: artistData.provincia,
             citta: artistData.citta,
-            codiceIstat: artistData.codiceIstatCitta,
+            codiceIstat: artistData.codice_istat_citta,
             cap: artistData.cap
         });
     } else {
@@ -1468,11 +1468,11 @@ function handleFormSubmit(e) {
         artistData.provincia = 'EE'; // EE = Estero
         artistData.citta = paiseName;
         artistData.cap = '00000'; // CAP generico per esteri
-        artistData.codiceIstatCitta = null;
-        artistData.paeseResidenza = paeseResidenza;
+        artistData.codice_istat_citta = null;
+        artistData.paese_residenza = paeseResidenza;  // Corretto: paese_residenza
         
         console.log('🌍 Dati indirizzo straniero:', {
-            paeseResidenza: artistData.paeseResidenza,
+            paese_residenza: artistData.paese_residenza,
             citta: artistData.citta
         });
     }
@@ -1491,7 +1491,7 @@ function handleFormSubmit(e) {
     }
     
     // Verifica corrispondenza CF/data solo se CF presente
-    if (codiceFiscale && !validateCFWithDate(codiceFiscale, artistData.dataNascita)) {
+    if (codiceFiscale && !validateCFWithDate(codiceFiscale, artistData.data_nascita)) {
         // Per stranieri, mostra solo un warning
         if (nazionalita !== 'IT') {
             if (!confirm('La data di nascita non corrisponde al codice fiscale. Vuoi continuare comunque?')) {
@@ -1515,7 +1515,8 @@ function handleFormSubmit(e) {
     }
     
     // Verifica età minima (18 anni)
-    if (artistData.eta < 18) {
+    const eta = calculateAge(dataNascita);
+    if (eta < 18) {
         showError('L\'artista deve avere almeno 18 anni');
         return;
     }
@@ -1533,19 +1534,19 @@ function handleFormSubmit(e) {
     }
     
     // Verifica partita IVA se presente
-    if (artistData.hasPartitaIva === 'si' && !validatePartitaIva(artistData.partitaIva)) {
+    if (artistData.has_partita_iva && !validatePartitaIva(artistData.partita_iva)) {
         showError('Partita IVA non valida');
         return;
     }
     
     // Verifica codice comunicazione per contratti a chiamata
-    if (artistData.tipoRapporto === 'chiamata' && !artistData.codiceComunicazione) {
+    if (artistData.tipo_rapporto === 'chiamata' && !artistData.codice_comunicazione) {
         showError('Codice comunicazione INPS obbligatorio per contratti a chiamata');
         return;
     }
     
     // Verifica campi indirizzo per stranieri
-    if (nazionalita !== 'IT' && !artistData.paeseResidenza) {
+    if (nazionalita !== 'IT' && !artistData.paese_residenza) {
         showError('Seleziona il paese di residenza');
         return;
     }
@@ -1564,27 +1565,30 @@ async function saveArtist(artistData) {
         console.log('💾 Tentativo salvataggio artista:', artistData.nome, artistData.cognome);
         
         // Controlla se esiste già un artista con questo CF (solo se CF presente e per nuove registrazioni)
-        if (currentMode === 'new' && artistData.codiceFiscale) {
-            const exists = await DatabaseService.artistaExists(artistData.codiceFiscale);
-            if (exists) {
-                showError('Esiste già un artista con questo codice fiscale nel database');
-                return;
+        if (currentMode === 'new' && artistData.codice_fiscale) {
+            const existing = await DatabaseService.searchArtisti(artistData.codice_fiscale);
+            if (existing && existing.length > 0) {
+                const existingArtist = existing.find(a => a.codice_fiscale === artistData.codice_fiscale);
+                if (existingArtist) {
+                    showError('Esiste già un artista con questo codice fiscale nel database');
+                    return;
+                }
             }
         }
         
         // Se il CF è vuoto per stranieri, genera un identificativo univoco temporaneo
-        if (!artistData.codiceFiscale && artistData.nazionalita !== 'IT') {
+        if (!artistData.codice_fiscale && artistData.nazionalita !== 'IT') {
             // Genera un ID temporaneo basato su nome, cognome e timestamp
             const timestamp = Date.now();
             const tempId = `TEMP_${artistData.nome.substring(0, 3)}${artistData.cognome.substring(0, 3)}_${timestamp}`;
-            artistData.codiceFiscaleTemp = tempId;
+            artistData.codice_fiscale_temp = tempId;  // Corretto: codice_fiscale_temp
             
             // Aggiungi nota automatica
             artistData.note = (artistData.note || '') + '\n[Sistema] Artista straniero senza CF - ID temporaneo: ' + tempId;
         }
         
         // Salva in Supabase
-        const savedArtist = await DatabaseService.saveArtista(artistData);
+        const savedArtist = await DatabaseService.saveArtist(artistData);
         console.log('✅ Artista salvato con successo:', savedArtist);
         
         // Aggiorna la cache locale
@@ -1621,10 +1625,10 @@ async function updateArtist(artistId, artistData) {
         console.log('✏️ Tentativo aggiornamento artista:', artistData.nome, artistData.cognome);
         
         // Se il CF è stato rimosso per uno straniero, genera un ID temporaneo
-        if (!artistData.codiceFiscale && artistData.nazionalita !== 'IT' && !artistData.codiceFiscaleTemp) {
+        if (!artistData.codice_fiscale && artistData.nazionalita !== 'IT' && !artistData.codice_fiscale_temp) {
             const timestamp = Date.now();
             const tempId = `TEMP_${artistData.nome.substring(0, 3)}${artistData.cognome.substring(0, 3)}_${timestamp}`;
-            artistData.codiceFiscaleTemp = tempId;
+            artistData.codice_fiscale_temp = tempId;  // Corretto: codice_fiscale_temp
             
             // Aggiungi nota se non già presente
             if (!artistData.note?.includes('ID temporaneo')) {
@@ -1633,7 +1637,7 @@ async function updateArtist(artistId, artistData) {
         }
         
         // Aggiorna in Supabase
-        const updatedArtist = await DatabaseService.updateArtista(artistId, artistData);
+        const updatedArtist = await DatabaseService.updateArtist(artistId, artistData);
         console.log('✅ Artista aggiornato con successo:', updatedArtist);
         
         // Aggiorna la cache locale
@@ -2022,4 +2026,4 @@ function resetForm() {
 // Esporta solo per debug
 window.debugDatabaseStatus = debugDatabaseStatus;
 
-console.log('📝 Sistema gestione artisti v3.3 - Con gestione paesi esteri e CF opzionale!');
+console.log('📝 Sistema gestione artisti v4.0 - Con mappature corrette per database!');
