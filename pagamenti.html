@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestione Pagamenti - RECORP ALL-IN-ONE</title>
+    <link rel="stylesheet" href="./assets/style.css">
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="navbar-content">
+            <a href="./index.html" class="logo">
+                <img src="./assets/logo.png" alt="RECORP Logo">
+                <span class="logo-text">RECORP ALL-IN-ONE</span>
+            </a>
+            <div class="nav-links">
+                <a href="./index.html">Dashboard</a>
+                <a href="./agibilita/index.html">Agibilità</a>
+                <a href="./pagamenti.html" class="active">Pagamenti</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="page-container">
+        <div class="container">
+            <!-- Header -->
+            <div class="header">
+                <h1>💰 Gestione Pagamenti</h1>
+                <p>Gestisci i pagamenti degli artisti dalle agibilità</p>
+            </div>
+
+            <!-- Statistiche -->
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-value" id="totaleDaPagare">€0</div>
+                    <div class="stat-label">Totale da pagare</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="numeroArtisti">0</div>
+                    <div class="stat-label">Artisti da pagare</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="pagamentiMese">0</div>
+                    <div class="stat-label">Pagamenti questo mese</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="ritenuteApplicate">€0</div>
+                    <div class="stat-label">Ritenute totali</div>
+                </div>
+            </div>
+
+            <!-- Filtri -->
+            <div class="filters-section">
+                <div class="filters-row">
+                    <div class="filter-group">
+                        <label>Periodo</label>
+                        <div class="date-range">
+                            <input type="date" id="filterDateFrom" class="form-control">
+                            <span>-</span>
+                            <input type="date" id="filterDateTo" class="form-control">
+                        </div>
+                    </div>
+                    <div class="filter-group">
+                        <label>Stato</label>
+                        <select id="filterStato" class="form-control">
+                            <option value="">Tutti</option>
+                            <option value="da_pagare" selected>Da pagare</option>
+                            <option value="in_elaborazione">In elaborazione</option>
+                            <option value="pagato">Pagato</option>
+                            <option value="annullato">Annullato</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Locale</label>
+                        <input type="text" id="filterLocale" class="form-control" placeholder="Cerca locale...">
+                    </div>
+                    <div class="filter-actions">
+                        <button class="btn btn-primary" onclick="applyFilters()">
+                            🔍 Applica filtri
+                        </button>
+                        <button class="btn btn-secondary" onclick="resetFilters()">
+                            ↻ Reset
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab per tipologie -->
+            <div class="tabs">
+                <button class="tab active" onclick="showPaymentTab('occasionale')">
+                    <span class="tab-icon">📄</span>
+                    Prestazioni Occasionali
+                    <span class="tab-badge" id="badgeOccasionale">0</span>
+                </button>
+                <button class="tab" onclick="showPaymentTab('partitaiva')">
+                    <span class="tab-icon">🧾</span>
+                    Partite IVA
+                    <span class="tab-badge" id="badgePartitaIva">0</span>
+                </button>
+                <button class="tab" onclick="showPaymentTab('dipendenti')">
+                    <span class="tab-icon">👥</span>
+                    Dipendenti/Chiamata
+                    <span class="tab-badge" id="badgeDipendenti">0</span>
+                </button>
+                <button class="tab" onclick="showPaymentTab('riepilogo')">
+                    <span class="tab-icon">📊</span>
+                    Riepilogo CIV
+                </button>
+            </div>
+
+            <!-- Contenuti Tab -->
+            <div id="tabOccasionale" class="tab-content active">
+                <div class="tab-header">
+                    <h3>Prestazioni Occasionali</h3>
+                    <div class="tab-actions">
+                        <button class="btn btn-sm btn-success" onclick="selectAllOccasionali()">
+                            ☑️ Seleziona tutti
+                        </button>
+                        <button class="btn btn-sm btn-primary" onclick="paySelectedOccasionali()">
+                            💳 Paga selezionati
+                        </button>
+                    </div>
+                </div>
+                <div class="alert alert-info">
+                    ℹ️ Le prestazioni occasionali hanno una ritenuta del 20% applicata automaticamente
+                </div>
+                <div id="listOccasionale" class="payment-list">
+                    <!-- Lista dinamica -->
+                </div>
+            </div>
+
+            <div id="tabPartitaiva" class="tab-content">
+                <div class="tab-header">
+                    <h3>Partite IVA</h3>
+                    <div class="tab-actions">
+                        <button class="btn btn-sm btn-primary" onclick="markAllInvoicesReceived()">
+                            ✅ Conferma tutte ricevute
+                        </button>
+                    </div>
+                </div>
+                <div class="alert alert-warning">
+                    ⚠️ Verifica di aver ricevuto fattura prima di procedere al pagamento
+                </div>
+                <div id="listPartitaIva" class="payment-list">
+                    <!-- Lista dinamica -->
+                </div>
+            </div>
+
+            <div id="tabDipendenti" class="tab-content">
+                <div class="tab-header">
+                    <h3>Dipendenti e Contratti a Chiamata</h3>
+                    <div class="tab-actions">
+                        <button class="btn btn-sm btn-secondary" onclick="exportForPayroll()">
+                            📤 Esporta per buste paga
+                        </button>
+                    </div>
+                </div>
+                <div class="alert alert-info">
+                    ℹ️ Questi pagamenti verranno elaborati nel cedolino mensile
+                </div>
+                <div id="listDipendenti" class="payment-list">
+                    <!-- Lista dinamica -->
+                </div>
+            </div>
+
+            <div id="tabRiepilogo" class="tab-content">
+                <div class="tab-header">
+                    <h3>Riepilogo per generazione CIV</h3>
+                    <div class="tab-actions">
+                        <select id="selectBanca" class="form-control">
+                            <option value="">Seleziona banca...</option>
+                            <option value="unicredit">Unicredit</option>
+                            <option value="intesa">Intesa Sanpaolo</option>
+                            <option value="bnl">BNL</option>
+                            <option value="mps">Monte dei Paschi</option>
+                        </select>
+                        <button class="btn btn-primary" onclick="generateCIV()">
+                            📄 Genera CIV
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="riepilogo-section">
+                    <h4>Pagamenti pronti per CIV</h4>
+                    <div id="riepilogoCIV" class="riepilogo-grid">
+                        <!-- Riepilogo dinamico -->
+                    </div>
+                </div>
+
+                <div class="summary-totals">
+                    <div class="total-row">
+                        <span>Totale lordo:</span>
+                        <span id="totaleLordo">€0,00</span>
+                    </div>
+                    <div class="total-row">
+                        <span>Totale ritenute:</span>
+                        <span id="totaleRitenute">€0,00</span>
+                    </div>
+                    <div class="total-row total-final">
+                        <span>Totale netto da pagare:</span>
+                        <span id="totaleNetto">€0,00</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal dettaglio pagamento -->
+    <div class="modal" id="paymentDetailModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Dettaglio Pagamento</h2>
+                <button class="close-modal" onclick="closePaymentDetail()">&times;</button>
+            </div>
+            <div class="modal-body" id="paymentDetailBody">
+                <!-- Contenuto dinamico -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closePaymentDetail()">Chiudi</button>
+                <button class="btn btn-primary" id="btnConfirmPayment" onclick="confirmPayment()">
+                    Conferma pagamento
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal IBAN mancante -->
+    <div class="modal" id="ibanModal">
+        <div class="modal-content modal-content-small">
+            <div class="modal-header">
+                <h2>⚠️ IBAN Mancante</h2>
+                <button class="close-modal" onclick="closeIbanModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="ibanModalMessage"></p>
+                <div class="form-group">
+                    <label>Inserisci IBAN:</label>
+                    <input type="text" id="tempIban" class="form-control" 
+                           placeholder="IT00A0000000000000000000000" maxlength="27">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeIbanModal()">Annulla</button>
+                <button class="btn btn-primary" onclick="saveTemporaryIban()">Salva e procedi</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Supabase Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- Script -->
+    <script type="module" src="pagamenti.js"></script>
+</body>
+</html>

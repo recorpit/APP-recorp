@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Comunicazioni Intermittenti - RECORP ALL-IN-ONE</title>
+  <link rel="stylesheet" href="./assets/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="navbar-content">
+      <a href="./index.html" class="logo">
+        <img src="./assets/logo.png" alt="RECORP Logo">
+        <span class="logo-text">RECORP ALL-IN-ONE</span>
+      </a>
+      <div class="nav-links">
+        <a href="./index.html">Dashboard</a>
+        <a href="./registrazione-artista.html">Artisti</a>
+        <a href="./agibilita/index.html">Agibilità</a>
+        <a href="./comunicazioni-intermittenti.html" class="active">Comunicazioni a Chiamata</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="main-container">
+    <div class="container">
+      <div class="header">
+        <h1>Comunicazioni Intermittenti</h1>
+        <p>Genera e scarica la comunicazione XML INPS per lavoratori a chiamata (max 10 per invio).</p>
+      </div>
+
+      <div class="alert alert-success" id="successMessage" style="display:none;">Operazione completata con successo!</div>
+
+      <!-- RICERCA LAVORATORE -->
+      <div class="search-worker">
+        <label class="form-label" for="workerSearch"><b>Cerca lavoratore da aggiungere</b></label>
+        <input type="text" class="form-control" id="workerSearch" placeholder="Cerca per nome, cognome, CF o nome d'arte...">
+        <div id="searchResults" class="search-results"></div>
+      </div>
+
+      <!-- LAVORATORI SELEZIONATI -->
+      <div id="selectedWorkersList" class="selected-workers-list" style="margin-top:2rem;"></div>
+
+      <!-- DATE GLOBALI -->
+      <div class="global-dates" style="margin-top:2rem;">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="globalStartDate" class="form-label">Data inizio globale</label>
+            <input type="date" class="form-control" id="globalStartDate">
+          </div>
+          <div class="form-group">
+            <label for="globalEndDate" class="form-label">Data fine globale</label>
+            <input type="date" class="form-control" id="globalEndDate">
+          </div>
+          <div class="form-group" style="align-self:end;">
+            <button class="btn btn-secondary" onclick="applyGlobalDates()" type="button">Applica a tutti</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIEPILOGO -->
+      <div class="summary-section" style="margin-top:2rem;">
+        <h3>Riepilogo comunicazione</h3>
+        <div id="summaryContent"></div>
+      </div>
+
+      <!-- PULSANTI -->
+      <div class="btn-group" style="margin-top:2rem;">
+        <button class="btn btn-primary" id="previewBtn" onclick="generateXMLPreview()" disabled>Anteprima XML</button>
+        <button class="btn btn-success" id="downloadBtn" onclick="downloadXML()" disabled>Scarica XML</button>
+      </div>
+
+      <!-- PREVIEW XML -->
+      <div id="xmlPreviewContainer" style="display:none; margin-top:2rem;">
+        <h3>Anteprima XML</h3>
+        <pre id="xmlPreview" class="xml-preview"></pre>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="comunicazioni-intermittenti.js"></script>
+</body>
+</html>
