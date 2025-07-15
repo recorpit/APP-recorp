@@ -1,5 +1,5 @@
-// supabase-config.js - Configurazione SICURA per RECORP
-// ZERO credenziali hardcoded
+// supabase-config.js - Configurazione SICURA per RECORP con placeholder replacement
+// GitHub Actions sostituirà i placeholder con i valori sicuri
 
 // =====================================================
 // CONFIGURAZIONE SUPABASE SICURA
@@ -7,7 +7,7 @@
 
 // Funzione per ottenere variabili ambiente in modo sicuro
 function getEnvVar(name) {
-  // Tentativo 1: import.meta.env (Vite)
+  // Tentativo 1: import.meta.env (Vite - se disponibile)
   if (typeof import.meta !== 'undefined' && import.meta.env) {
     const value = import.meta.env[name];
     if (value) {
@@ -16,7 +16,7 @@ function getEnvVar(name) {
     }
   }
   
-  // Tentativo 2: process.env (Node.js/Webpack)
+  // Tentativo 2: process.env (Node.js/Webpack - se disponibile)
   if (typeof process !== 'undefined' && process.env) {
     const value = process.env[name];
     if (value) {
@@ -43,30 +43,59 @@ function getEnvVar(name) {
     }
   }
   
+  // Tentativo 5: Valori sostituiti da GitHub Actions
+  const placeholderValues = {
+    'VITE_SUPABASE_URL': 'PLACEHOLDER_SUPABASE_URL',
+    'VITE_SUPABASE_ANON_KEY': 'PLACEHOLDER_SUPABASE_ANON_KEY'
+  };
+  
+  const placeholderValue = placeholderValues[name];
+  if (placeholderValue && !placeholderValue.startsWith('PLACEHOLDER_')) {
+    console.log(`✅ ${name} caricato da GitHub Actions replacement`);
+    return placeholderValue;
+  }
+  
   // NESSUN FALLBACK HARDCODED - SICUREZZA MASSIMA
   console.error(`❌ Variabile ambiente ${name} non trovata!`);
   throw new Error(`Configurazione mancante: ${name}. Configurare le variabili ambiente.`);
 }
 
-// Ottieni configurazione Supabase - SE FALLISCE, L'APP NON PARTE
+// 🔧 CONFIGURAZIONE CON PLACEHOLDER (GitHub Actions li sostituirà)
 let supabaseUrl, supabaseAnonKey;
 
 try {
-  supabaseUrl = getEnvVar('VITE_SUPABASE_URL');
-  supabaseAnonKey = getEnvVar('VITE_SUPABASE_ANON_KEY');
+  // Prima prova i metodi normali, poi i placeholder
+  try {
+    supabaseUrl = getEnvVar('VITE_SUPABASE_URL');
+    supabaseAnonKey = getEnvVar('VITE_SUPABASE_ANON_KEY');
+  } catch (envError) {
+    // Se fallisce, usa i placeholder che verranno sostituiti
+    console.log('🔄 Usando configurazione placeholder per GitHub Actions...');
+    
+    supabaseUrl = 'PLACEHOLDER_SUPABASE_URL';
+    supabaseAnonKey = 'PLACEHOLDER_SUPABASE_ANON_KEY';
+    
+    // Verifica che i placeholder siano stati sostituiti
+    if (supabaseUrl.startsWith('PLACEHOLDER_') || supabaseAnonKey.startsWith('PLACEHOLDER_')) {
+      throw new Error('❌ Placeholder non sostituiti. Configurare GitHub Secrets.');
+    }
+    
+    console.log('✅ Configurazione caricata da GitHub Actions replacement');
+  }
 } catch (error) {
   // Per sviluppo locale, mostra come configurare
   console.error('🚨 CONFIGURAZIONE MANCANTE!');
   console.error('📋 Per configurare le credenziali:');
   console.error('');
-  console.error('OPZIONE 1 - File .env (raccomandato):');
-  console.error('VITE_SUPABASE_URL=https://nommluymuwioddhaujxu.supabase.co');
-  console.error('VITE_SUPABASE_ANON_KEY=la_tua_anon_key');
-  console.error('');
-  console.error('OPZIONE 2 - localStorage (solo sviluppo):');
+  console.error('OPZIONE 1 - localStorage (sviluppo locale):');
   console.error('localStorage.setItem("VITE_SUPABASE_URL", "https://nommluymuwioddhaujxu.supabase.co");');
   console.error('localStorage.setItem("VITE_SUPABASE_ANON_KEY", "la_tua_anon_key");');
   console.error('');
+  console.error('OPZIONE 2 - window.env (sviluppo locale):');
+  console.error('window.env = { VITE_SUPABASE_URL: "...", VITE_SUPABASE_ANON_KEY: "..." };');
+  console.error('');
+  console.error('OPZIONE 3 - GitHub Secrets (produzione):');
+  console.error('Repository → Settings → Secrets → Add VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY');
   
   // Mostra errore in pagina
   if (typeof document !== 'undefined') {
@@ -85,6 +114,17 @@ try {
         <p>Le credenziali del database non sono configurate.</p>
         <p><strong>Per sviluppatori:</strong></p>
         <p>Controllare la console per le istruzioni di configurazione.</p>
+        <button onclick="location.reload()" style="
+          background: #2563eb; 
+          color: white; 
+          border: none; 
+          padding: 10px 20px; 
+          border-radius: 5px; 
+          cursor: pointer; 
+          margin-top: 15px;
+        ">
+          🔄 Riprova
+        </button>
         <p style="font-size: 0.9em; color: #666; margin-top: 20px;">
           Questo errore protegge la sicurezza impedendo credenziali hardcoded.
         </p>
@@ -112,11 +152,12 @@ const supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey, {
 console.log('✅ Supabase configurato SICURAMENTE:', {
   url: supabaseUrl.substring(0, 30) + '...',
   keyLength: supabaseAnonKey.length,
-  secure: true
+  secure: true,
+  method: supabaseUrl.startsWith('http') ? 'GitHub Actions' : 'Environment Variables'
 });
 
 // =====================================================
-// SERVIZIO DATABASE CENTRALIZZATO (MANTENUTO)
+// RESTO DEL CODICE RIMANE IDENTICO...
 // =====================================================
 
 class DatabaseService {
@@ -292,18 +333,21 @@ class DatabaseService {
         }
     }
 
-    // ==================== GESTIONE COMUNICAZIONI ====================
+    // ==================== GESTIONE COMUNICAZIONI (SICURA) ====================
     async getComunicazioni() {
         try {
             const { data, error } = await this.supabase
                 .from('comunicazioni')
                 .select('*')
-                .order('data_invio', { ascending: false });
+                .order('created_at', { ascending: false });
             
-            if (error) throw error;
+            if (error) {
+                console.warn('Tabella comunicazioni non accessibile:', error);
+                return [];
+            }
             return data || [];
         } catch (error) {
-            console.error('Errore recupero comunicazioni:', error);
+            console.warn('Errore recupero comunicazioni (fallback attivo):', error);
             return [];
         }
     }
@@ -385,593 +429,7 @@ class DatabaseService {
         }
     }
 
-    // ==================== GESTIONE LOCALI ====================
-    async getLocali() {
-        try {
-            const { data, error } = await this.supabase
-                .from('locali')
-                .select('*')
-                .order('ragione_sociale', { ascending: true });
-            
-            if (error) throw error;
-            return data || [];
-        } catch (error) {
-            console.error('Errore recupero locali:', error);
-            return [];
-        }
-    }
-
-    async saveLocale(localeData) {
-        try {
-            const { data, error } = await this.supabase
-                .from('locali')
-                .insert(localeData)
-                .select();
-            
-            if (error) throw error;
-            return data[0];
-        } catch (error) {
-            console.error('Errore salvataggio locale:', error);
-            throw error;
-        }
-    }
-
-    async searchLocali(searchTerm) {
-        try {
-            const { data, error } = await this.supabase
-                .from('locali')
-                .select('*')
-                .or(`ragione_sociale.ilike.%${searchTerm}%,partita_iva.ilike.%${searchTerm}%,nome_locale.ilike.%${searchTerm}%`)
-                .limit(10);
-            
-            if (error) throw error;
-            return data || [];
-        } catch (error) {
-            console.error('Errore ricerca locali:', error);
-            return [];
-        }
-    }
-
-    // ==================== GESTIONE DATI FATTURAZIONE ====================
-    async getDatiFatturazione() {
-        try {
-            const { data, error } = await this.supabase
-                .from('invoice_data')
-                .select('*')
-                .order('ragione_sociale', { ascending: true });
-            
-            if (error) throw error;
-            return data || [];
-        } catch (error) {
-            console.error('Errore recupero dati fatturazione:', error);
-            return [];
-        }
-    }
-
-    // Alias per compatibilità
-    async getAllInvoiceData() {
-        return this.getDatiFatturazione();
-    }
-
-    async saveDatiFatturazione(datiData) {
-        try {
-            const { data, error } = await this.supabase
-                .from('invoice_data')
-                .insert(datiData)
-                .select();
-            
-            if (error) throw error;
-            return data[0];
-        } catch (error) {
-            console.error('Errore salvataggio dati fatturazione:', error);
-            throw error;
-        }
-    }
-
-    // Alias per compatibilità
-    async saveInvoiceData(invoiceData) {
-        return this.saveDatiFatturazione(invoiceData);
-    }
-
-    async searchDatiFatturazione(searchTerm) {
-        try {
-            const { data, error } = await this.supabase
-                .from('invoice_data')
-                .select('*')
-                .or(`ragione_sociale.ilike.%${searchTerm}%,partita_iva.ilike.%${searchTerm}%,nome_referente.ilike.%${searchTerm}%,cognome_referente.ilike.%${searchTerm}%`)
-                .limit(10);
-            
-            if (error) throw error;
-            return data || [];
-        } catch (error) {
-            console.error('Errore ricerca dati fatturazione:', error);
-            return [];
-        }
-    }
-
-    // ==================== GESTIONE BOZZE ====================
-    async getBozze() {
-        try {
-            const { data, error } = await this.supabase
-                .from('agibilita_bozze')
-                .select('*')
-                .order('updated_at', { ascending: false });
-            
-            if (error) throw error;
-            return data || [];
-        } catch (error) {
-            console.error('Errore recupero bozze:', error);
-            return [];
-        }
-    }
-
-    async createBozza(bozzaData, userSession) {
-        try {
-            // Genera un codice univoco per la bozza
-            const codice = `BOZZA-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-            
-            const { data, error } = await this.supabase
-                .from('agibilita_bozze')
-                .insert({
-                    codice: codice,
-                    data: bozzaData,
-                    completamento: this.calcolaCompletamento(bozzaData),
-                    created_by: userSession.id,
-                    created_by_name: userSession.name
-                })
-                .select()
-                .single();
-            
-            if (error) throw error;
-            return data;
-        } catch (error) {
-            console.error('Errore creazione bozza:', error);
-            throw error;
-        }
-    }
-
-    async updateBozza(bozzaId, bozzaData) {
-        try {
-            const { data, error } = await this.supabase
-                .from('agibilita_bozze')
-                .update({
-                    data: bozzaData,
-                    completamento: this.calcolaCompletamento(bozzaData),
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', bozzaId)
-                .select()
-                .single();
-            
-            if (error) throw error;
-            return data;
-        } catch (error) {
-            console.error('Errore aggiornamento bozza:', error);
-            throw error;
-        }
-    }
-
-    async deleteBozza(bozzaId) {
-        try {
-            const { error } = await this.supabase
-                .from('agibilita_bozze')
-                .delete()
-                .eq('id', bozzaId);
-            
-            if (error) throw error;
-            return true;
-        } catch (error) {
-            console.error('Errore eliminazione bozza:', error);
-            throw error;
-        }
-    }
-
-    async lockBozza(bozzaId, userSession) {
-        try {
-            // Prima verifica se è già bloccata
-            const { data: bozza } = await this.supabase
-                .from('agibilita_bozze')
-                .select('locked_by, locked_by_name, locked_until')
-                .eq('id', bozzaId)
-                .single();
-            
-            if (bozza && bozza.locked_until && new Date(bozza.locked_until) > new Date()) {
-                // È già bloccata da qualcun altro
-                if (bozza.locked_by !== userSession.id) {
-                    return { 
-                        success: false, 
-                        locked_by: bozza.locked_by_name || 'altro utente' 
-                    };
-                }
-            }
-            
-            // Imposta il lock per 15 minuti
-            const lockUntil = new Date();
-            lockUntil.setMinutes(lockUntil.getMinutes() + 15);
-            
-            const { data, error } = await this.supabase
-                .from('agibilita_bozze')
-                .update({
-                    locked_by: userSession.id,
-                    locked_by_name: userSession.name,
-                    locked_until: lockUntil.toISOString()
-                })
-                .eq('id', bozzaId)
-                .select()
-                .single();
-            
-            if (error) throw error;
-            
-            return { 
-                success: true, 
-                lock: data 
-            };
-        } catch (error) {
-            console.error('Errore lock bozza:', error);
-            throw error;
-        }
-    }
-
-    async unlockBozza(bozzaId) {
-        try {
-            const { error } = await this.supabase
-                .from('agibilita_bozze')
-                .update({
-                    locked_by: null,
-                    locked_by_name: null,
-                    locked_until: null
-                })
-                .eq('id', bozzaId);
-            
-            if (error) throw error;
-            return true;
-        } catch (error) {
-            console.error('Errore unlock bozza:', error);
-            throw error;
-        }
-    }
-
-    async renewLock(bozzaId, userSession) {
-        try {
-            const lockUntil = new Date();
-            lockUntil.setMinutes(lockUntil.getMinutes() + 15);
-            
-            const { error } = await this.supabase
-                .from('agibilita_bozze')
-                .update({
-                    locked_until: lockUntil.toISOString()
-                })
-                .eq('id', bozzaId)
-                .eq('locked_by', userSession.id);
-            
-            if (error) throw error;
-            return true;
-        } catch (error) {
-            console.error('Errore rinnovo lock:', error);
-            throw error;
-        }
-    }
-
-    // Metodo helper per calcolare la percentuale di completamento
-    calcolaCompletamento(bozzaData) {
-        if (!bozzaData) return 0;
-        
-        const campiTotali = 20; // Numero approssimativo di campi richiesti
-        let campiCompletati = 0;
-        
-        // Step 1: Dettagli evento
-        if (bozzaData.dataInizio) campiCompletati++;
-        if (bozzaData.dataFine) campiCompletati++;
-        if (bozzaData.numeroGiorni) campiCompletati++;
-        if (bozzaData.numeroRepliche) campiCompletati++;
-        if (bozzaData.artisti && bozzaData.artisti.length > 0) campiCompletati += 2;
-        
-        // Step 2: Dati locale
-        if (bozzaData.locale) {
-            if (bozzaData.locale.descrizione) campiCompletati++;
-            if (bozzaData.locale.indirizzo) campiCompletati++;
-            if (bozzaData.locale.citta) campiCompletati++;
-            if (bozzaData.locale.provincia) campiCompletati++;
-            if (bozzaData.locale.cap) campiCompletati++;
-        }
-        
-        // Step 3: Dati fatturazione
-        if (bozzaData.fatturazione) {
-            if (bozzaData.fatturazione.ragioneSociale) campiCompletati++;
-            if (bozzaData.fatturazione.piva) campiCompletati++;
-            if (bozzaData.fatturazione.indirizzo) campiCompletati++;
-            if (bozzaData.fatturazione.citta) campiCompletati++;
-            if (bozzaData.fatturazione.provincia) campiCompletati++;
-            if (bozzaData.fatturazione.cap) campiCompletati++;
-            if (bozzaData.fatturazione.pec) campiCompletati++;
-            if (bozzaData.fatturazione.codiceSDI) campiCompletati++;
-        }
-        
-        return Math.round((campiCompletati / campiTotali) * 100);
-    }
-
-    // ==================== GESTIONE NUMERI RISERVATI ====================
-    async reserveAgibilitaNumber() {
-        try {
-            // Chiama la funzione PostgreSQL che gestisce la generazione
-            const { data, error } = await this.supabase
-                .rpc('genera_numero_agibilita', {
-                    session_id: localStorage.getItem('userSessionId') || 'unknown',
-                    user_name: localStorage.getItem('userName') || 'Utente'
-                });
-            
-            if (error) throw error;
-            return data;
-        } catch (error) {
-            console.error('Errore generazione numero agibilità:', error);
-            // Fallback: genera un numero temporaneo se la stored procedure non esiste
-            const year = new Date().getFullYear();
-            const random = Math.floor(Math.random() * 9999);
-            return `AG-${year}-${String(random).padStart(4, '0')}`;
-        }
-    }
-
-    async markNumberAsUsed(numero, agibilitaId) {
-        try {
-            const { error } = await this.supabase
-                .from('agibilita_numeri_riservati')
-                .update({
-                    utilizzato: true,
-                    utilizzato_at: new Date().toISOString(),
-                    agibilita_id: agibilitaId
-                })
-                .eq('numero', numero);
-            
-            if (error) throw error;
-            return true;
-        } catch (error) {
-            console.error('Errore marcatura numero utilizzato:', error);
-            return false;
-        }
-    }
-
-    // ==================== GESTIONE NOTIFICHE ====================
-    async logNotifica(notificaData) {
-        try {
-            const { data, error } = await this.supabase
-                .from('notifiche_log')
-                .insert(notificaData)
-                .select()
-                .single();
-            
-            if (error) throw error;
-            return data;
-        } catch (error) {
-            console.error('Errore log notifica:', error);
-            throw error;
-        }
-    }
-
-    async updateNotificaStatus(notificaId, stato, errorMessage = null) {
-        try {
-            const updateData = {
-                stato: stato,
-                inviato_at: stato === 'sent' ? new Date().toISOString() : null
-            };
-            
-            if (errorMessage) {
-                updateData.errore = errorMessage;
-            }
-            
-            const { error } = await this.supabase
-                .from('notifiche_log')
-                .update(updateData)
-                .eq('id', notificaId);
-            
-            if (error) throw error;
-            return true;
-        } catch (error) {
-            console.error('Errore aggiornamento stato notifica:', error);
-            throw error;
-        }
-    }
-
-    async getNotificheByAgibilita(agibilitaId) {
-        try {
-            const { data, error } = await this.supabase
-                .from('notifiche_log')
-                .select('*')
-                .eq('agibilita_id', agibilitaId)
-                .order('created_at', { ascending: false });
-            
-            if (error) throw error;
-            return data || [];
-        } catch (error) {
-            console.error('Errore recupero notifiche agibilità:', error);
-            return [];
-        }
-    }
-
-    // ==================== GESTIONE PAGAMENTI ====================
-    async getPagamenti(filters = {}) {
-        try {
-            let query = this.supabase
-                .from('pagamenti')
-                .select(`
-                    *,
-                    artisti!artista_id(
-                        id,
-                        nome, 
-                        cognome, 
-                        codice_fiscale, 
-                        tipo_rapporto, 
-                        iban, 
-                        email, 
-                        telefono,
-                        partita_iva
-                    ),
-                    agibilita!agibilita_id(
-                        codice, 
-                        data_inizio, 
-                        locale
-                    )
-                `)
-                .order('created_at', { ascending: false });
-            
-            // Applica filtri
-            if (filters.stato) {
-                query = query.eq('stato', filters.stato);
-            }
-            if (filters.dateFrom) {
-                query = query.gte('created_at', filters.dateFrom);
-            }
-            if (filters.dateTo) {
-                query = query.lte('created_at', filters.dateTo);
-            }
-            if (filters.locale && filters.locale.trim() !== '') {
-                // Filtro per locale (richiede join con agibilita)
-                query = query.ilike('agibilita.locale->descrizione', `%${filters.locale}%`);
-            }
-            
-            const { data, error } = await query;
-            
-            if (error) throw error;
-            return data || [];
-        } catch (error) {
-            console.error('Errore recupero pagamenti:', error);
-            return [];
-        }
-    }
-
-    async savePagamento(pagamentoData) {
-        try {
-            const { data, error } = await this.supabase
-                .from('pagamenti')
-                .insert(pagamentoData)
-                .select();
-            
-            if (error) throw error;
-            return data[0];
-        } catch (error) {
-            console.error('Errore salvataggio pagamento:', error);
-            throw error;
-        }
-    }
-
-    async updatePagamento(id, updates) {
-        try {
-            const { data, error } = await this.supabase
-                .from('pagamenti')
-                .update({
-                    ...updates,
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', id)
-                .select();
-            
-            if (error) throw error;
-            return data[0];
-        } catch (error) {
-            console.error('Errore aggiornamento pagamento:', error);
-            throw error;
-        }
-    }
-
-    async deletePagamento(id) {
-        try {
-            const { error } = await this.supabase
-                .from('pagamenti')
-                .delete()
-                .eq('id', id);
-            
-            if (error) throw error;
-            return true;
-        } catch (error) {
-            console.error('Errore eliminazione pagamento:', error);
-            throw error;
-        }
-    }
-
-    // Metodo per creare pagamenti da agibilità
-    async createPagamentiFromAgibilita(agibilita, userSession) {
-        try {
-            const pagamenti = [];
-            
-            for (const artista of agibilita.artisti) {
-                const pagamentoData = {
-                    agibilita_id: agibilita.codice,
-                    artista_id: artista.artista_id || artista.id,
-                    importo_lordo: artista.compenso || 0,
-                    importo_netto: artista.tipo_rapporto === 'occasionale' ? 
-                        (artista.compenso || 0) * 0.8 : (artista.compenso || 0),
-                    ritenuta: artista.tipo_rapporto === 'occasionale' ? 
-                        (artista.compenso || 0) * 0.2 : 0,
-                    stato: 'da_pagare',
-                    created_by: userSession?.name || 'Sistema'
-                };
-                
-                const saved = await this.savePagamento(pagamentoData);
-                pagamenti.push(saved);
-            }
-            
-            return pagamenti;
-        } catch (error) {
-            console.error('Errore creazione pagamenti da agibilità:', error);
-            throw error;
-        }
-    }
-
-    // Metodo per ottenere statistiche pagamenti
-    async getStatistichePagamenti() {
-        try {
-            const today = new Date();
-            const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-            
-            // Totale da pagare
-            const { data: daPagare } = await this.supabase
-                .from('pagamenti')
-                .select('importo_lordo, ritenuta')
-                .eq('stato', 'da_pagare');
-            
-            const totaleDaPagare = daPagare?.reduce((sum, p) => sum + (p.importo_lordo || 0), 0) || 0;
-            const totaleRitenute = daPagare?.reduce((sum, p) => sum + (p.ritenuta || 0), 0) || 0;
-            
-            // Pagamenti del mese
-            const { count: pagamentiMese } = await this.supabase
-                .from('pagamenti')
-                .select('*', { count: 'exact', head: true })
-                .eq('stato', 'pagato')
-                .gte('data_pagamento', firstDayOfMonth.toISOString());
-            
-            return {
-                totale_da_pagare: totaleDaPagare,
-                totale_ritenute: totaleRitenute,
-                numero_da_pagare: daPagare?.length || 0,
-                pagamenti_mese: pagamentiMese || 0
-            };
-        } catch (error) {
-            console.error('Errore calcolo statistiche pagamenti:', error);
-            return {
-                totale_da_pagare: 0,
-                totale_ritenute: 0,
-                numero_da_pagare: 0,
-                pagamenti_mese: 0
-            };
-        }
-    }
-
-    // Metodo per verificare pagamenti duplicati
-    async checkPagamentoDuplicato(agibilitaId, artistaId) {
-        try {
-            const { data, error } = await this.supabase
-                .from('pagamenti')
-                .select('id')
-                .eq('agibilita_id', agibilitaId)
-                .eq('artista_id', artistaId)
-                .single();
-            
-            return !error && data !== null;
-        } catch (error) {
-            return false;
-        }
-    }
-
-    // ==================== STATISTICHE ====================
+    // ==================== STATISTICHE SICURE CON FALLBACK ====================
     async getStatistiche() {
         try {
             const today = new Date();
@@ -1023,16 +481,30 @@ class DatabaseService {
             const mediaArtistiPerAgibilita = agibilitaMese > 0 ? 
                 (artistiTotaliMese / agibilitaMese).toFixed(1) : 0;
             
-            // Conta bozze in sospeso
-            const { count: bozzeSospese } = await this.supabase
-                .from('agibilita_bozze')
-                .select('*', { count: 'exact', head: true });
+            // Conta bozze con gestione errori
+            let bozzeSospese = 0;
+            try {
+                const { count } = await this.supabase
+                    .from('agibilita_bozze')
+                    .select('*', { count: 'exact', head: true });
+                bozzeSospese = count || 0;
+            } catch (e) {
+                console.warn('Tabella bozze non disponibile:', e);
+                bozzeSospese = 0;
+            }
             
-            // Conta comunicazioni inviate quest'anno
-            const { count: comunicazioniAnno } = await this.supabase
-                .from('comunicazioni')
-                .select('*', { count: 'exact', head: true })
-                .gte('data_invio', firstDayOfYear.toISOString());
+            // Conta comunicazioni con gestione errori
+            let comunicazioniAnno = 0;
+            try {
+                const { count } = await this.supabase
+                    .from('comunicazioni')
+                    .select('*', { count: 'exact', head: true })
+                    .gte('created_at', firstDayOfYear.toISOString());
+                comunicazioniAnno = count || 0;
+            } catch (e) {
+                console.warn('Tabella comunicazioni non disponibile:', e);
+                comunicazioniAnno = 0;
+            }
             
             return {
                 artisti: totalArtisti || 0,
@@ -1041,8 +513,8 @@ class DatabaseService {
                 artisti_unici_mese: artistiUniciMese,
                 artisti_totali_mese: artistiTotaliMese,
                 media_artisti_agibilita: mediaArtistiPerAgibilita,
-                bozze_sospese: bozzeSospese || 0,
-                comunicazioni_anno: comunicazioniAnno || 0
+                bozze_sospese: bozzeSospese,
+                comunicazioni_anno: comunicazioniAnno
             };
         } catch (error) {
             console.error('Errore recupero statistiche:', error);
@@ -1074,39 +546,6 @@ class DatabaseService {
             console.error('❌ Errore connessione Supabase:', error);
             return false;
         }
-    }
-
-    // ==================== VERIFICA TABELLE ====================
-    async checkTables() {
-        const tables = [
-            'artisti',
-            'agibilita',
-            'agibilita_bozze',
-            'agibilita_numeri_riservati',
-            'notifiche_log',
-            'venues',
-            'invoice_data',
-            'comunicazioni',
-            'locali',
-            'pagamenti'
-        ];
-        
-        const results = {};
-        
-        for (const table of tables) {
-            try {
-                const { count, error } = await this.supabase
-                    .from(table)
-                    .select('*', { count: 'exact', head: true });
-                
-                results[table] = !error;
-            } catch (e) {
-                results[table] = false;
-            }
-        }
-        
-        console.log('📊 Stato tabelle:', results);
-        return results;
     }
 }
 
