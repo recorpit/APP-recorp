@@ -1,16 +1,103 @@
 // supabase-config.js - Configurazione SICURA per RECORP
-// Le credenziali sono ora caricate da variabili ambiente
+// ZERO credenziali hardcoded
 
 // =====================================================
-// CONFIGURAZIONE SICURA SUPABASE
+// CONFIGURAZIONE SUPABASE SICURA
 // =====================================================
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Funzione per ottenere variabili ambiente in modo sicuro
+function getEnvVar(name) {
+  // Tentativo 1: import.meta.env (Vite)
+  if (typeof import.meta !== 'undefined' && import.meta.env) {
+    const value = import.meta.env[name];
+    if (value) {
+      console.log(`✅ ${name} caricato da import.meta.env`);
+      return value;
+    }
+  }
+  
+  // Tentativo 2: process.env (Node.js/Webpack)
+  if (typeof process !== 'undefined' && process.env) {
+    const value = process.env[name];
+    if (value) {
+      console.log(`✅ ${name} caricato da process.env`);
+      return value;
+    }
+  }
+  
+  // Tentativo 3: window.env (se impostato manualmente)
+  if (typeof window !== 'undefined' && window.env) {
+    const value = window.env[name];
+    if (value) {
+      console.log(`✅ ${name} caricato da window.env`);
+      return value;
+    }
+  }
+  
+  // Tentativo 4: localStorage per sviluppo locale
+  if (typeof localStorage !== 'undefined') {
+    const value = localStorage.getItem(name);
+    if (value) {
+      console.log(`⚠️ ${name} caricato da localStorage (solo sviluppo)`);
+      return value;
+    }
+  }
+  
+  // NESSUN FALLBACK HARDCODED - SICUREZZA MASSIMA
+  console.error(`❌ Variabile ambiente ${name} non trovata!`);
+  throw new Error(`Configurazione mancante: ${name}. Configurare le variabili ambiente.`);
+}
 
-// Verifica che le variabili ambiente siano configurate
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('❌ Configurazione Supabase mancante. Controlla file .env');
+// Ottieni configurazione Supabase - SE FALLISCE, L'APP NON PARTE
+let supabaseUrl, supabaseAnonKey;
+
+try {
+  supabaseUrl = getEnvVar('VITE_SUPABASE_URL');
+  supabaseAnonKey = getEnvVar('VITE_SUPABASE_ANON_KEY');
+} catch (error) {
+  // Per sviluppo locale, mostra come configurare
+  console.error('🚨 CONFIGURAZIONE MANCANTE!');
+  console.error('📋 Per configurare le credenziali:');
+  console.error('');
+  console.error('OPZIONE 1 - File .env (raccomandato):');
+  console.error('VITE_SUPABASE_URL=https://nommluymuwioddhaujxu.supabase.co');
+  console.error('VITE_SUPABASE_ANON_KEY=la_tua_anon_key');
+  console.error('');
+  console.error('OPZIONE 2 - localStorage (solo sviluppo):');
+  console.error('localStorage.setItem("VITE_SUPABASE_URL", "https://nommluymuwioddhaujxu.supabase.co");');
+  console.error('localStorage.setItem("VITE_SUPABASE_ANON_KEY", "la_tua_anon_key");');
+  console.error('');
+  
+  // Mostra errore in pagina
+  if (typeof document !== 'undefined') {
+    document.body.innerHTML = `
+      <div style="
+        font-family: Arial, sans-serif; 
+        max-width: 600px; 
+        margin: 50px auto; 
+        padding: 30px; 
+        background: #fee; 
+        border: 2px solid #c33; 
+        border-radius: 10px;
+        text-align: center;
+      ">
+        <h2 style="color: #c33;">🚨 Configurazione Supabase Mancante</h2>
+        <p>Le credenziali del database non sono configurate.</p>
+        <p><strong>Per sviluppatori:</strong></p>
+        <p>Controllare la console per le istruzioni di configurazione.</p>
+        <p style="font-size: 0.9em; color: #666; margin-top: 20px;">
+          Questo errore protegge la sicurezza impedendo credenziali hardcoded.
+        </p>
+      </div>
+    `;
+  }
+  
+  throw error;
+}
+
+// Verifica che Supabase sia caricato
+if (typeof window === 'undefined' || !window.supabase) {
+  throw new Error('❌ Supabase client non caricato. Assicurati che il CDN sia importato.');
 }
 
 // Inizializza Supabase client con configurazione sicura
@@ -22,7 +109,11 @@ const supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey, {
   }
 });
 
-console.log('✅ Supabase configurato tramite environment variables');
+console.log('✅ Supabase configurato SICURAMENTE:', {
+  url: supabaseUrl.substring(0, 30) + '...',
+  keyLength: supabaseAnonKey.length,
+  secure: true
+});
 
 // =====================================================
 // SERVIZIO DATABASE CENTRALIZZATO (MANTENUTO)
