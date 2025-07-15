@@ -143,7 +143,7 @@ async function loadDataFromSupabase() {
     }
 }
 
-// ==================== STATISTICHE SICURE ====================
+// ==================== STATISTICHE SICURE CON GESTIONE ERRORI ====================
 async function updateStatistics() {
     try {
         console.log('📊 Caricamento statistiche sicure...');
@@ -154,7 +154,8 @@ async function updateStatistics() {
             throw new Error('Non autenticato per statistiche');
         }
         
-        const stats = await DatabaseService.getStatistiche();
+        // 🔧 CHIAMATA SICURA ALLE STATISTICHE
+        const stats = await getStatisticsSafely();
         console.log('📈 Statistiche ricevute:', stats);
         
         // Aggiorna i display esistenti
@@ -204,7 +205,68 @@ async function updateStatistics() {
         updateStatElement('totalCompensation', '€0');
         updateStatElement('completionRate', '0');
         
-        showToast('Errore caricamento statistiche', 'error');
+        showToast('Alcune statistiche potrebbero non essere aggiornate', 'warning');
+    }
+}
+
+// 🔧 FUNZIONE SICURA PER STATISTICHE CON GESTIONE ERRORI
+async function getStatisticsSafely() {
+    try {
+        // Prima prova il metodo completo
+        return await DatabaseService.getStatistiche();
+    } catch (error) {
+        console.warn('⚠️ Errore statistiche complete, calcolo manuale:', error);
+        
+        // Se fallisce, calcola manualmente dai dati già caricati
+        const today = new Date();
+        const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+        
+        // Calcola agibilità del mese
+        const agibilitaMese = agibilitaDB.filter(ag => {
+            if (!ag.created_at) return false;
+            const createdDate = new Date(ag.created_at);
+            return createdDate >= firstDayOfMonth;
+        }).length;
+        
+        // Calcola artisti del mese
+        let artistiTotaliMese = 0;
+        const artistiUniciSet = new Set();
+        
+        agibilitaDB.forEach(agibilita => {
+            if (!agibilita.created_at) return;
+            const createdDate = new Date(agibilita.created_at);
+            if (createdDate >= firstDayOfMonth && agibilita.artisti && Array.isArray(agibilita.artisti)) {
+                agibilita.artisti.forEach(artista => {
+                    artistiTotaliMese++;
+                    if (artista.cf) {
+                        artistiUniciSet.add(artista.cf);
+                    }
+                });
+            }
+        });
+        
+        const artistiUniciMese = artistiUniciSet.size;
+        const mediaArtistiAgibilita = agibilitaMese > 0 ? (artistiTotaliMese / agibilitaMese).toFixed(1) : 0;
+        
+        // Conta bozze (se la tabella esiste)
+        let bozzeSospese = 0;
+        try {
+            const bozze = await DatabaseService.getBozze();
+            bozzeSospese = bozze.length;
+        } catch (e) {
+            console.warn('Tabella bozze non disponibile:', e);
+        }
+        
+        return {
+            artisti: artistsDB.length,
+            agibilita_totali: agibilitaDB.length,
+            agibilita_mese: agibilitaMese,
+            artisti_unici_mese: artistiUniciMese,
+            artisti_totali_mese: artistiTotaliMese,
+            media_artisti_agibilita: mediaArtistiAgibilita,
+            bozze_sospese: bozzeSospese,
+            comunicazioni_anno: 0 // Non calcolabile senza tabella comunicazioni funzionante
+        };
     }
 }
 
@@ -277,6 +339,8 @@ function updateRecentActivity() {
                     <div class="activity-status ${ag.stato_invio || 'draft'}">${getStatusText(ag.stato_invio)}</div>
                 </div>
             `).join('');
+        } else if (agibilitaContainer) {
+            agibilitaContainer.innerHTML = '<div class="no-data">Nessuna agibilità trovata</div>';
         }
 
         // Aggiorna artisti recenti
@@ -292,6 +356,8 @@ function updateRecentActivity() {
                     <div class="activity-date">${formatDate(artista.created_at)}</div>
                 </div>
             `).join('');
+        } else if (artistiContainer) {
+            artistiContainer.innerHTML = '<div class="no-data">Nessun artista trovato</div>';
         }
     } catch (error) {
         console.error('❌ Errore aggiornamento attività recente:', error);
