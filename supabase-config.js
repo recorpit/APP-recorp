@@ -1,20 +1,653 @@
 // supabase-config.js - Configurazione Database RECORP
-// Versione con Singleton Pattern per evitare istanze multiple
-// ==================== CONFIGURAZIONE SUPABASE ====================
+// Versione integrata con numerazione thread-safe e supporto login
 
-// 🔧 INSERISCI QUI LE TUE CREDENZIALI SUPABASE
+// ==================== CONFIGURAZIONE SUPABASE ====================
 const SUPABASE_CONFIG = {
     url: 'https://nommluymuwioddhaujxu.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5vbW1sdXltdXdpb2RkaGF1anh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzc4MDgzMDQsImV4cCI6MjA1MzM4NDMwNH0.ke-LvKK6bB7hvJzF1Lkl8AvLpM95U3wGqR8j4cAyXso'
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5vbW1sdXltdXdpb2RkaGF1anh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE5ODA5MjgsImV4cCI6MjA2NzU1NjkyOH0.oaF5uaNe21W8NU67n1HjngngMUClkss2achTQ7BZ5tE'
 };
 
-// ==================== IMPORTAZIONE SUPABASE ====================
-// 🚨 SINGLETON PATTERN - Una sola istanza globale
-let supabaseInstance = null;
+// ==================== INIZIALIZZAZIONE SUPABASE ====================
+let supabase = null;
+let isInitialized = false;
 
+// Inizializza Supabase
 async function initializeSupabase() {
-    if (supabaseInstance) {
-        return supabaseInstance; // Restituisce istanza esistente
+    try {
+        // Verifica che le credenziali siano state configurate
+        if (SUPABASE_CONFIG.url.includes('TUO-PROGETTO') || 
+            SUPABASE_CONFIG.anonKey.includes('TUA-CHIAVE')) {
+            throw new Error('⚠️ CREDENZIALI NON CONFIGURATE: Sostituisci URL e chiave nel file supabase-config.js');
+        }
+
+        // Inizializza client Supabase con opzioni auth
+        supabase = window.supabase.createClient(
+            SUPABASE_CONFIG.url,
+            SUPABASE_CONFIG.anonKey,
+            {
+                auth: {
+                    autoRefreshToken: true,
+                    persistSession: true,
+                    detectSessionInUrl: true
+                }
+            }
+        );
+
+        // Test connessione
+        const { data, error } = await supabase
+            .from('artisti')
+            .select('count')
+            .limit(1);
+
+        if (error && error.code !== '42P01') { // 42P01 = relation does not exist (tabella non esiste ancora)
+            throw error;
+        }
+
+        isInitialized = true;
+        console.log('✅ Supabase inizializzato correttamente');
+        console.log('🔗 URL:', SUPABASE_CONFIG.url);
+        console.log('🔑 Chiave configurata:', SUPABASE_CONFIG.anonKey.substring(0, 20) + '...');
+        
+        return supabase;
+
+    } catch (error) {
+        console.error('❌ Errore inizializzazione Supabase:', error);
+        
+        // Mostra messaggio di errore user-friendly
+        showConfigurationError(error.message);
+        throw error;
+    }
+}
+
+// Mostra errore di configurazione
+function showConfigurationError(message) {
+    const errorDiv = document.createElement('div');
+    errorDiv.id = 'supabase-config-error';
+    errorDiv.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        background: #dc2626;
+        color: white;
+        padding: 1rem;
+        text-align: center;
+        z-index: 9999;
+        font-weight: 600;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    `;
+    
+    errorDiv.innerHTML = `
+        <div style="max-width: 800px; margin: 0 auto;">
+            🚨 <strong>Configurazione Supabase Richiesta</strong><br>
+            <span style="font-weight: normal; font-size: 0.9rem;">${message}</span><br>
+            <small style="opacity: 0.9;">Modifica il file supabase-config.js con le tue credenziali</small>
+        </div>
+    `;
+    
+    // Rimuovi errore precedente se esiste
+    const existing = document.getElementById('supabase-config-error');
+    if (existing) existing.remove();
+    
+    document.body.prepend(errorDiv);
+}
+
+// ==================== DATABASE SERVICE ====================
+export const DatabaseService = {
+    // ==================== INIZIALIZZAZIONE ====================
+    async init() {
+        if (!isInitialized) {
+            await initializeSupabase();
+        }
+        return supabase;
+    },
+
+    // Verifica se è inizializzato
+    isReady() {
+        return isInitialized && supabase !== null;
+    },
+
+    // ✅ AGGIUNTO: Metodo per ottenere il client Supabase (necessario per login)
+    getSupabaseClient() {
+        return supabase;
+    },
+
+    // ✅ AGGIUNTO: Test connessione migliorato per login
+    async testConnection() {
+        try {
+            if (!supabase) {
+                return {
+                    connected: false,
+                    authenticated: false,
+                    error: 'Client Supabase non configurato'
+                };
+            }
+
+            // Test connessione con auth check
+            const { data: { session }, error } = await supabase.auth.getSession();
+            
+            // Test accesso database
+            const { data: dbTest, error: dbError } = await supabase
+                .from('artisti')
+                .select('count')
+                .limit(1);
+            
+            return {
+                connected: !dbError || dbError.code === '42P01', // OK se tabella non esiste ancora
+                authenticated: !!session,
+                user: session?.user || null,
+                error: error?.message || dbError?.message || null,
+                database_accessible: !dbError
+            };
+        } catch (error) {
+            return {
+                connected: false,
+                authenticated: false,
+                error: error.message,
+                database_accessible: false
+            };
+        }
+    },
+
+    // ==================== ARTISTI ====================
+    async getArtists() {
+        await this.init();
+        const { data, error } = await supabase
+            .from('artisti')
+            .select('*')
+            .eq('attivo', true)  // Solo artisti attivi (soft delete)
+            .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        return data || [];
+    },
+
+    async getAllArtisti() {
+        return await this.getArtists(); // Alias per compatibilità
+    },
+
+    async searchArtisti(searchTerm) {
+        await this.init();
+        const { data, error } = await supabase
+            .from('artisti')
+            .select(`
+                id, nome, cognome, nome_arte, codice_fiscale, codice_fiscale_temp,
+                mansione, matricola_enpals, nazionalita, telefono, email,
+                has_partita_iva, tipo_rapporto, attivo
+            `)
+            .eq('attivo', true)
+            .or(`nome.ilike.%${searchTerm}%,cognome.ilike.%${searchTerm}%,nome_arte.ilike.%${searchTerm}%,codice_fiscale.ilike.%${searchTerm}%,codice_fiscale_temp.ilike.%${searchTerm}%`)
+            .limit(20);
+        
+        if (error) throw error;
+        return data || [];
+    },
+
+    async saveArtist(artistData) {
+        await this.init();
+        // Aggiungi timestamp e flag attivo
+        const dataToSave = {
+            ...artistData,
+            attivo: true,
+            created_at: new Date().toISOString()
+        };
+        
+        const { data, error } = await supabase
+            .from('artisti')
+            .insert([dataToSave])
+            .select()
+            .single();
+        
+        if (error) throw error;
+        return data;
+    },
+
+    async updateArtist(id, artistData) {
+        await this.init();
+        const dataToUpdate = {
+            ...artistData,
+            updated_at: new Date().toISOString()
+        };
+        
+        const { data, error } = await supabase
+            .from('artisti')
+            .update(dataToUpdate)
+            .eq('id', id)
+            .select()
+            .single();
+        
+        if (error) throw error;
+        return data;
+    },
+
+    // ==================== AGIBILITÀ ====================
+    async getAgibilita() {
+        await this.init();
+        const { data, error } = await supabase
+            .from('agibilita')
+            .select('*')
+            .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        return data || [];
+    },
+
+    async saveAgibilita(agibilitaData) {
+        await this.init();
+        const { data, error } = await supabase
+            .from('agibilita')
+            .insert([agibilitaData])
+            .select()
+            .single();
+        
+        if (error) throw error;
+        return data;
+    },
+
+    // ==================== NUMERAZIONE THREAD-SAFE ====================
+    
+    // ✅ AGGIUNTO: Sistema numerazione thread-safe
+    async reserveAgibilitaNumberSafe() {
+        await this.init();
+        
+        const currentYear = new Date().getFullYear();
+        let attempts = 0;
+        const maxAttempts = 5;
+        
+        while (attempts < maxAttempts) {
+            try {
+                // STEP 1: Ottieni e incrementa atomicamente il numero
+                const { data, error } = await supabase.rpc('reserve_next_agibilita_number', {
+                    target_year: currentYear
+                });
+                
+                if (error) {
+                    // Se la funzione non esiste, usa il metodo fallback
+                    if (error.code === '42883') { // function does not exist
+                        console.warn('⚠️ Funzione PostgreSQL non trovata, uso metodo fallback');
+                        return await this.reserveAgibilitaNumberFallback();
+                    }
+                    throw error;
+                }
+                
+                const numeroProgressivo = data.nuovo_numero;
+                const codiceAgibilita = `AG-${currentYear}-${String(numeroProgressivo).padStart(3, '0')}`;
+                
+                // STEP 2: Registra immediatamente la prenotazione
+                const prenotazione = {
+                    codice: codiceAgibilita,
+                    anno: currentYear,
+                    numero_progressivo: numeroProgressivo,
+                    stato: 'riservato',
+                    riservato_da: await this.getCurrentUserEmail(),
+                    riservato_at: new Date().toISOString(),
+                    expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 minuti
+                    session_id: this.generateSessionId()
+                };
+                
+                const { data: reserved, error: reserveError } = await supabase
+                    .from('agibilita_prenotazioni')
+                    .insert([prenotazione])
+                    .select()
+                    .single();
+                
+                if (reserveError) {
+                    // Se la tabella non esiste, usa fallback
+                    if (reserveError.code === '42P01') { // relation does not exist
+                        console.warn('⚠️ Tabella prenotazioni non trovata, uso metodo fallback');
+                        return await this.reserveAgibilitaNumberFallback();
+                    }
+                    
+                    console.warn(`⚠️ Tentativo ${attempts + 1}: Numero ${codiceAgibilita} già prenotato`);
+                    attempts++;
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    continue;
+                }
+                
+                console.log(`✅ Numero agibilità riservato: ${codiceAgibilita}`);
+                return {
+                    codice: codiceAgibilita,
+                    numero_progressivo: numeroProgressivo,
+                    reservation_id: reserved.id,
+                    expires_at: prenotazione.expires_at
+                };
+                
+            } catch (error) {
+                console.error(`❌ Tentativo ${attempts + 1} fallito:`, error);
+                attempts++;
+                
+                if (attempts < maxAttempts) {
+                    await new Promise(resolve => setTimeout(resolve, 200 * attempts));
+                }
+            }
+        }
+        
+        throw new Error('Impossibile riservare numero agibilità dopo ' + maxAttempts + ' tentativi');
+    },
+
+    // ✅ AGGIUNTO: Metodo fallback se le tabelle thread-safe non esistono
+    async reserveAgibilitaNumberFallback() {
+        console.log('🔄 Uso metodo numerazione fallback');
+        const year = new Date().getFullYear();
+        const agibilita = await this.getAgibilita();
+        const yearAgibilita = agibilita.filter(a => 
+            a.created_at && new Date(a.created_at).getFullYear() === year
+        );
+        const nextNumber = yearAgibilita.length + 1;
+        const codice = `AG-${year}-${String(nextNumber).padStart(3, '0')}`;
+        
+        return {
+            codice: codice,
+            numero_progressivo: nextNumber,
+            reservation_id: null, // Nessuna prenotazione nel fallback
+            expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString()
+        };
+    },
+
+    // Mantiene compatibilità con il metodo esistente
+    async reserveAgibilitaNumber() {
+        const result = await this.reserveAgibilitaNumberSafe();
+        return result.codice;
+    },
+
+    // ✅ AGGIUNTO: Conferma utilizzo numero riservato
+    async confirmAgibilitaNumber(reservationId, agibilitaId) {
+        if (!reservationId) return true; // Fallback mode, niente da confermare
+        
+        await this.init();
+        
+        const { data, error } = await supabase
+            .from('agibilita_prenotazioni')
+            .update({
+                stato: 'utilizzato',
+                agibilita_id: agibilitaId,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', reservationId)
+            .eq('stato', 'riservato')
+            .select()
+            .single();
+        
+        if (error) {
+            console.error('❌ Errore conferma numero:', error);
+            throw error;
+        }
+        
+        console.log('✅ Numero agibilità confermato come utilizzato');
+        return data;
+    },
+
+    // ✅ AGGIUNTO: Rilascia numero riservato
+    async releaseAgibilitaNumber(reservationId) {
+        if (!reservationId) return true; // Fallback mode, niente da rilasciare
+        
+        await this.init();
+        
+        const { error } = await supabase
+            .from('agibilita_prenotazioni')
+            .update({
+                stato: 'rilasciato',
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', reservationId)
+            .eq('stato', 'riservato');
+        
+        if (error) {
+            console.error('❌ Errore rilascio numero:', error);
+            return false;
+        }
+        
+        console.log('✅ Numero agibilità rilasciato');
+        return true;
+    },
+
+    // ✅ AGGIUNTO: Utility per utente corrente
+    async getCurrentUserEmail() {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            return user?.email || 'unknown';
+        } catch {
+            return 'unknown';
+        }
+    },
+    
+    // ✅ AGGIUNTO: Genera ID sessione
+    generateSessionId() {
+        return 'sess_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+    },
+
+    // ==================== VENUES ====================
+    async getVenues() {
+        await this.init();
+        const { data, error } = await supabase
+            .from('venues')
+            .select('*')
+            .order('nome');
+        
+        if (error) throw error;
+        return data || [];
+    },
+
+    async saveVenue(venueData) {
+        await this.init();
+        const { data, error } = await supabase
+            .from('venues')
+            .insert([venueData])
+            .select()
+            .single();
+        
+        if (error) throw error;
+        return data;
+    },
+
+    // ==================== FATTURAZIONE ====================
+    async getAllInvoiceData() {
+        await this.init();
+        const { data, error } = await supabase
+            .from('invoice_data')
+            .select('*')
+            .order('last_updated', { ascending: false });
+        
+        if (error) throw error;
+        return data || [];
+    },
+
+    async saveInvoiceData(invoiceData) {
+        await this.init();
+        const { data, error } = await supabase
+            .from('invoice_data')
+            .insert([invoiceData])
+            .select()
+            .single();
+        
+        if (error) throw error;
+        return data;
+    },
+
+    // ==================== BOZZE AGIBILITÀ ====================
+    async getBozze() {
+        await this.init();
+        const { data, error } = await supabase
+            .from('bozze_agibilita')  // Nome corretto secondo documentazione
+            .select('*')
+            .order('updated_at', { ascending: false });
+        
+        if (error) throw error;
+        return data || [];
+    },
+
+    async createBozza(bozzaData, userSession) {
+        await this.init();
+        const bozza = {
+            data: bozzaData,
+            created_by: userSession.id,
+            created_by_name: userSession.name,
+            locked_by: userSession.id,
+            locked_by_name: userSession.name,
+            locked_until: new Date(Date.now() + 60 * 60 * 1000).toISOString(), // 1 ora
+            completamento_percentuale: this.calculateCompletamento(bozzaData),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        };
+
+        const { data, error } = await supabase
+            .from('bozze_agibilita')
+            .insert([bozza])
+            .select()
+            .single();
+        
+        if (error) throw error;
+        return data;
+    },
+
+    // ✅ AGGIUNTO: Crea bozza con numero riservato
+    async createBozzaWithReservedNumber(bozzaData, userSession) {
+        await this.init();
+        
+        const bozza = {
+            data: {
+                ...bozzaData,
+                // Includi dati numerazione se presenti
+                numeroRiservato: bozzaData.numeroRiservato,
+                reservationId: bozzaData.reservationId,
+                reservationExpires: bozzaData.reservationExpires
+            },
+            codice_riservato: bozzaData.numeroRiservato || null,
+            reservation_id: bozzaData.reservationId || null,
+            created_by: userSession.id,
+            created_by_name: userSession.name,
+            locked_by: userSession.id,
+            locked_by_name: userSession.name,
+            locked_until: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+            completamento_percentuale: this.calculateCompletamento(bozzaData),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        };
+
+        const { data, error } = await supabase
+            .from('bozze_agibilita')
+            .insert([bozza])
+            .select()
+            .single();
+        
+        if (error) throw error;
+        return data;
+    },
+
+    async updateBozza(bozzaId, bozzaData, userSession = null) {
+        await this.init();
+        const updateData = {
+            data: bozzaData,
+            completamento_percentuale: this.calculateCompletamento(bozzaData),
+            updated_at: new Date().toISOString()
+        };
+
+        // Se fornito userSession, aggiorna anche i dati lock
+        if (userSession) {
+            updateData.locked_by = userSession.id;
+            updateData.locked_by_name = userSession.name;
+            updateData.locked_until = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+        }
+
+        const { data, error } = await supabase
+            .from('bozze_agibilita')
+            .update(updateData)
+            .eq('id', bozzaId)
+            .select()
+            .single();
+        
+        if (error) throw error;
+        return data;
+    },
+
+    async deleteBozza(bozzaId) {
+        await this.init();
+        const { error } = await supabase
+            .from('bozze_agibilita')
+            .delete()
+            .eq('id', bozzaId);
+        
+        if (error) throw error;
+        return true;
+    },
+
+    async lockBozza(bozzaId, userSession) {
+        await this.init();
+        
+        // Verifica se già bloccata
+        const { data: existing } = await supabase
+            .from('bozze_agibilita')
+            .select('locked_by, locked_until, locked_by_name')
+            .eq('id', bozzaId)
+            .single();
+
+        if (existing && existing.locked_until > new Date().toISOString() && 
+            existing.locked_by !== userSession.id) {
+            return {
+                success: false,
+                locked_by: existing.locked_by_name || existing.locked_by
+            };
+        }
+
+        // Blocca la bozza
+        const lockUntil = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+        const { data, error } = await supabase
+            .from('bozze_agibilita')
+            .update({
+                locked_by: userSession.id,
+                locked_by_name: userSession.name,
+                locked_until: lockUntil
+            })
+            .eq('id', bozzaId)
+            .select()
+            .single();
+
+        if (error) throw error;
+        
+        return {
+            success: true,
+            lock: {
+                id: userSession.id,
+                until: lockUntil
+            }
+        };
+    },
+
+    async unlockBozza(bozzaId) {
+        await this.init();
+        const { data, error } = await supabase
+            .from('bozze_agibilita')
+            .update({
+                locked_by: null,
+                locked_by_name: null,
+                locked_until: null
+            })
+            .eq('id', bozzaId)
+            .select()
+            .single();
+        
+        if (error) throw error;
+        return data;
+    },
+
+    async renewLock(bozzaId, lock) {
+        await this.init();
+        const newLockUntil = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+        
+        const { data, error } = await supabase
+            .from('bozze_agibilita')
+            .update({
+                locked_until: newLockUntil
+            })
+            .eq('id', bozzaId)
+            .eq('locked_by', lock.id)
+            .select()
+            .single();
+        
+        if (error) throw error;
+        return data;
+    },
+
     // Calcola percentuale completamento bozza
     calculateCompletamento(bozzaData) {
         let campiTotali = 0;
@@ -52,686 +685,7 @@ async function initializeSupabase() {
         campiTotali += 5;
         
         return Math.round((campiCompilati / campiTotali) * 100);
-    }
-
-    // ==================== COMPATIBILITÀ FALLBACK METHODS ====================
-    
-    // Mantiene compatibilità con il metodo esistente
-    async reserveAgibilitaNumber() {
-        const result = await this.reserveAgibilitaNumberSafe();
-        return result.numero ? `AG-${result.anno}-${String(result.numero).padStart(3, '0')}` : result.codice;
-    }
-
-    async getAgibilita(filtri = {}) {
-        try {
-            await this.init();
-            
-            let query = this.supabase.from('agibilita').select('*');
-            
-            if (filtri.anno) {
-                query = query.eq('anno', filtri.anno);
-            }
-            
-            if (filtri.numero) {
-                query = query.eq('numero', filtri.numero);
-            }
-            
-            query = query.order('numero', { ascending: false });
-            
-            const { data, error } = await query;
-            
-            if (error) {
-                console.error('❌ Errore caricamento agibilità:', error);
-                return { success: false, error: error.message };
-            }
-            
-            return { success: true, data };
-        } catch (error) {
-            console.error('❌ Errore caricamento agibilità:', error);
-            return { success: false, error: error.message };
-        }
-    }
-
-    try {
-        // Import dinamico per evitare conflitti
-        const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
-        
-        // Crea istanza SOLO se non esiste
-        supabaseInstance = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey, {
-            auth: {
-                autoRefreshToken: true,
-                persistSession: true,
-                detectSessionInUrl: true,
-                storage: localStorage,
-                storageKey: 'recorp-auth' // Chiave univoca per evitare conflitti
-            },
-            db: {
-                schema: 'public'
-            },
-            global: {
-                headers: {
-                    'X-Client-Info': 'recorp-app@1.0.0'
-                }
-            }
-        });
-
-        console.log('✅ Supabase Client inizializzato (Singleton)');
-        return supabaseInstance;
-    } catch (error) {
-        console.error('❌ Errore inizializzazione Supabase:', error);
-        throw error;
-    }
-}
-
-// ==================== CLASSE DATABASE SERVICE ====================
-class DatabaseService {
-    constructor() {
-        this.supabase = null;
-        this.initialized = false;
-        this.initPromise = null; // Promise per evitare inizializzazioni multiple
-    }
-
-    async init() {
-        // Se già inizializzato, restituisce istanza esistente
-        if (this.initialized && this.supabase) {
-            return this.supabase;
-        }
-
-        // Se inizializzazione in corso, aspetta quella esistente
-        if (this.initPromise) {
-            return await this.initPromise;
-        }
-
-        // Avvia nuova inizializzazione
-        this.initPromise = this._performInit();
-        return await this.initPromise;
-    }
-
-    async _performInit() {
-        try {
-            this.supabase = await initializeSupabase();
-            this.initialized = true;
-            
-            // Setup listener eventi auth una sola volta
-            this.supabase.auth.onAuthStateChange((event, session) => {
-                console.log(`🔐 Auth Event: ${event}`, session ? 'User logged in' : 'User logged out');
-            });
-
-            return this.supabase;
-        } catch (error) {
-            console.error('❌ Errore init DatabaseService:', error);
-            this.initPromise = null; // Reset per retry
-            throw error;
-        }
-    }
-
-    // Metodo per ottenere client Supabase
-    getSupabaseClient() {
-        if (!this.initialized || !this.supabase) {
-            console.warn('⚠️  DatabaseService non inizializzato. Chiamare init() prima.');
-            return null;
-        }
-        return this.supabase;
-    }
-
-    // Test connessione semplificato
-    async testConnection() {
-        try {
-            if (!this.supabase) {
-                await this.init();
-            }
-
-            // Test semplice con getSession (non richiede autenticazione)
-            const { data, error } = await this.supabase.auth.getSession();
-            
-            if (error) {
-                console.error('❌ Errore test connessione:', error);
-                return { success: false, error: error.message };
-            }
-
-            return { 
-                success: true, 
-                message: 'Connessione Supabase OK',
-                sessionExists: !!data.session
-            };
-        } catch (error) {
-            console.error('❌ Errore test connessione:', error);
-            return { 
-                success: false, 
-                error: error.message || 'Errore sconosciuto'
-            };
-        }
-    }
-
-    // ==================== SISTEMA NUMERAZIONE THREAD-SAFE ====================
-    
-    async reserveAgibilitaNumberSafe(anno = new Date().getFullYear()) {
-        try {
-            await this.init();
-            
-            const { data, error } = await this.supabase
-                .rpc('reserve_next_agibilita_number', { anno_param: anno });
-
-            if (error) {
-                console.error('❌ Errore prenotazione numero:', error);
-                return await this.reserveAgibilitaNumberFallback(anno);
-            }
-
-            if (data && data.nuovo_numero) {
-                console.log(`✅ Numero ${data.nuovo_numero} riservato per anno ${anno}`);
-                return {
-                    success: true,
-                    numero: data.nuovo_numero,
-                    anno: anno,
-                    scadenza: new Date(Date.now() + 30 * 60 * 1000) // 30 minuti
-                };
-            }
-
-            throw new Error('Risposta invalida dal server');
-        } catch (error) {
-            console.error('❌ Errore sistema numerazione:', error);
-            return await this.reserveAgibilitaNumberFallback(anno);
-        }
-    }
-
-    async confirmAgibilitaNumber(numero, anno) {
-        try {
-            await this.init();
-            
-            const userEmail = await this.getCurrentUserEmail();
-            const { data, error } = await this.supabase
-                .from('agibilita_prenotazioni')
-                .update({ stato: 'confermato', data_conferma: new Date().toISOString() })
-                .eq('numero', numero)
-                .eq('anno', anno)
-                .eq('user_email', userEmail)
-                .select();
-
-            if (error) {
-                console.error('❌ Errore conferma numero:', error);
-                return { success: false, error: error.message };
-            }
-
-            console.log(`✅ Numero ${numero}/${anno} confermato`);
-            return { success: true, numero, anno };
-        } catch (error) {
-            console.error('❌ Errore conferma numero:', error);
-            return { success: false, error: error.message };
-        }
-    }
-
-    async releaseAgibilitaNumber(numero, anno) {
-        try {
-            await this.init();
-            
-            const userEmail = await this.getCurrentUserEmail();
-            const { error } = await this.supabase
-                .from('agibilita_prenotazioni')
-                .delete()
-                .eq('numero', numero)
-                .eq('anno', anno)
-                .eq('user_email', userEmail)
-                .eq('stato', 'prenotato');
-
-            if (error) {
-                console.error('❌ Errore rilascio numero:', error);
-                return { success: false, error: error.message };
-            }
-
-            console.log(`✅ Numero ${numero}/${anno} rilasciato`);
-            return { success: true, numero, anno };
-        } catch (error) {
-            console.error('❌ Errore rilascio numero:', error);
-            return { success: false, error: error.message };
-        }
-    }
-
-    async reserveAgibilitaNumberFallback(anno) {
-        console.log('⚠️  Usando fallback per numerazione...');
-        
-        try {
-            await this.init();
-            
-            // Fallback: cerca ultimo numero dalla tabella agibilita
-            const { data: existing, error: selectError } = await this.supabase
-                .from('agibilita')
-                .select('numero')
-                .eq('anno', anno)
-                .order('numero', { ascending: false })
-                .limit(1);
-
-            if (selectError) {
-                console.error('❌ Errore fallback:', selectError);
-                return {
-                    success: true,
-                    numero: 1,
-                    anno: anno,
-                    fallback: true,
-                    scadenza: new Date(Date.now() + 30 * 60 * 1000)
-                };
-            }
-
-            const ultimoNumero = existing && existing.length > 0 ? existing[0].numero : 0;
-            const nuovoNumero = ultimoNumero + 1;
-
-            console.log(`✅ Numero fallback ${nuovoNumero} per anno ${anno}`);
-            return {
-                success: true,
-                numero: nuovoNumero,
-                anno: anno,
-                fallback: true,
-                scadenza: new Date(Date.now() + 30 * 60 * 1000)
-            };
-        } catch (error) {
-            console.error('❌ Errore anche nel fallback:', error);
-            return {
-                success: true,
-                numero: 1,
-                anno: anno,
-                fallback: true,
-                error: 'Usando numero di default',
-                scadenza: new Date(Date.now() + 30 * 60 * 1000)
-            };
-        }
-    }
-
-    // ==================== GESTIONE UTENTI E SESSIONI ====================
-    
-    async getCurrentUserEmail() {
-        try {
-            if (!this.supabase) await this.init();
-            
-            const { data: { session } } = await this.supabase.auth.getSession();
-            return session?.user?.email || 'anonymous@recorp.local';
-        } catch (error) {
-            console.error('❌ Errore getting user email:', error);
-            return 'anonymous@recorp.local';
-        }
-    }
-
-    generateSessionId() {
-        return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    }
-
-    // ==================== OPERAZIONI BOZZE ====================
-    
-    async createBozzaWithReservedNumber(bozzaData, reservedNumber = null) {
-        try {
-            await this.init();
-            
-            const userEmail = await this.getCurrentUserEmail();
-            const sessionId = this.generateSessionId();
-            
-            const bozzaCompleta = {
-                ...bozzaData,
-                user_session: sessionId,
-                user_email: userEmail,
-                reserved_number: reservedNumber?.numero || null,
-                reserved_anno: reservedNumber?.anno || null,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-            };
-
-            const { data, error } = await this.supabase
-                .from('agibilita_bozze')
-                .insert([bozzaCompleta])
-                .select();
-
-            if (error) {
-                console.error('❌ Errore creazione bozza:', error);
-                return { success: false, error: error.message };
-            }
-
-            console.log(`✅ Bozza creata con numero riservato: ${reservedNumber?.numero || 'nessuno'}`);
-            return { success: true, data: data[0] };
-        } catch (error) {
-            console.error('❌ Errore creazione bozza:', error);
-            return { success: false, error: error.message };
-        }
-    }
-
-    async updateBozza(id, bozzaData) {
-        try {
-            await this.init();
-            
-            const userEmail = await this.getCurrentUserEmail();
-            
-            const updates = {
-                ...bozzaData,
-                updated_at: new Date().toISOString()
-            };
-
-            const { data, error } = await this.supabase
-                .from('agibilita_bozze')
-                .update(updates)
-                .eq('id', id)
-                .eq('user_email', userEmail)
-                .select();
-
-            if (error) {
-                console.error('❌ Errore update bozza:', error);
-                return { success: false, error: error.message };
-            }
-
-            return { success: true, data: data[0] };
-        } catch (error) {
-            console.error('❌ Errore update bozza:', error);
-            return { success: false, error: error.message };
-        }
-    }
-
-    // ==================== OPERAZIONI AGIBILITA ====================
-    
-    async saveAgibilita(agibilitaData) {
-        try {
-            await this.init();
-            
-            const { data, error } = await this.supabase
-                .from('agibilita')
-                .insert([{
-                    ...agibilitaData,
-                    created_at: new Date().toISOString()
-                }])
-                .select();
-
-            if (error) {
-                console.error('❌ Errore salvataggio agibilità:', error);
-                return { success: false, error: error.message };
-            }
-
-            return { success: true, data: data[0] };
-        } catch (error) {
-            console.error('❌ Errore salvataggio agibilità:', error);
-            return { success: false, error: error.message };
-        }
-    }
-
-    // ==================== ARTISTI ====================
-    async getArtists() {
-        await this.init();
-        const { data, error } = await this.supabase
-            .from('artisti')
-            .select('*')
-            .eq('attivo', true)  // Solo artisti attivi (soft delete)
-            .order('created_at', { ascending: false });
-        
-        if (error) throw error;
-        return data || [];
-    }
-
-    async getAllArtisti() {
-        return await this.getArtists(); // Alias per compatibilità
-    }
-
-    async searchArtisti(searchTerm) {
-        await this.init();
-        const { data, error } = await this.supabase
-            .from('artisti')
-            .select(`
-                id, nome, cognome, nome_arte, codice_fiscale, codice_fiscale_temp,
-                mansione, matricola_enpals, nazionalita, telefono, email,
-                has_partita_iva, tipo_rapporto, attivo
-            `)
-            .eq('attivo', true)
-            .or(`nome.ilike.%${searchTerm}%,cognome.ilike.%${searchTerm}%,nome_arte.ilike.%${searchTerm}%,codice_fiscale.ilike.%${searchTerm}%,codice_fiscale_temp.ilike.%${searchTerm}%`)
-            .limit(20);
-        
-        if (error) throw error;
-        return data || [];
-    }
-
-    async saveArtist(artistData) {
-        await this.init();
-        // Aggiungi timestamp e flag attivo
-        const dataToSave = {
-            ...artistData,
-            attivo: true,
-            created_at: new Date().toISOString()
-        };
-        
-        const { data, error } = await this.supabase
-            .from('artisti')
-            .insert([dataToSave])
-            .select()
-            .single();
-        
-        if (error) throw error;
-        return data;
-    }
-
-    async updateArtist(id, artistData) {
-        await this.init();
-        const dataToUpdate = {
-            ...artistData,
-            updated_at: new Date().toISOString()
-        };
-        
-        const { data, error } = await this.supabase
-            .from('artisti')
-            .update(dataToUpdate)
-            .eq('id', id)
-            .select()
-            .single();
-        
-        if (error) throw error;
-        return data;
-    }
-
-    // ==================== VENUES ====================
-    async getVenues() {
-        await this.init();
-        const { data, error } = await this.supabase
-            .from('venues')
-            .select('*')
-            .order('nome');
-        
-        if (error) throw error;
-        return data || [];
-    }
-
-    async saveVenue(venueData) {
-        await this.init();
-        const { data, error } = await this.supabase
-            .from('venues')
-            .insert([venueData])
-            .select()
-            .single();
-        
-        if (error) throw error;
-        return data;
-    }
-
-    // ==================== FATTURAZIONE ====================
-    async getAllInvoiceData() {
-        await this.init();
-        const { data, error } = await this.supabase
-            .from('invoice_data')
-            .select('*')
-            .order('last_updated', { ascending: false });
-        
-        if (error) throw error;
-        return data || [];
-    }
-
-    async saveInvoiceData(invoiceData) {
-        await this.init();
-        const { data, error } = await this.supabase
-            .from('invoice_data')
-            .insert([invoiceData])
-            .select()
-            .single();
-        
-        if (error) throw error;
-        return data;
-    }
-
-    // ==================== CONTRATTI ====================
-    async getContratti(artistaId = null) {
-        await this.init();
-        let query = this.supabase.from('contratti').select('*');
-        if (artistaId) {
-            query = query.eq('artista_id', artistaId);
-        }
-        const { data, error } = await query.order('created_at', { ascending: false });
-        if (error) throw error;
-        return data || [];
-    }
-
-    async saveContratto(contrattoData) {
-        await this.init();
-        const { data, error } = await this.supabase
-            .from('contratti')
-            .insert([{
-                ...contrattoData,
-                created_at: new Date().toISOString()
-            }])
-            .select()
-            .single();
-        if (error) throw error;
-        return data;
-    }
-
-    // ==================== PAGAMENTI ====================
-    async getPagamenti(filtri = {}) {
-        await this.init();
-        let query = this.supabase.from('pagamenti').select(`
-            *, 
-            artisti(nome, cognome, codice_fiscale),
-            agibilita(codice, data_inizio, data_fine)
-        `);
-        
-        if (filtri.stato) query = query.eq('stato', filtri.stato);
-        if (filtri.anno) {
-            const startYear = new Date(filtri.anno, 0, 1).toISOString();
-            const endYear = new Date(filtri.anno + 1, 0, 1).toISOString();
-            query = query.gte('created_at', startYear).lt('created_at', endYear);
-        }
-        
-        const { data, error } = await query.order('created_at', { ascending: false });
-        if (error) throw error;
-        return data || [];
-    }
-
-    async savePagamento(pagamentoData) {
-        await this.init();
-        const { data, error } = await this.supabase
-            .from('pagamenti')
-            .insert([{
-                ...pagamentoData,
-                created_at: new Date().toISOString()
-            }])
-            .select()
-            .single();
-        if (error) throw error;
-        return data;
-    }
-
-    // ==================== COMUNICAZIONI INTERMITTENTI ====================
-    async getComunicazioniIntermittenti(anno = null) {
-        await this.init();
-        let query = this.supabase.from('comunicazioni_intermittenti').select('*');
-        if (anno) {
-            const startYear = new Date(anno, 0, 1).toISOString();
-            const endYear = new Date(anno + 1, 0, 1).toISOString();
-            query = query.gte('created_at', startYear).lt('created_at', endYear);
-        }
-        const { data, error } = await query.order('created_at', { ascending: false });
-        if (error) throw error;
-        return data || [];
-    }
-
-    async saveComunicazioneIntermittente(comunicazioneData) {
-        await this.init();
-        const { data, error } = await this.supabase
-            .from('comunicazioni_intermittenti')
-            .insert([{
-                ...comunicazioneData,
-                created_at: new Date().toISOString()
-            }])
-            .select()
-            .single();
-        if (error) throw error;
-        return data;
-    }
-
-    // ==================== EVENTI CALENDARIO ====================
-    async getEventiCalendario(dataInizio = null, dataFine = null) {
-        await this.init();
-        let query = this.supabase.from('eventi_calendario').select('*');
-        if (dataInizio) query = query.gte('data_evento', dataInizio);
-        if (dataFine) query = query.lte('data_evento', dataFine);
-        const { data, error } = await query.order('data_evento', { ascending: true });
-        if (error) throw error;
-        return data || [];
-    }
-
-    // ==================== DOCUMENTI ====================
-    async getDocumenti(entitaTipo = null, entitaId = null) {
-        await this.init();
-        let query = this.supabase.from('documenti').select('*');
-        if (entitaTipo && entitaId) {
-            query = query.eq('entita_tipo', entitaTipo).eq('entita_id', entitaId);
-        }
-        const { data, error } = await query.order('created_at', { ascending: false });
-        if (error) throw error;
-        return data || [];
-    }
-
-    async saveDocumento(documentoData) {
-        await this.init();
-        const { data, error } = await this.supabase
-            .from('documenti')
-            .insert([{
-                ...documentoData,
-                created_at: new Date().toISOString()
-            }])
-            .select()
-            .single();
-        if (error) throw error;
-        return data;
-    }
-
-    // ==================== NOTIFICHE ====================
-    async getNotifiche(utente = null, nonLette = false) {
-        await this.init();
-        let query = this.supabase.from('notifiche').select('*');
-        if (utente) query = query.eq('destinatario', utente);
-        if (nonLette) query = query.eq('letta', false);
-        const { data, error } = await query.order('created_at', { ascending: false });
-        if (error) throw error;
-        return data || [];
-    }
-
-    async inviaNotifica(notificaData) {
-        await this.init();
-        const { data, error } = await this.supabase
-            .from('notifiche')
-            .insert([{
-                ...notificaData,
-                inviata: false,
-                letta: false,
-                created_at: new Date().toISOString()
-            }])
-            .select()
-            .single();
-        if (error) throw error;
-        return data;
-    }
-
-    async marcaNotificaLetta(notificaId) {
-        await this.init();
-        const { data, error } = await this.supabase
-            .from('notifiche')
-            .update({ 
-                letta: true, 
-                letta_at: new Date().toISOString() 
-            })
-            .eq('id', notificaId)
-            .select()
-            .single();
-        if (error) throw error;
-        return data;
-    }
+    },
 
     // ==================== STATISTICHE AVANZATE ====================
     async getStatistiche() {
@@ -747,29 +701,29 @@ class DatabaseService {
                 pagamentiStats
             ] = await Promise.all([
                 // Conta artisti attivi
-                this.supabase
+                supabase
                     .from('artisti')
                     .select('*', { count: 'exact', head: true })
                     .eq('attivo', true),
                 
                 // Conta agibilità totali
-                this.supabase
+                supabase
                     .from('agibilita')
                     .select('*', { count: 'exact', head: true }),
                 
                 // Conta bozze non convertite
-                this.supabase
-                    .from('agibilita_bozze')
+                supabase
+                    .from('bozze_agibilita')
                     .select('*', { count: 'exact', head: true }),
                 
                 // Agibilità del mese corrente
-                this.supabase
+                supabase
                     .from('agibilita')
                     .select('*', { count: 'exact', head: true })
                     .gte('created_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()),
                 
                 // Statistiche pagamenti (opzionale, se tabella esiste)
-                this.supabase
+                supabase
                     .from('pagamenti')
                     .select('importo_lordo, stato')
                     .eq('stato', 'pagato')
@@ -822,106 +776,189 @@ class DatabaseService {
                 warning: 'Database in fase di inizializzazione'
             };
         }
-    }
+    },
 
-    async getAgibilita(filtri = {}) {
-        try {
-            await this.init();
-            
-            let query = this.supabase.from('agibilita').select('*');
-            
-            if (filtri.anno) {
-                query = query.eq('anno', filtri.anno);
-            }
-            
-            if (filtri.numero) {
-                query = query.eq('numero', filtri.numero);
-            }
-            
-            query = query.order('numero', { ascending: false });
-            
-            const { data, error } = await query;
-            
-            if (error) {
-                console.error('❌ Errore caricamento agibilità:', error);
-                return { success: false, error: error.message };
-            }
-            
-            return { success: true, data };
-        } catch (error) {
-            console.error('❌ Errore caricamento agibilità:', error);
-            return { success: false, error: error.message };
+    // ==================== METODI AGGIUNTIVI SECONDO DOCUMENTAZIONE ====================
+    
+    // CONTRATTI
+    async getContratti(artistaId = null) {
+        await this.init();
+        let query = supabase.from('contratti').select('*');
+        if (artistaId) {
+            query = query.eq('artista_id', artistaId);
         }
-    }
+        const { data, error } = await query.order('created_at', { ascending: false });
+        if (error) throw error;
+        return data || [];
+    },
 
-    async getBozze(userEmail = null) {
-        try {
-            await this.init();
-            
-            const email = userEmail || await this.getCurrentUserEmail();
-            
-            const { data, error } = await this.supabase
-                .from('agibilita_bozze')
-                .select('*')
-                .eq('user_email', email)
-                .order('updated_at', { ascending: false });
+    async saveContratto(contrattoData) {
+        await this.init();
+        const { data, error } = await supabase
+            .from('contratti')
+            .insert([{
+                ...contrattoData,
+                created_at: new Date().toISOString()
+            }])
+            .select()
+            .single();
+        if (error) throw error;
+        return data;
+    },
 
-            if (error) {
-                console.error('❌ Errore caricamento bozze:', error);
-                return { success: false, error: error.message };
-            }
-
-            return { success: true, data };
-        } catch (error) {
-            console.error('❌ Errore caricamento bozze:', error);
-            return { success: false, error: error.message };
+    // PAGAMENTI
+    async getPagamenti(filtri = {}) {
+        await this.init();
+        let query = supabase.from('pagamenti').select(`
+            *, 
+            artisti(nome, cognome, codice_fiscale),
+            agibilita(codice, data_inizio, data_fine)
+        `);
+        
+        if (filtri.stato) query = query.eq('stato', filtri.stato);
+        if (filtri.anno) {
+            const startYear = new Date(filtri.anno, 0, 1).toISOString();
+            const endYear = new Date(filtri.anno + 1, 0, 1).toISOString();
+            query = query.gte('created_at', startYear).lt('created_at', endYear);
         }
-    }
+        
+        const { data, error } = await query.order('created_at', { ascending: false });
+        if (error) throw error;
+        return data || [];
+    },
 
-    async deleteBozza(id) {
-        try {
-            await this.init();
-            
-            const userEmail = await this.getCurrentUserEmail();
-            
-            const { error } = await this.supabase
-                .from('agibilita_bozze')
-                .delete()
-                .eq('id', id)
-                .eq('user_email', userEmail);
+    async savePagamento(pagamentoData) {
+        await this.init();
+        const { data, error } = await supabase
+            .from('pagamenti')
+            .insert([{
+                ...pagamentoData,
+                created_at: new Date().toISOString()
+            }])
+            .select()
+            .single();
+        if (error) throw error;
+        return data;
+    },
 
-            if (error) {
-                console.error('❌ Errore eliminazione bozza:', error);
-                return { success: false, error: error.message };
-            }
-
-            return { success: true };
-        } catch (error) {
-            console.error('❌ Errore eliminazione bozza:', error);
-            return { success: false, error: error.message };
+    // COMUNICAZIONI INTERMITTENTI
+    async getComunicazioniIntermittenti(anno = null) {
+        await this.init();
+        let query = supabase.from('comunicazioni_intermittenti').select('*');
+        if (anno) {
+            const startYear = new Date(anno, 0, 1).toISOString();
+            const endYear = new Date(anno + 1, 0, 1).toISOString();
+            query = query.gte('created_at', startYear).lt('created_at', endYear);
         }
+        const { data, error } = await query.order('created_at', { ascending: false });
+        if (error) throw error;
+        return data || [];
+    },
+
+    async saveComunicazioneIntermittente(comunicazioneData) {
+        await this.init();
+        const { data, error } = await supabase
+            .from('comunicazioni_intermittenti')
+            .insert([{
+                ...comunicazioneData,
+                created_at: new Date().toISOString()
+            }])
+            .select()
+            .single();
+        if (error) throw error;
+        return data;
+    },
+
+    // EVENTI CALENDARIO
+    async getEventiCalendario(dataInizio = null, dataFine = null) {
+        await this.init();
+        let query = supabase.from('eventi_calendario').select('*');
+        if (dataInizio) query = query.gte('data_evento', dataInizio);
+        if (dataFine) query = query.lte('data_evento', dataFine);
+        const { data, error } = await query.order('data_evento', { ascending: true });
+        if (error) throw error;
+        return data || [];
+    },
+
+    // DOCUMENTI
+    async getDocumenti(entitaTipo = null, entitaId = null) {
+        await this.init();
+        let query = supabase.from('documenti').select('*');
+        if (entitaTipo && entitaId) {
+            query = query.eq('entita_tipo', entitaTipo).eq('entita_id', entitaId);
+        }
+        const { data, error } = await query.order('created_at', { ascending: false });
+        if (error) throw error;
+        return data || [];
+    },
+
+    async saveDocumento(documentoData) {
+        await this.init();
+        const { data, error } = await supabase
+            .from('documenti')
+            .insert([{
+                ...documentoData,
+                created_at: new Date().toISOString()
+            }])
+            .select()
+            .single();
+        if (error) throw error;
+        return data;
+    },
+
+    // NOTIFICHE
+    async getNotifiche(utente = null, nonLette = false) {
+        await this.init();
+        let query = supabase.from('notifiche').select('*');
+        if (utente) query = query.eq('destinatario', utente);
+        if (nonLette) query = query.eq('letta', false);
+        const { data, error } = await query.order('created_at', { ascending: false });
+        if (error) throw error;
+        return data || [];
+    },
+
+    async inviaNotifica(notificaData) {
+        await this.init();
+        const { data, error } = await supabase
+            .from('notifiche')
+            .insert([{
+                ...notificaData,
+                inviata: false,
+                letta: false,
+                created_at: new Date().toISOString()
+            }])
+            .select()
+            .single();
+        if (error) throw error;
+        return data;
+    },
+
+    async marcaNotificaLetta(notificaId) {
+        await this.init();
+        const { data, error } = await supabase
+            .from('notifiche')
+            .update({ 
+                letta: true, 
+                letta_at: new Date().toISOString() 
+            })
+            .eq('id', notificaId)
+            .select()
+            .single();
+        if (error) throw error;
+        return data;
     }
-}
-
-// ==================== ISTANZA SINGLETON ====================
-// Una sola istanza globale per tutta l'app
-const databaseService = new DatabaseService();
-
-// ==================== EXPORT ====================
-export { databaseService as DatabaseService };
-
-// Compatibilità con vecchio codice
-export { supabaseInstance as supabase };
-
-// Export diretto del client per compatibilità
-export const getSupabaseClient = () => {
-    return supabaseInstance;
 };
 
-// Funzione di init globale
-export const initSupabase = async () => {
-    if (!supabaseInstance) {
-        await initializeSupabase();
+// ==================== INIZIALIZZAZIONE GLOBALE ====================
+// Auto-inizializza quando il modulo viene caricato
+window.addEventListener('DOMContentLoaded', async () => {
+    try {
+        await DatabaseService.init();
+        console.log('🎉 DatabaseService inizializzato e pronto');
+    } catch (error) {
+        console.error('💥 Errore inizializzazione DatabaseService:', error);
     }
-    return supabaseInstance;
-};
+});
+
+// Export per compatibilità
+export default DatabaseService;
