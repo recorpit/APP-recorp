@@ -1,11 +1,10 @@
 // supabase-config.js - Configurazione Database RECORP
-// Versione con credenziali hardcoded per sviluppo rapido
+// Versione integrata con numerazione thread-safe e supporto login
 
 // ==================== CONFIGURAZIONE SUPABASE ====================
-// 🔧 INSERISCI QUI LE TUE CREDENZIALI SUPABASE
 const SUPABASE_CONFIG = {
-    url: 'https://nommluymuwioddhaujxu.supabase.co',           // ← Sostituisci con il tuo URL
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5vbW1sdXltdXdpb2RkaGF1anh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE5ODA5MjgsImV4cCI6MjA2NzU1NjkyOH0.oaF5uaNe21W8NU67n1HjngngMUClkss2achTQ7BZ5tE'                     // ← Sostituisci con la tua chiave pubblica
+    url: 'https://nommluymuwioddhaujxu.supabase.co',
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5vbW1sdXltdXdpb2RkaGF1anh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE5ODA5MjgsImV4cCI6MjA2NzU1NjkyOH0.oaF5uaNe21W8NU67n1HjngngMUClkss2achTQ7BZ5tE'
 };
 
 // ==================== INIZIALIZZAZIONE SUPABASE ====================
@@ -21,10 +20,17 @@ async function initializeSupabase() {
             throw new Error('⚠️ CREDENZIALI NON CONFIGURATE: Sostituisci URL e chiave nel file supabase-config.js');
         }
 
-        // Inizializza client Supabase
+        // Inizializza client Supabase con opzioni auth
         supabase = window.supabase.createClient(
             SUPABASE_CONFIG.url,
-            SUPABASE_CONFIG.anonKey
+            SUPABASE_CONFIG.anonKey,
+            {
+                auth: {
+                    autoRefreshToken: true,
+                    persistSession: true,
+                    detectSessionInUrl: true
+                }
+            }
         );
 
         // Test connessione
@@ -88,7 +94,7 @@ function showConfigurationError(message) {
 
 // ==================== DATABASE SERVICE ====================
 export const DatabaseService = {
-    // Inizializzazione
+    // ==================== INIZIALIZZAZIONE ====================
     async init() {
         if (!isInitialized) {
             await initializeSupabase();
@@ -99,6 +105,48 @@ export const DatabaseService = {
     // Verifica se è inizializzato
     isReady() {
         return isInitialized && supabase !== null;
+    },
+
+    // ✅ AGGIUNTO: Metodo per ottenere il client Supabase (necessario per login)
+    getSupabaseClient() {
+        return supabase;
+    },
+
+    // ✅ AGGIUNTO: Test connessione migliorato per login
+    async testConnection() {
+        try {
+            if (!supabase) {
+                return {
+                    connected: false,
+                    authenticated: false,
+                    error: 'Client Supabase non configurato'
+                };
+            }
+
+            // Test connessione con auth check
+            const { data: { session }, error } = await supabase.auth.getSession();
+            
+            // Test accesso database
+            const { data: dbTest, error: dbError } = await supabase
+                .from('artisti')
+                .select('count')
+                .limit(1);
+            
+            return {
+                connected: !dbError || dbError.code === '42P01', // OK se tabella non esiste ancora
+                authenticated: !!session,
+                user: session?.user || null,
+                error: error?.message || dbError?.message || null,
+                database_accessible: !dbError
+            };
+        } catch (error) {
+            return {
+                connected: false,
+                authenticated: false,
+                error: error.message,
+                database_accessible: false
+            };
+        }
     },
 
     // ==================== ARTISTI ====================
@@ -196,16 +244,176 @@ export const DatabaseService = {
         return data;
     },
 
-    async reserveAgibilitaNumber() {
-        // Genera numero progressivo basato su anno e conteggio
+    // ==================== NUMERAZIONE THREAD-SAFE ====================
+    
+    // ✅ AGGIUNTO: Sistema numerazione thread-safe
+    async reserveAgibilitaNumberSafe() {
+        await this.init();
+        
+        const currentYear = new Date().getFullYear();
+        let attempts = 0;
+        const maxAttempts = 5;
+        
+        while (attempts < maxAttempts) {
+            try {
+                // STEP 1: Ottieni e incrementa atomicamente il numero
+                const { data, error } = await supabase.rpc('reserve_next_agibilita_number', {
+                    target_year: currentYear
+                });
+                
+                if (error) {
+                    // Se la funzione non esiste, usa il metodo fallback
+                    if (error.code === '42883') { // function does not exist
+                        console.warn('⚠️ Funzione PostgreSQL non trovata, uso metodo fallback');
+                        return await this.reserveAgibilitaNumberFallback();
+                    }
+                    throw error;
+                }
+                
+                const numeroProgressivo = data.nuovo_numero;
+                const codiceAgibilita = `AG-${currentYear}-${String(numeroProgressivo).padStart(3, '0')}`;
+                
+                // STEP 2: Registra immediatamente la prenotazione
+                const prenotazione = {
+                    codice: codiceAgibilita,
+                    anno: currentYear,
+                    numero_progressivo: numeroProgressivo,
+                    stato: 'riservato',
+                    riservato_da: await this.getCurrentUserEmail(),
+                    riservato_at: new Date().toISOString(),
+                    expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 minuti
+                    session_id: this.generateSessionId()
+                };
+                
+                const { data: reserved, error: reserveError } = await supabase
+                    .from('agibilita_prenotazioni')
+                    .insert([prenotazione])
+                    .select()
+                    .single();
+                
+                if (reserveError) {
+                    // Se la tabella non esiste, usa fallback
+                    if (reserveError.code === '42P01') { // relation does not exist
+                        console.warn('⚠️ Tabella prenotazioni non trovata, uso metodo fallback');
+                        return await this.reserveAgibilitaNumberFallback();
+                    }
+                    
+                    console.warn(`⚠️ Tentativo ${attempts + 1}: Numero ${codiceAgibilita} già prenotato`);
+                    attempts++;
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    continue;
+                }
+                
+                console.log(`✅ Numero agibilità riservato: ${codiceAgibilita}`);
+                return {
+                    codice: codiceAgibilita,
+                    numero_progressivo: numeroProgressivo,
+                    reservation_id: reserved.id,
+                    expires_at: prenotazione.expires_at
+                };
+                
+            } catch (error) {
+                console.error(`❌ Tentativo ${attempts + 1} fallito:`, error);
+                attempts++;
+                
+                if (attempts < maxAttempts) {
+                    await new Promise(resolve => setTimeout(resolve, 200 * attempts));
+                }
+            }
+        }
+        
+        throw new Error('Impossibile riservare numero agibilità dopo ' + maxAttempts + ' tentativi');
+    },
+
+    // ✅ AGGIUNTO: Metodo fallback se le tabelle thread-safe non esistono
+    async reserveAgibilitaNumberFallback() {
+        console.log('🔄 Uso metodo numerazione fallback');
         const year = new Date().getFullYear();
         const agibilita = await this.getAgibilita();
         const yearAgibilita = agibilita.filter(a => 
             a.created_at && new Date(a.created_at).getFullYear() === year
         );
         const nextNumber = yearAgibilita.length + 1;
+        const codice = `AG-${year}-${String(nextNumber).padStart(3, '0')}`;
         
-        return `AG-${year}-${String(nextNumber).padStart(3, '0')}`;
+        return {
+            codice: codice,
+            numero_progressivo: nextNumber,
+            reservation_id: null, // Nessuna prenotazione nel fallback
+            expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString()
+        };
+    },
+
+    // Mantiene compatibilità con il metodo esistente
+    async reserveAgibilitaNumber() {
+        const result = await this.reserveAgibilitaNumberSafe();
+        return result.codice;
+    },
+
+    // ✅ AGGIUNTO: Conferma utilizzo numero riservato
+    async confirmAgibilitaNumber(reservationId, agibilitaId) {
+        if (!reservationId) return true; // Fallback mode, niente da confermare
+        
+        await this.init();
+        
+        const { data, error } = await supabase
+            .from('agibilita_prenotazioni')
+            .update({
+                stato: 'utilizzato',
+                agibilita_id: agibilitaId,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', reservationId)
+            .eq('stato', 'riservato')
+            .select()
+            .single();
+        
+        if (error) {
+            console.error('❌ Errore conferma numero:', error);
+            throw error;
+        }
+        
+        console.log('✅ Numero agibilità confermato come utilizzato');
+        return data;
+    },
+
+    // ✅ AGGIUNTO: Rilascia numero riservato
+    async releaseAgibilitaNumber(reservationId) {
+        if (!reservationId) return true; // Fallback mode, niente da rilasciare
+        
+        await this.init();
+        
+        const { error } = await supabase
+            .from('agibilita_prenotazioni')
+            .update({
+                stato: 'rilasciato',
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', reservationId)
+            .eq('stato', 'riservato');
+        
+        if (error) {
+            console.error('❌ Errore rilascio numero:', error);
+            return false;
+        }
+        
+        console.log('✅ Numero agibilità rilasciato');
+        return true;
+    },
+
+    // ✅ AGGIUNTO: Utility per utente corrente
+    async getCurrentUserEmail() {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            return user?.email || 'unknown';
+        } catch {
+            return 'unknown';
+        }
+    },
+    
+    // ✅ AGGIUNTO: Genera ID sessione
+    generateSessionId() {
+        return 'sess_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
     },
 
     // ==================== VENUES ====================
@@ -292,15 +500,58 @@ export const DatabaseService = {
         return data;
     },
 
-    async updateBozza(bozzaId, bozzaData) {
+    // ✅ AGGIUNTO: Crea bozza con numero riservato
+    async createBozzaWithReservedNumber(bozzaData, userSession) {
         await this.init();
+        
+        const bozza = {
+            data: {
+                ...bozzaData,
+                // Includi dati numerazione se presenti
+                numeroRiservato: bozzaData.numeroRiservato,
+                reservationId: bozzaData.reservationId,
+                reservationExpires: bozzaData.reservationExpires
+            },
+            codice_riservato: bozzaData.numeroRiservato || null,
+            reservation_id: bozzaData.reservationId || null,
+            created_by: userSession.id,
+            created_by_name: userSession.name,
+            locked_by: userSession.id,
+            locked_by_name: userSession.name,
+            locked_until: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+            completamento_percentuale: this.calculateCompletamento(bozzaData),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        };
+
         const { data, error } = await supabase
             .from('bozze_agibilita')
-            .update({
-                data: bozzaData,
-                completamento_percentuale: this.calculateCompletamento(bozzaData),
-                updated_at: new Date().toISOString()
-            })
+            .insert([bozza])
+            .select()
+            .single();
+        
+        if (error) throw error;
+        return data;
+    },
+
+    async updateBozza(bozzaId, bozzaData, userSession = null) {
+        await this.init();
+        const updateData = {
+            data: bozzaData,
+            completamento_percentuale: this.calculateCompletamento(bozzaData),
+            updated_at: new Date().toISOString()
+        };
+
+        // Se fornito userSession, aggiorna anche i dati lock
+        if (userSession) {
+            updateData.locked_by = userSession.id;
+            updateData.locked_by_name = userSession.name;
+            updateData.locked_until = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+        }
+
+        const { data, error } = await supabase
+            .from('bozze_agibilita')
+            .update(updateData)
             .eq('id', bozzaId)
             .select()
             .single();
@@ -523,39 +774,6 @@ export const DatabaseService = {
                 eventi_prossimi: 0,
                 ultimo_aggiornamento: new Date().toISOString(),
                 warning: 'Database in fase di inizializzazione'
-            };
-        }
-    },
-
-    // ==================== UTILITY ====================
-    async testConnection() {
-        try {
-            await this.init();
-            
-            // Test base
-            const { data: healthCheck } = await supabase
-                .from('artisti')
-                .select('count')
-                .limit(1);
-                
-            // Test RLS (Row Level Security)
-            const { data: user } = await supabase.auth.getUser();
-            
-            return { 
-                success: true, 
-                message: 'Connessione OK',
-                user_authenticated: !!user?.user,
-                rls_active: true, // Supabase ha RLS sempre attivo
-                database_accessible: !!healthCheck
-            };
-        } catch (error) {
-            return { 
-                success: false, 
-                message: error.message,
-                error_code: error.code,
-                user_authenticated: false,
-                rls_active: false,
-                database_accessible: false
             };
         }
     },
