@@ -3,565 +3,291 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RECORP ALL-IN-ONE - Sistema Gestionale</title>
-    <link rel="stylesheet" href="assets/style.css">
-    
-    <!-- Security Headers -->
-    <meta http-equiv="X-Content-Type-Options" content="nosniff">
-    <meta http-equiv="X-Frame-Options" content="DENY">
-    <meta http-equiv="X-XSS-Protection" content="1; mode=block">
+    <title>Gestione Agibilità - RECORP ALL-IN-ONE</title>
+    <link rel="stylesheet" href="../assets/style.css">
 </head>
 <body>
-    <!-- Auth Guard Protection -->
-    <script type="module">
-        import { AuthGuard } from './auth-guard.js';
+    <div class="main-container">
+        <!-- Header -->
+        <div class="header">
+            <h1>Gestione Agibilità</h1>
+            <p>Sistema integrato per la creazione e gestione delle agibilità ex-ENPALS</p>
+        </div>
 
-        // Richiedi autenticazione prima di caricare la pagina
-        document.addEventListener('DOMContentLoaded', async () => {
-            try {
-                await AuthGuard.requireAuth();
-                console.log('✅ Accesso autorizzato alla pagina');
-                // La pagina continua a caricare normalmente
-                document.body.classList.add('authenticated');
-            } catch (error) {
-                console.log('❌ Accesso negato, redirect in corso...');
-                // AuthGuard ha già fatto il redirect a login
-            }
-        });
-    </script>
+        <!-- Breadcrumb -->
+        <div class="breadcrumb">
+            <a href="../index.html" class="breadcrumb-item">Dashboard</a>
+            <span class="breadcrumb-separator">›</span>
+            <span class="breadcrumb-item active">Gestione Agibilità</span>
+        </div>
 
-    <!-- User Info Bar -->
-    <div class="user-info-bar" style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 8px 20px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; max-width: 1200px; margin: 0 auto;">
-            <!-- Info utente -->
-            <div class="user-info" style="display: flex; align-items: center; gap: 12px;">
-                <span style="color: #64748b; font-size: 0.9rem;">Connesso come:</span>
-                <span id="current-user-email" style="font-weight: 600; color: #1e293b;">Caricamento...</span>
-                <span style="background: #10b981; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem;">🟢 Online</span>
+        <!-- Tipo Agibilità Section -->
+        <div id="tipoSection" class="step-section active">
+            <h2>Seleziona Tipo di Operazione</h2>
+            <div class="type-cards">
+                <div class="type-card" onclick="startNewAgibilita()">
+                    <div class="type-card-icon">📄</div>
+                    <h3>Nuova Agibilità</h3>
+                    <p>Crea una nuova pratica di agibilità</p>
+                </div>
+                <div class="type-card" onclick="showEditAgibilita()">
+                    <div class="type-card-icon">📝</div>
+                    <h3>Modifica Agibilità</h3>
+                    <p>Modifica o gestisci agibilità esistenti</p>
+                </div>
             </div>
             
-            <!-- Pulsanti azione -->
-            <div style="display: flex; align-items: center; gap: 12px;">
-                <!-- Informazioni sessione -->
-                <span id="session-info" style="color: #64748b; font-size: 0.85rem;"></span>
+            <!-- Lista agibilità per modifica -->
+            <div id="editListSection" style="display: none;">
+                <h3>Agibilità Recenti</h3>
+                <div class="form-group">
+                    <input type="text" class="form-control" id="searchAgibilita" placeholder="Cerca per codice o artista..." oninput="filterAgibilita()">
+                </div>
+                <div id="agibilitaList"></div>
+            </div>
+        </div>
+
+        <!-- Step 1: Artisti -->
+        <div id="step1" class="step-section">
+            <h2>Step 1: Selezione Artisti</h2>
+            
+            <button class="btn btn-primary" onclick="showAddArtistModal()">+ Aggiungi Artista</button>
+            
+            <div class="artist-list" id="artistList">
+                <p class="no-artists-message">Nessun artista selezionato</p>
+            </div>
+            
+            <div class="summary-box" id="summaryBox" style="display: none;">
+                <h4>Riepilogo</h4>
+                <p>Totale artisti: <span id="totalArtists">0</span></p>
+                <p>Compenso totale: €<span id="totalCompensation">0.00</span></p>
+            </div>
+            
+            <div class="btn-group" style="margin-top: 2rem;">
+                <button class="btn btn-secondary" onclick="showSection('tipoSection')">Indietro</button>
+                <button class="btn btn-primary" id="btnNext1" onclick="goToStep2()" style="display: none;">Avanti</button>
+            </div>
+        </div>
+
+        <!-- Step 2: Data e Luogo -->
+        <div id="step2" class="step-section">
+            <h2>Step 2: Data e Luogo</h2>
+            
+            <div class="form-section">
+                <h3>📅 Date dell'Evento</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Data Inizio <span class="required">*</span></label>
+                        <input type="date" class="form-control" id="dataInizio" required onchange="validateDates()">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Data Fine <span class="required">*</span></label>
+                        <input type="date" class="form-control" id="dataFine" required onchange="validateDates()">
+                    </div>
+                </div>
+                <div class="date-info" id="dateInfo" style="display: none;"></div>
+            </div>
+            
+            <div class="form-section">
+                <h3>📍 Luogo dell'Evento</h3>
+                <div class="form-group">
+                    <label class="form-label">Descrizione Locale <span class="required">*</span></label>
+                    <div style="position: relative;">
+                        <input type="text" class="form-control" id="descrizioneLocale" required 
+                               oninput="searchVenue()" placeholder="Es: Teatro Olimpico">
+                        <div id="venueDropdown" class="autocomplete-dropdown" style="display: none;"></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Indirizzo <span class="required">*</span></label>
+                    <input type="text" class="form-control" id="indirizzo" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Provincia <span class="required">*</span></label>
+                        <select class="form-control" id="provincia" required onchange="loadCitiesForProvince()">
+                            <option value="">Seleziona provincia...</option>
+                        </select>
+                        <div class="location-helper-text">Seleziona prima la provincia</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Città <span class="required">*</span></label>
+                        <select class="form-control" id="citta" required onchange="loadCAPsForCity()" disabled>
+                            <option value="">Prima seleziona la provincia</option>
+                        </select>
+                        <div class="location-helper-text">Seleziona la città</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">CAP <span class="required">*</span></label>
+                        <select class="form-control" id="cap" required disabled>
+                            <option value="">Prima seleziona città</option>
+                        </select>
+                        <div class="location-helper-text">Seleziona il CAP</div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Note (opzionale)</label>
+                    <textarea class="form-control" id="noteLocale" rows="3"></textarea>
+                </div>
+            </div>
+
+            <!-- SEZIONE FATTURAZIONE -->
+            <div class="form-section">
+                <h3>💰 Dati Fatturazione</h3>
+                <div class="alert alert-info">
+                    <small>I dati di fatturazione verranno salvati e associati a questo locale per usi futuri</small>
+                </div>
                 
-                <!-- Pulsante logout -->
-                <button 
-                    id="logout-btn" 
-                    onclick="handleLogout()"
-                    style="
-                        background: #dc2626; 
-                        color: white; 
-                        border: none; 
-                        padding: 6px 16px; 
-                        border-radius: 6px; 
-                        font-size: 0.85rem; 
-                        font-weight: 500;
-                        cursor: pointer;
-                        transition: all 0.2s ease;
-                        display: flex;
-                        align-items: center;
-                        gap: 6px;
-                    "
-                    onmouseover="this.style.background='#b91c1c'"
-                    onmouseout="this.style.background='#dc2626'"
-                >
-                    🚪 Logout Sicuro
+                <div class="form-group">
+                    <label class="form-label">Ragione Sociale <span class="required">*</span></label>
+                    <input type="text" class="form-control" id="ragioneSociale" required>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Partita IVA</label>
+                        <input type="text" class="form-control" id="piva" pattern="[0-9]{11}" maxlength="11">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Codice Fiscale</label>
+                        <input type="text" class="form-control uppercase-field" id="codiceFiscale" pattern="[A-Z0-9]{16}" maxlength="16">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="copyVenueAddress()">
+                        📋 Copia indirizzo del locale
+                    </button>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Indirizzo Fatturazione <span class="required">*</span></label>
+                    <input type="text" class="form-control" id="indirizzoFatturazione" required>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Città <span class="required">*</span></label>
+                        <input type="text" class="form-control" id="cittaFatturazione" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">CAP <span class="required">*</span></label>
+                        <input type="text" class="form-control" id="capFatturazione" pattern="[0-9]{5}" maxlength="5" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Provincia <span class="required">*</span></label>
+                        <input type="text" class="form-control uppercase-field" id="provinciaFatturazione" pattern="[A-Z]{2}" maxlength="2" required>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Codice SDI</label>
+                        <input type="text" class="form-control uppercase-field" id="codiceSDI" pattern="[A-Z0-9]{7}" maxlength="7">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">PEC</label>
+                        <input type="email" class="form-control" id="pecFatturazione">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="btn-group">
+                <button class="btn btn-secondary" onclick="showSection('step1')">Indietro</button>
+                <button class="btn btn-primary" onclick="goToStep3()">Avanti</button>
+            </div>
+        </div>
+
+        <!-- Step 3: Riepilogo e Invio -->
+        <div id="step3" class="step-section">
+            <h2>Step 3: Riepilogo e Invio</h2>
+            
+            <div class="tabs">
+                <button class="tab active" onclick="showTab('riepilogo')">Riepilogo</button>
+                <button class="tab" onclick="showTab('anteprima')">Anteprima XML</button>
+                <button class="tab" onclick="showTab('invio')">Invio</button>
+            </div>
+            
+            <!-- Tab Riepilogo -->
+            <div id="tabRiepilogo" class="tab-content active">
+                <div class="summary-box">
+                    <h4>🎭 Artisti</h4>
+                    <div id="summaryArtists"></div>
+                </div>
+                
+                <div class="summary-box">
+                    <h4>📅 Date</h4>
+                    <div id="summaryDates"></div>
+                </div>
+                
+                <div class="summary-box">
+                    <h4>📍 Luogo</h4>
+                    <div id="summaryLocation"></div>
+                </div>
+
+                <div class="summary-box">
+                    <h4>💰 Fatturazione</h4>
+                    <div id="summaryInvoice"></div>
+                </div>
+            </div>
+            
+            <!-- Tab Anteprima XML -->
+            <div id="tabAnteprima" class="tab-content">
+                <div class="xml-preview" id="xmlPreview"></div>
+            </div>
+            
+            <!-- Tab Invio -->
+            <div id="tabInvio" class="tab-content">
+                <div class="form-section">
+                    <h3>Opzioni di Invio</h3>
+                    <div class="btn-group" style="flex-direction: column; gap: 1rem;">
+                        <button class="btn btn-primary" onclick="downloadAndSave()">
+                            📥 Scarica XML e Salva
+                        </button>
+                        <button class="btn btn-secondary" onclick="window.open('https://servizi2.inps.it/servizi/GestioneAgibilitaInter/Agibilita/Import', '_blank')">
+                            🌐 Vai al Portale INPS
+                        </button>
+                        <button class="btn btn-secondary" onclick="saveDraft()">
+                            💾 Salva Bozza
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="btn-group" style="margin-top: 2rem;">
+                <button class="btn btn-secondary" onclick="showSection('step2')">Indietro</button>
+                <button class="btn btn-primary" id="btnConfirm" onclick="confirmAndProceed()">Conferma e Scarica XML</button>
+                <button class="btn btn-success" id="btnNewAgibilita" style="display: none;" onclick="newAgibilita()">
+                    Nuova Agibilità
                 </button>
             </div>
         </div>
     </div>
 
-    <div class="main-container">
-        <!-- Navbar -->
-        <nav class="navbar">
-            <div class="navbar-content">
-                <a href="./index.html" class="logo">
-                    <img src="./assets/logo.png" alt="RECORP Logo">
-                    <span class="logo-text">RECORP ALL-IN-ONE</span>
-                </a>
-                <div class="nav-links">
-                    <a href="./index.html" class="active">Dashboard</a>
-                    <a href="./registrazione-artista.html">Nuova Registrazione</a>
-                    <a href="./agibilita/index.html">Agibilità</a>
-                </div>
+    <!-- Modal Aggiungi Artista -->
+    <div class="modal" id="addArtistModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Cerca e Aggiungi Artista</h2>
+                <button class="close-modal" onclick="closeModal()">&times;</button>
             </div>
-        </nav>
-
-        <!-- Page Container -->
-        <div class="page-container">
-            <!-- Dashboard Stats -->
-            <div class="stats-section">
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-value" id="artists-count">-</div>
-                        <div class="stat-label">Artisti Registrati</div>
-                        <div class="stat-trend">
-                            <span class="trend-text" id="artists-trend">Caricamento...</span>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="agibilita-count">-</div>
-                        <div class="stat-label">Agibilità Totali</div>
-                        <div class="stat-trend">
-                            <span class="trend-text" id="agibilita-trend">Caricamento...</span>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="month-agibilita">-</div>
-                        <div class="stat-label">Agibilità questo mese</div>
-                        <div class="stat-trend">
-                            <span class="trend-text" id="month-trend">Caricamento...</span>
-                        </div>
-                    </div>
-                    <div class="stat-card highlight">
-                        <div class="stat-value" id="pending-drafts">-</div>
-                        <div class="stat-label">Bozze in sospeso</div>
-                        <div class="stat-trend">
-                            <span class="trend-text">Da completare</span>
-                        </div>
-                    </div>
-                </div>
+            <div class="form-group">
+                <input type="text" class="form-control" id="artistSearch" 
+                       placeholder="Cerca per nome, cognome o codice fiscale..." 
+                       oninput="searchArtists()">
             </div>
-
-            <!-- Quick Actions -->
-            <div class="dashboard-section">
-                <h2>Azioni Rapide</h2>
-                <div class="action-cards">
-                    <div class="action-card" onclick="window.location.href='./registrazione-artista.html'">
-                        <div class="action-card-icon">👤</div>
-                        <h3>Registra Artista</h3>
-                        <p>Registra un nuovo artista nel sistema</p>
-                    </div>
-                    <div class="action-card" onclick="window.location.href='./agibilita/index.html'">
-                        <div class="action-card-icon">📄</div>
-                        <h3>Nuova Agibilità</h3>
-                        <p>Crea una nuova pratica di agibilità</p>
-                    </div>
-                    <div class="action-card" onclick="showComunicazioniModal()">
-                        <div class="action-card-icon">📡</div>
-                        <h3>Comunicazioni</h3>
-                        <p>Gestione comunicazioni intermittenti</p>
-                    </div>
-                    <div class="action-card" onclick="window.location.href='./pagamenti.html'">
-                        <div class="action-card-icon">💰</div>
-                        <h3>Pagamenti</h3>
-                        <p>Gestisci pagamenti e liquidazioni</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Recent Activity -->
-            <div class="dashboard-section">
-                <h2>Attività Recente</h2>
-                <div class="activity-section">
-                    <!-- Agibilità Recenti -->
-                    <div class="activity-card">
-                        <h3>🎭 Agibilità Recenti</h3>
-                        <div id="recent-agibilita" class="activity-list">
-                            <div class="loading-placeholder">Caricamento...</div>
-                        </div>
-                        <a href="./agibilita/index.html" class="view-all-link">Vedi tutte →</a>
-                    </div>
-
-                    <!-- Artisti Recenti -->
-                    <div class="activity-card">
-                        <h3>👥 Ultimi Artisti Registrati</h3>
-                        <div id="recent-artists" class="activity-list">
-                            <div class="loading-placeholder">Caricamento...</div>
-                        </div>
-                        <a href="./registrazione-artista.html" class="view-all-link">Registra nuovo →</a>
-                    </div>
-                </div>
-            </div>
-
-            <!-- System Status -->
-            <div class="dashboard-section">
-                <h2>Stato Sistema</h2>
-                <div class="system-status">
-                    <div class="status-item">
-                        <span class="status-indicator" id="db-status">🔴</span>
-                        <span>Connessione Database</span>
-                        <span class="status-text" id="db-status-text">Verificando...</span>
-                    </div>
-                    <div class="status-item">
-                        <span class="status-indicator" id="auth-status">🔴</span>
-                        <span>Sistema Autenticazione</span>
-                        <span class="status-text" id="auth-status-text">Verificando...</span>
-                    </div>
-                    <div class="status-item">
-                        <span class="status-indicator" id="security-status">🔴</span>
-                        <span>Sicurezza Database</span>
-                        <span class="status-text" id="security-status-text">Verificando...</span>
-                    </div>
-                </div>
-            </div>
+            <div class="search-results" id="searchResults"></div>
         </div>
     </div>
 
-    <!-- Toast Container -->
-    <div id="toast-container" style="position: fixed; top: 20px; right: 20px; z-index: 1000;"></div>
-
-    <!-- Loading Overlay -->
-    <div id="loading-overlay" style="
-        position: fixed; 
-        top: 0; left: 0; right: 0; bottom: 0; 
-        background: rgba(255,255,255,0.9); 
-        display: none; 
-        align-items: center; 
-        justify-content: center; 
-        z-index: 9999;
-        flex-direction: column;
-        gap: 20px;
-    ">
-        <div style="width: 50px; height: 50px; border: 3px solid #e2e8f0; border-top: 3px solid #2563eb; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-        <div style="color: #64748b; font-weight: 500;">Caricamento dati sicuri...</div>
-    </div>
-
     <!-- Scripts -->
+    <!-- Supabase Client CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script type="module" src="./supabase-config.js"></script>
-    <script type="module" src="./homepage.js"></script>
-
-    <!-- Dashboard Security & Auth Script -->
-    <script type="module">
-        import { AuthGuard } from './auth-guard.js';
-        import { DatabaseService } from './supabase-config.js';
-
-        // Funzione logout globale
-        window.handleLogout = async function() {
-            if (confirm('Sei sicuro di voler uscire dal sistema RECORP?')) {
-                showLoadingOverlay(true);
-                await AuthGuard.logout();
-            }
-        }
-
-        // Carica informazioni utente
-        async function loadUserInfo() {
-            try {
-                const user = await AuthGuard.getCurrentUser();
-                if (user) {
-                    document.getElementById('current-user-email').textContent = user.email;
-                    
-                    // Calcola tempo di sessione
-                    const loginTime = new Date(user.last_sign_in_at || user.created_at);
-                    const now = new Date();
-                    const sessionMinutes = Math.floor((now - loginTime) / (1000 * 60));
-                    
-                    document.getElementById('session-info').textContent = 
-                        `Sessione: ${sessionMinutes}m`;
-                }
-            } catch (error) {
-                console.error('Errore caricamento info utente:', error);
-                document.getElementById('current-user-email').textContent = 'Errore caricamento';
-            }
-        }
-
-        // Test sicurezza database
-        async function testDatabaseSecurity() {
-            try {
-                // Test 1: Verifica che RLS funzioni
-                const testResult = await DatabaseService.getArtists();
-                document.getElementById('db-status').textContent = '🟢';
-                document.getElementById('db-status-text').textContent = 'Connesso';
-                
-                // Test 2: Verifica autenticazione
-                const isAuth = await AuthGuard.isAuthenticated();
-                document.getElementById('auth-status').textContent = isAuth ? '🟢' : '🔴';
-                document.getElementById('auth-status-text').textContent = isAuth ? 'Autenticato' : 'Non autenticato';
-                
-                // Test 3: Verifica sicurezza (RLS attivo)
-                document.getElementById('security-status').textContent = '🟢';
-                document.getElementById('security-status-text').textContent = 'RLS Attivo';
-                
-                return true;
-            } catch (error) {
-                console.error('❌ Test sicurezza fallito:', error);
-                document.getElementById('db-status').textContent = '🔴';
-                document.getElementById('db-status-text').textContent = 'Errore';
-                document.getElementById('security-status').textContent = '🔴';
-                document.getElementById('security-status-text').textContent = 'Vulnerabile';
-                return false;
-            }
-        }
-
-        // Carica statistiche dashboard
-        async function loadDashboardStats() {
-            try {
-                const stats = await DatabaseService.getStatistiche();
-                
-                document.getElementById('artists-count').textContent = stats.artisti || 0;
-                document.getElementById('agibilita-count').textContent = stats.agibilita_totali || 0;
-                document.getElementById('month-agibilita').textContent = stats.agibilita_mese || 0;
-                document.getElementById('pending-drafts').textContent = stats.bozze_sospese || 0;
-                
-                // Trends
-                document.getElementById('artists-trend').textContent = `${stats.artisti_unici_mese || 0} questo mese`;
-                document.getElementById('agibilita-trend').textContent = `Media: ${stats.media_artisti_agibilita || 0} artisti`;
-                document.getElementById('month-trend').textContent = `${stats.artisti_totali_mese || 0} artisti coinvolti`;
-                
-            } catch (error) {
-                console.error('❌ Errore caricamento statistiche:', error);
-                showToast('Errore caricamento statistiche', 'error');
-            }
-        }
-
-        // Carica attività recente
-        async function loadRecentActivity() {
-            try {
-                // Agibilità recenti
-                const agibilita = await DatabaseService.getAgibilita();
-                const recentAgibilita = agibilita.slice(0, 5);
-                const agibilitaContainer = document.getElementById('recent-agibilita');
-                
-                if (recentAgibilita.length > 0) {
-                    agibilitaContainer.innerHTML = recentAgibilita.map(ag => `
-                        <div class="activity-item">
-                            <div class="activity-content">
-                                <div class="activity-title">${ag.codice || 'N/A'}</div>
-                                <div class="activity-subtitle">${formatDate(ag.data_inizio)} - ${formatDate(ag.data_fine)}</div>
-                            </div>
-                            <div class="activity-status ${ag.stato_invio || 'draft'}">${getStatusText(ag.stato_invio)}</div>
-                        </div>
-                    `).join('');
-                } else {
-                    agibilitaContainer.innerHTML = '<div class="no-data">Nessuna agibilità trovata</div>';
-                }
-
-                // Artisti recenti
-                const artisti = await DatabaseService.getArtists();
-                const recentArtisti = artisti.slice(0, 5);
-                const artistiContainer = document.getElementById('recent-artists');
-                
-                if (recentArtisti.length > 0) {
-                    artistiContainer.innerHTML = recentArtisti.map(artista => `
-                        <div class="activity-item">
-                            <div class="activity-content">
-                                <div class="activity-title">${artista.nome} ${artista.cognome}</div>
-                                <div class="activity-subtitle">${artista.mansione || 'N/A'}</div>
-                            </div>
-                            <div class="activity-date">${formatDate(artista.created_at)}</div>
-                        </div>
-                    `).join('');
-                } else {
-                    artistiContainer.innerHTML = '<div class="no-data">Nessun artista trovato</div>';
-                }
-
-            } catch (error) {
-                console.error('❌ Errore caricamento attività:', error);
-                document.getElementById('recent-agibilita').innerHTML = '<div class="error-message">Errore caricamento</div>';
-                document.getElementById('recent-artists').innerHTML = '<div class="error-message">Errore caricamento</div>';
-            }
-        }
-
-        // Utilities
-        function formatDate(dateString) {
-            if (!dateString) return 'N/A';
-            return new Date(dateString).toLocaleDateString('it-IT');
-        }
-
-        function getStatusText(status) {
-            const statusMap = {
-                'inviato': 'Inviato',
-                'draft': 'Bozza',
-                'pending': 'In attesa',
-                'completed': 'Completato'
-            };
-            return statusMap[status] || 'N/A';
-        }
-
-        function showToast(message, type = 'info') {
-            const toast = document.createElement('div');
-            toast.className = `toast toast-${type}`;
-            toast.style.cssText = `
-                background: ${type === 'error' ? '#dc2626' : type === 'success' ? '#10b981' : '#2563eb'};
-                color: white;
-                padding: 12px 20px;
-                border-radius: 8px;
-                margin-bottom: 10px;
-                opacity: 0;
-                transform: translateX(100%);
-                transition: all 0.3s ease;
-            `;
-            toast.textContent = message;
-            
-            document.getElementById('toast-container').appendChild(toast);
-            
-            setTimeout(() => {
-                toast.style.opacity = '1';
-                toast.style.transform = 'translateX(0)';
-            }, 100);
-            
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                toast.style.transform = 'translateX(100%)';
-                setTimeout(() => {
-                    if (toast.parentNode) {
-                        toast.parentNode.removeChild(toast);
-                    }
-                }, 300);
-            }, 5000);
-        }
-
-        function showLoadingOverlay(show) {
-            document.getElementById('loading-overlay').style.display = show ? 'flex' : 'none';
-        }
-
-        // Auto-logout dopo 30 minuti di inattività
-        let inactivityTimer;
-        function resetInactivityTimer() {
-            clearTimeout(inactivityTimer);
-            inactivityTimer = setTimeout(() => {
-                alert('Sessione scaduta per inattività. Sarai disconnesso per sicurezza.');
-                AuthGuard.logout();
-            }, 30 * 60 * 1000); // 30 minuti
-        }
-
-        // Reset timer su attività utente
-        ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'].forEach(event => {
-            document.addEventListener(event, resetInactivityTimer, { passive: true });
-        });
-
-        // Inizializzazione dashboard
-        document.addEventListener('DOMContentLoaded', () => {
-            // Aspetta che AuthGuard abbia verificato l'autenticazione
-            setTimeout(async () => {
-                showLoadingOverlay(true);
-                
-                try {
-                    // Carica tutto in parallelo per performance
-                    await Promise.all([
-                        loadUserInfo(),
-                        testDatabaseSecurity(),
-                        loadDashboardStats(),
-                        loadRecentActivity()
-                    ]);
-                    
-                    showToast('Dashboard caricata con successo', 'success');
-                } catch (error) {
-                    console.error('❌ Errore inizializzazione dashboard:', error);
-                    showToast('Errore caricamento dashboard', 'error');
-                } finally {
-                    showLoadingOverlay(false);
-                }
-                
-                // Aggiorna info ogni minuto
-                setInterval(loadUserInfo, 60000);
-                
-                // Avvia timer inattività
-                resetInactivityTimer();
-                
-            }, 1000);
-        });
-
-        // Funzioni globali per modal comunicazioni (se necessario)
-        window.showComunicazioniModal = function() {
-            showToast('Funzionalità comunicazioni in sviluppo', 'info');
-        }
-
-        console.log('🏠 Dashboard sicura inizializzata');
-    </script>
-
-    <!-- CSS per animazioni -->
-    <style>
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .user-info-bar {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        }
-
-        .loading-placeholder {
-            color: #64748b;
-            font-style: italic;
-            padding: 20px;
-            text-align: center;
-        }
-
-        .activity-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 0;
-            border-bottom: 1px solid #f1f5f9;
-        }
-
-        .activity-item:last-child {
-            border-bottom: none;
-        }
-
-        .activity-title {
-            font-weight: 600;
-            color: #1e293b;
-        }
-
-        .activity-subtitle {
-            font-size: 0.85rem;
-            color: #64748b;
-        }
-
-        .activity-status {
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 0.75rem;
-            font-weight: 500;
-        }
-
-        .activity-status.inviato {
-            background: #dcfce7;
-            color: #166534;
-        }
-
-        .activity-status.draft {
-            background: #fef3c7;
-            color: #92400e;
-        }
-
-        .activity-date {
-            font-size: 0.85rem;
-            color: #64748b;
-        }
-
-        .no-data, .error-message {
-            color: #64748b;
-            font-style: italic;
-            padding: 20px;
-            text-align: center;
-        }
-
-        .error-message {
-            color: #dc2626;
-        }
-
-        .system-status {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .status-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 8px 0;
-        }
-
-        .status-indicator {
-            font-size: 1.2rem;
-        }
-
-        .status-text {
-            margin-left: auto;
-            font-size: 0.85rem;
-            color: #64748b;
-            font-weight: 500;
-        }
-
-        body:not(.authenticated) .main-container {
-            display: none;
-        }
-    </style>
+    
+    <!-- Comuni Loader -->
+    <script src="../comuni-loader.js"></script>
+    
+    <!-- Agibilità Module -->
+    <script type="module" src="agibilita.js"></script>
 </body>
 </html>
