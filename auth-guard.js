@@ -10,7 +10,8 @@ export class AuthGuard {
     try {
       console.log('🔍 Verifica autenticazione Supabase...');
 
-      // Ottieni client Supabase
+      // CORREZIONE: Assicurati che DatabaseService sia inizializzato
+      await DatabaseService.init();
       const supabaseClient = DatabaseService.getSupabaseClient();
       
       if (!supabaseClient) {

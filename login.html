@@ -341,18 +341,39 @@
                     console.log('🔌 Test connessione Supabase...');
                     statusDiv.style.display = 'block';
                     
-                    // CORREZIONE: Test diretto con client Supabase
-                    const supabaseClient = DatabaseService.getSupabaseClient ? 
-                        DatabaseService.getSupabaseClient() : null;
+                    // CORREZIONE: Attendere che DatabaseService sia inizializzato
+                    let supabaseClient = null;
+                    let attempt = 0;
+                    const maxAttempts = 3;
+                    
+                    while (!supabaseClient && attempt < maxAttempts) {
+                        try {
+                            // Prova a inizializzare DatabaseService
+                            await DatabaseService.init();
+                            supabaseClient = DatabaseService.getSupabaseClient();
+                            
+                            if (!supabaseClient) {
+                                attempt++;
+                                console.log(`Tentativo ${attempt}/${maxAttempts}...`);
+                                await new Promise(resolve => setTimeout(resolve, 1000));
+                            }
+                        } catch (initError) {
+                            console.warn(`Tentativo ${attempt + 1} fallito:`, initError);
+                            attempt++;
+                            if (attempt < maxAttempts) {
+                                await new Promise(resolve => setTimeout(resolve, 1000));
+                            }
+                        }
+                    }
                     
                     if (!supabaseClient) {
-                        throw new Error('Client Supabase non configurato');
+                        throw new Error('Impossibile inizializzare client Supabase. Verificare configurazione.');
                     }
 
-                    // Test semplice: prova a ottenere la sessione corrente
+                    // Test connessione: prova a ottenere la sessione corrente
                     const { data, error } = await supabaseClient.auth.getSession();
                     
-                    // Se non c'è errore nella chiamata, la connessione funziona
+                    // Se non c'è errore nella chiamata API, la connessione funziona
                     if (error && error.message.includes('Invalid API key')) {
                         throw new Error('Chiave API Supabase non valida');
                     }
@@ -370,25 +391,35 @@
                     console.error('❌ Errore test connessione:', error);
                     statusDiv.className = 'connection-status error';
                     
-                    if (error.message.includes('Client Supabase non configurato')) {
-                        statusText.textContent = '❌ Supabase non configurato - Verificare supabase-config.js';
+                    if (error.message.includes('Impossibile inizializzare')) {
+                        statusText.textContent = '❌ Configurazione Supabase non trovata';
+                    } else if (error.message.includes('CREDENZIALI NON CONFIGURATE')) {
+                        statusText.textContent = '❌ Credenziali Supabase non configurate';
                     } else if (error.message.includes('Invalid API key')) {
                         statusText.textContent = '❌ Chiave API non valida - Verificare credenziali';
                     } else if (error.message.includes('fetch')) {
                         statusText.textContent = '❌ Errore di rete - Verificare connessione internet';
                     } else {
-                        statusText.textContent = '❌ Errore connessione: ' + error.message;
+                        statusText.textContent = '❌ Errore: ' + error.message;
                     }
+                    
+                    // Mostra suggerimento di configurazione
+                    setTimeout(() => {
+                        if (statusDiv.className.includes('error')) {
+                            statusText.innerHTML = '💡 Verificare supabase-config.js<br><small>Assicurati che URL e chiave siano corretti</small>';
+                        }
+                    }, 5000);
                 }
             }
 
             async checkExistingSession() {
                 try {
-                    // Ottieni client Supabase da DatabaseService
+                    // CORREZIONE: Assicurati che DatabaseService sia inizializzato
+                    await DatabaseService.init();
                     const supabaseClient = DatabaseService.getSupabaseClient();
                     
                     if (!supabaseClient) {
-                        console.log('ℹ️ Client Supabase non disponibile');
+                        console.log('ℹ️ Client Supabase non disponibile per controllo sessione');
                         return;
                     }
 
@@ -401,7 +432,7 @@
                         console.log('ℹ️ Nessuna sessione attiva');
                     }
                 } catch (error) {
-                    console.log('ℹ️ Controllo sessione fallito:', error.message);
+                    console.log('ℹ️ Controllo sessione fallito (normale se primo avvio):', error.message);
                 }
             }
 
@@ -429,7 +460,8 @@
                 try {
                     console.log('🔐 Tentativo login Supabase per:', email);
 
-                    // Ottieni client Supabase
+                    // CORREZIONE: Assicurati che DatabaseService sia inizializzato
+                    await DatabaseService.init();
                     const supabaseClient = DatabaseService.getSupabaseClient();
                     
                     if (!supabaseClient) {
