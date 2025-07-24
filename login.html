@@ -68,6 +68,28 @@
             margin-bottom: 4px;
         }
 
+        .connection-status {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 20px;
+            font-size: 0.85rem;
+            display: none;
+        }
+
+        .connection-status.connected {
+            background: #dcfce7;
+            border-color: #10b981;
+            color: #166534;
+        }
+
+        .connection-status.error {
+            background: #fef2f2;
+            border-color: #ef4444;
+            color: #991b1b;
+        }
+
         .form-group {
             margin-bottom: 20px;
         }
@@ -222,6 +244,11 @@
 
         <!-- Body -->
         <div class="login-body">
+            <!-- Stato connessione -->
+            <div id="connection-status" class="connection-status">
+                <span id="connection-text">🔌 Verificando connessione database...</span>
+            </div>
+
             <!-- Info sicurezza -->
             <div class="security-info">
                 <div class="security-item">
@@ -241,13 +268,13 @@
             <!-- Form Login -->
             <form id="login-form">
                 <div class="form-group">
-                    <label for="email" class="form-label">Email</label>
+                    <label for="email" class="form-label">Email Aziendale</label>
                     <input 
                         type="email" 
                         id="email" 
                         name="email" 
                         class="form-input" 
-                        placeholder="admin@recorp.it"
+                        placeholder="your-email@recorp.it"
                         required
                         autocomplete="email"
                     >
@@ -276,7 +303,9 @@
             </form>
 
             <div class="register-link">
-                <p>Prima volta? Contatta l'amministratore per l'accesso</p>
+                <p>Credenziali non funzionanti?</p>
+                <p><strong>Contatta l'amministratore sistema</strong></p>
+                <small style="color: #94a3b8;">Le credenziali vengono gestite tramite Supabase Auth</small>
             </div>
         </div>
     </div>
@@ -284,32 +313,78 @@
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script type="module">
-        // Import configurazione Supabase
-        import { supabase } from './supabase-config.js';
+        // Import DatabaseService da supabase-config.js
+        import { DatabaseService } from './supabase-config.js';
 
         class LoginManager {
             constructor() {
                 this.loginForm = document.getElementById('login-form');
+                this.supabase = null;
                 this.init();
             }
 
-            init() {
+            async init() {
                 this.loginForm.addEventListener('submit', this.handleLogin.bind(this));
                 
+                // Test connessione Supabase
+                await this.testSupabaseConnection();
+                
                 // Controlla se già autenticato
-                this.checkExistingSession();
+                await this.checkExistingSession();
+            }
+
+            async testSupabaseConnection() {
+                const statusDiv = document.getElementById('connection-status');
+                const statusText = document.getElementById('connection-text');
+                
+                try {
+                    console.log('🔌 Test connessione Supabase...');
+                    statusDiv.style.display = 'block';
+                    
+                    // Test con DatabaseService
+                    const testResult = await DatabaseService.testConnection();
+                    
+                    if (testResult.connected) {
+                        console.log('✅ Connessione Supabase OK');
+                        statusDiv.className = 'connection-status connected';
+                        statusText.textContent = '✅ Database connesso - Pronto per il login';
+                        
+                        // Nascondi dopo 3 secondi
+                        setTimeout(() => {
+                            statusDiv.style.display = 'none';
+                        }, 3000);
+                    } else {
+                        console.error('❌ Problema connessione:', testResult.error);
+                        statusDiv.className = 'connection-status error';
+                        statusText.textContent = '❌ Errore connessione database - Verificare configurazione';
+                    }
+                } catch (error) {
+                    console.error('❌ Errore test connessione:', error);
+                    statusDiv.className = 'connection-status error';
+                    statusText.textContent = '❌ Impossibile connettersi al database';
+                }
             }
 
             async checkExistingSession() {
                 try {
-                    const { data: { session }, error } = await supabase.auth.getSession();
+                    // Ottieni client Supabase da DatabaseService
+                    const supabaseClient = DatabaseService.getSupabaseClient();
+                    
+                    if (!supabaseClient) {
+                        console.log('ℹ️ Client Supabase non disponibile');
+                        return;
+                    }
+
+                    const { data: { session }, error } = await supabaseClient.auth.getSession();
                     
                     if (session && !error) {
-                        console.log('✅ Sessione esistente trovata');
+                        console.log('✅ Sessione esistente trovata per:', session.user.email);
                         this.redirectToDashboard();
+                    } else {
+                        console.log('ℹ️ Nessuna sessione attiva');
                     }
                 } catch (error) {
-                    console.log('Nessuna sessione esistente');
+                    console.log('ℹ️ Controllo sessione fallito:', error.message);
                 }
             }
 
@@ -335,53 +410,77 @@
                 this.clearMessages();
 
                 try {
-                    console.log('🔐 Tentativo login per:', email);
+                    console.log('🔐 Tentativo login Supabase per:', email);
 
-                    const { data, error } = await supabase.auth.signInWithPassword({
+                    // Ottieni client Supabase
+                    const supabaseClient = DatabaseService.getSupabaseClient();
+                    
+                    if (!supabaseClient) {
+                        throw new Error('Client Supabase non configurato. Verificare supabase-config.js');
+                    }
+
+                    // Tentativo login con Supabase Auth
+                    const { data, error } = await supabaseClient.auth.signInWithPassword({
                         email: email,
                         password: password
                     });
 
                     if (error) {
-                        console.error('❌ Errore login:', error);
+                        console.error('❌ Errore login Supabase:', error);
                         this.showError(this.getErrorMessage(error.message));
                         return;
                     }
 
                     if (data.user) {
-                        console.log('✅ Login riuscito per:', data.user.email);
-                        this.showSuccess('Login effettuato con successo!');
+                        console.log('✅ Login Supabase riuscito per:', data.user.email);
+                        this.showSuccess('Autenticazione completata con successo!');
                         
-                        // Breve pausa per mostrare il messaggio di successo
+                        // Salva info sessione
+                        this.saveUserSession(data.user, data.session);
+                        
+                        // Redirect dopo breve pausa
                         setTimeout(() => {
                             this.redirectToDashboard();
-                        }, 1000);
+                        }, 1500);
+                    } else {
+                        throw new Error('Dati utente non ricevuti dal server');
                     }
 
                 } catch (error) {
                     console.error('❌ Errore critico login:', error);
-                    this.showError('Errore di connessione. Riprova.');
+                    
+                    if (error.message.includes('Client Supabase non configurato')) {
+                        this.showError('⚠️ Sistema non configurato. Contattare l\'amministratore.');
+                    } else if (error.message.includes('fetch')) {
+                        this.showError('Errore di connessione. Verificare la connessione internet.');
+                    } else {
+                        this.showError('Errore durante il login: ' + error.message);
+                    }
                 } finally {
                     this.setLoading(false);
                 }
             }
 
+            saveUserSession(user, session) {
+                // Salva dati essenziali in localStorage come backup
+                const sessionData = {
+                    user_id: user.id,
+                    email: user.email,
+                    login_time: new Date().toISOString(),
+                    expires_at: session?.expires_at || null
+                };
+                
+                localStorage.setItem('recorp_user_session', JSON.stringify(sessionData));
+                console.log('💾 Sessione utente salvata localmente');
+            }
+
             redirectToDashboard() {
-                // Ottieni base path per GitHub Pages
-                const basePath = this.getBasePath();
-                const redirectUrl = new URLSearchParams(window.location.search).get('redirect') || `${basePath}/index.html`;
+                // Ottieni redirect URL o default
+                const urlParams = new URLSearchParams(window.location.search);
+                const redirectUrl = urlParams.get('redirect') || './index.html';
                 
                 console.log('🔄 Redirect a dashboard:', redirectUrl);
                 window.location.href = redirectUrl;
-            }
-
-            getBasePath() {
-                // Se siamo su GitHub Pages
-                if (window.location.hostname === 'recorpit.github.io') {
-                    return '/APP-recorp';
-                }
-                // Se siamo in locale
-                return '';
             }
 
             isValidEmail(email) {
@@ -392,13 +491,15 @@
             getErrorMessage(errorMsg) {
                 const errorMap = {
                     'Invalid login credentials': 'Email o password non corretti',
-                    'Email not confirmed': 'Email non ancora confermata',
+                    'Email not confirmed': 'Email non ancora confermata. Controlla la tua casella di posta.',
                     'Too many requests': 'Troppi tentativi. Riprova tra qualche minuto',
-                    'User not found': 'Utente non trovato',
-                    'Invalid email format': 'Formato email non valido'
+                    'User not found': 'Utente non registrato nel sistema',
+                    'Invalid email format': 'Formato email non valido',
+                    'Signup not allowed': 'Registrazione non consentita. Contatta l\'amministratore.',
+                    'Email rate limit exceeded': 'Limite email superato. Riprova più tardi.'
                 };
 
-                return errorMap[errorMsg] || 'Errore di autenticazione: ' + errorMsg;
+                return errorMap[errorMsg] || `Errore: ${errorMsg}`;
             }
 
             setLoading(loading) {
@@ -417,10 +518,10 @@
                 errorDiv.textContent = message;
                 errorDiv.classList.add('show');
                 
-                // Auto-hide dopo 5 secondi
+                // Auto-hide dopo 7 secondi
                 setTimeout(() => {
                     errorDiv.classList.remove('show');
-                }, 5000);
+                }, 7000);
             }
 
             showSuccess(message) {
@@ -438,17 +539,6 @@
         // Inizializza quando DOM è pronto
         document.addEventListener('DOMContentLoaded', () => {
             new LoginManager();
-        });
-
-        // Test connessione Supabase
-        console.log('🔌 Pagina login caricata, test connessione Supabase...');
-        
-        supabase.auth.getSession().then(({ data, error }) => {
-            if (error) {
-                console.error('❌ Errore connessione Supabase:', error);
-            } else {
-                console.log('✅ Connessione Supabase OK');
-            }
         });
     </script>
 </body>
