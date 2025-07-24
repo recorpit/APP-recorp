@@ -23,49 +23,71 @@
                 console.log('✅ Accesso autorizzato alla pagina');
                 // La pagina continua a caricare normalmente
                 document.body.classList.add('authenticated');
+                
+                // Inizializza user info bar
+                await initUserInfoBar();
             } catch (error) {
                 console.log('❌ Accesso negato, redirect in corso...');
                 // AuthGuard ha già fatto il redirect a login
             }
         });
+
+        // Inizializza la user info bar
+        async function initUserInfoBar() {
+            try {
+                // Ottieni info utente da localStorage o Supabase
+                const userSession = localStorage.getItem('recorp_user_session');
+                if (userSession) {
+                    const userData = JSON.parse(userSession);
+                    document.getElementById('current-user-email').textContent = userData.email;
+                    
+                    // Calcola durata sessione
+                    const loginTime = new Date(userData.login_time);
+                    const now = new Date();
+                    const duration = Math.floor((now - loginTime) / 1000 / 60); // minuti
+                    document.getElementById('session-info').textContent = `Sessione: ${duration}m`;
+                }
+            } catch (error) {
+                console.error('Errore caricamento info utente:', error);
+                document.getElementById('current-user-email').textContent = 'Utente';
+            }
+        }
+
+        // Gestisci logout
+        window.handleLogout = () => {
+            if (confirm('Sei sicuro di voler uscire?')) {
+                try {
+                    // Importa AuthGuard e chiama logout
+                    import('./auth-guard.js').then(module => {
+                        module.AuthGuard.logout();
+                    });
+                } catch (error) {
+                    console.error('Errore logout:', error);
+                    // Fallback: pulisci localStorage e redirect
+                    localStorage.removeItem('recorp_user_session');
+                    window.location.href = './login.html';
+                }
+            }
+        };
     </script>
 
     <!-- User Info Bar -->
-    <div class="user-info-bar" style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 8px 20px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; max-width: 1200px; margin: 0 auto;">
+    <div class="user-info-bar">
+        <div class="container">
             <!-- Info utente -->
-            <div class="user-info" style="display: flex; align-items: center; gap: 12px;">
-                <span style="color: #64748b; font-size: 0.9rem;">Connesso come:</span>
-                <span id="current-user-email" style="font-weight: 600; color: #1e293b;">Caricamento...</span>
-                <span style="background: #10b981; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem;">🟢 Online</span>
+            <div class="user-info">
+                <span>Connesso come:</span>
+                <span id="current-user-email">Caricamento...</span>
+                <span class="status-online">🟢 Online</span>
             </div>
             
             <!-- Pulsanti azione -->
-            <div style="display: flex; align-items: center; gap: 12px;">
+            <div class="user-actions">
                 <!-- Informazioni sessione -->
-                <span id="session-info" style="color: #64748b; font-size: 0.85rem;"></span>
+                <span id="session-info"></span>
                 
                 <!-- Pulsante logout -->
-                <button 
-                    id="logout-btn" 
-                    onclick="handleLogout()"
-                    style="
-                        background: #dc2626; 
-                        color: white; 
-                        border: none; 
-                        padding: 6px 16px; 
-                        border-radius: 6px; 
-                        font-size: 0.85rem; 
-                        font-weight: 500;
-                        cursor: pointer;
-                        transition: all 0.2s ease;
-                        display: flex;
-                        align-items: center;
-                        gap: 6px;
-                    "
-                    onmouseover="this.style.background='#b91c1c'"
-                    onmouseout="this.style.background='#dc2626'"
-                >
+                <button id="logout-btn" onclick="handleLogout()">
                     🚪 Logout Sicuro
                 </button>
             </div>
@@ -199,130 +221,163 @@
         </div>
     </div>
 
+    <!-- Search Modal (mantenuto dal codice esistente) -->
+    <div id="searchModal" class="modal">
+        <div class="modal-content modal-content-wide">
+            <div class="modal-header">
+                <h2>Risultati Ricerca Artisti</h2>
+                <button class="close-modal" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="searchResults"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Database Manager Modal (mantenuto dal codice esistente) -->
+    <div id="databaseManagerModal" class="modal">
+        <div class="modal-content modal-content-wide">
+            <div class="modal-header">
+                <h2>🗄️ Database Manager - RECORP</h2>
+                <button class="close-modal" onclick="closeDatabaseManager()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Tab navigation -->
+                <div class="tabs">
+                    <button class="tab active" onclick="showDBTab('artisti')">
+                        <span class="tab-icon">👥</span>
+                        Artisti
+                        <span class="tab-badge" id="artistsCount">0</span>
+                    </button>
+                    <button class="tab" onclick="showDBTab('locali')">
+                        <span class="tab-icon">🏢</span>
+                        Locali
+                        <span class="tab-badge" id="venuesCount">0</span>
+                    </button>
+                    <button class="tab" onclick="showDBTab('export')">
+                        <span class="tab-icon">📊</span>
+                        Export/Import
+                    </button>
+                </div>
+
+                <!-- Artisti Tab -->
+                <div id="dbTabArtisti" class="tab-content active">
+                    <div class="tab-header">
+                        <h3>Gestione Artisti Database</h3>
+                        <div class="tab-actions">
+                            <input type="text" id="dbSearchArtist" placeholder="Cerca artista..." 
+                                   onkeyup="filterDBArtists()" class="form-control">
+                        </div>
+                    </div>
+                    
+                    <div class="db-table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Nome Completo</th>
+                                    <th>Codice Fiscale</th>
+                                    <th>Mansione</th>
+                                    <th class="text-center">Azioni</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dbArtistsList">
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                        <div id="noArtistsMsg" class="no-data-msg">Nessun artista nel database</div>
+                    </div>
+                </div>
+
+                <!-- Locali Tab -->
+                <div id="dbTabLocali" class="tab-content">
+                    <div class="tab-header">
+                        <h3>Gestione Locali Database</h3>
+                        <div class="tab-actions">
+                            <input type="text" id="dbSearchVenue" placeholder="Cerca locale..." 
+                                   onkeyup="filterDBVenues()" class="form-control">
+                        </div>
+                    </div>
+                    
+                    <div class="db-table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Nome Locale</th>
+                                    <th>Città</th>
+                                    <th>Indirizzo</th>
+                                    <th class="text-center">Azioni</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dbVenuesList">
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                        <div id="noVenuesMsg" class="no-data-msg">Nessun locale nel database</div>
+                    </div>
+                </div>
+
+                <!-- Export/Import Tab -->
+                <div id="dbTabExport" class="tab-content">
+                    <div class="tab-header">
+                        <h3>Export e Import Database</h3>
+                    </div>
+                    
+                    <div class="form-section">
+                        <h4>📤 Esporta Dati</h4>
+                        <p>Scarica i dati del database in formato JSON per backup o migrazione.</p>
+                        <div class="btn-group">
+                            <button class="btn btn-secondary" onclick="exportDatabase('artisti')">
+                                Export Solo Artisti
+                            </button>
+                            <button class="btn btn-secondary" onclick="exportDatabase('locali')">
+                                Export Solo Locali
+                            </button>
+                            <button class="btn btn-primary" onclick="exportDatabase('all')">
+                                Export Completo
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="form-section">
+                        <h4>📥 Importa Dati</h4>
+                        <p>Carica dati da file JSON precedentemente esportato.</p>
+                        <input type="file" id="importFile" accept=".json" onchange="importDatabase(event)" class="form-control">
+                        <div class="import-help-text">
+                            ⚠️ <strong>Attenzione:</strong> L'import aggiungerà nuovi record senza rimuovere quelli esistenti.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Container -->
-    <div id="toast-container" style="position: fixed; top: 20px; right: 20px; z-index: 1000;"></div>
+    <div id="toast-container"></div>
 
     <!-- Loading Overlay -->
-    <div id="loading-overlay" style="
-        position: fixed; 
-        top: 0; left: 0; right: 0; bottom: 0; 
-        background: rgba(255,255,255,0.9); 
-        display: none; 
-        align-items: center; 
-        justify-content: center; 
-        z-index: 9999;
-        flex-direction: column;
-        gap: 20px;
-    ">
-        <div style="width: 50px; height: 50px; border: 3px solid #e2e8f0; border-top: 3px solid #2563eb; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-        <div style="color: #64748b; font-weight: 500;">Caricamento dati sicuri...</div>
+    <div id="loading-overlay">
+        <div class="loading-spinner"></div>
+        <div>Caricamento dati sicuri...</div>
+    </div>
+
+    <!-- Database Manager Button -->
+    <div class="db-manager-button">
+        <button class="btn btn-secondary" onclick="toggleDatabaseManager()" title="Gestione Database">
+            🗄️ Database
+        </button>
+    </div>
+
+    <!-- Chat AI Button -->
+    <div class="chat-ai-button">
+        <button class="btn btn-chat-ai" onclick="openChatAI()" title="Chat AI per Agibilità">
+            <span class="chat-ai-icon">🤖</span>
+            <span>Chat AI</span>
+        </button>
     </div>
 
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script type="module" src="./supabase-config.js"></script>
     <script type="module" src="./homepage.js"></script>
-
-    <!-- CSS per animazioni -->
-    <style>
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .user-info-bar {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        }
-
-        .loading-placeholder {
-            color: #64748b;
-            font-style: italic;
-            padding: 20px;
-            text-align: center;
-        }
-
-        .activity-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 0;
-            border-bottom: 1px solid #f1f5f9;
-        }
-
-        .activity-item:last-child {
-            border-bottom: none;
-        }
-
-        .activity-title {
-            font-weight: 600;
-            color: #1e293b;
-        }
-
-        .activity-subtitle {
-            font-size: 0.85rem;
-            color: #64748b;
-        }
-
-        .activity-status {
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 0.75rem;
-            font-weight: 500;
-        }
-
-        .activity-status.inviato {
-            background: #dcfce7;
-            color: #166534;
-        }
-
-        .activity-status.draft {
-            background: #fef3c7;
-            color: #92400e;
-        }
-
-        .activity-date {
-            font-size: 0.85rem;
-            color: #64748b;
-        }
-
-        .no-data, .error-message {
-            color: #64748b;
-            font-style: italic;
-            padding: 20px;
-            text-align: center;
-        }
-
-        .error-message {
-            color: #dc2626;
-        }
-
-        .system-status {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .status-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 8px 0;
-        }
-
-        .status-indicator {
-            font-size: 1.2rem;
-        }
-
-        .status-text {
-            margin-left: auto;
-            font-size: 0.85rem;
-            color: #64748b;
-            font-weight: 500;
-        }
-
-        body:not(.authenticated) .main-container {
-            display: none;
-        }
-    </style>
 </body>
 </html>
