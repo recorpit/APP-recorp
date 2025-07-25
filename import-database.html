@@ -1,0 +1,1656 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Import Database - RECORP ALL-IN-ONE</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <style>
+        /* ==================== IMPORT DATABASE STYLES ==================== */
+        
+        .import-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .import-header {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding: 2rem;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            border-radius: 12px;
+        }
+
+        .import-header h1 {
+            margin: 0 0 0.5rem 0;
+            font-size: 2rem;
+        }
+
+        .import-header p {
+            margin: 0;
+            opacity: 0.9;
+        }
+
+        .import-sections {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .import-section {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border: 2px solid var(--border-color);
+            transition: all 0.3s ease;
+        }
+
+        .import-section:hover {
+            border-color: var(--primary-color);
+            transform: translateY(-2px);
+        }
+
+        .section-icon {
+            font-size: 3rem;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            text-align: center;
+            color: var(--text-primary);
+        }
+
+        .section-description {
+            color: var(--text-secondary);
+            margin-bottom: 1.5rem;
+            text-align: center;
+            line-height: 1.6;
+        }
+
+        .file-upload-area {
+            border: 2px dashed var(--border-color);
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            margin-bottom: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: var(--bg-primary);
+        }
+
+        .file-upload-area:hover {
+            border-color: var(--primary-color);
+            background: var(--bg-hover);
+        }
+
+        .file-upload-area.dragover {
+            border-color: var(--primary-color);
+            background: var(--primary-light);
+        }
+
+        .upload-icon {
+            font-size: 2rem;
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+        }
+
+        .upload-text {
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        .file-types {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .selected-file {
+            background: var(--success-light);
+            border: 1px solid var(--success-color);
+            padding: 1rem;
+            border-radius: 6px;
+            margin-top: 1rem;
+            display: none;
+        }
+
+        .file-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .file-icon {
+            font-size: 1.5rem;
+            color: var(--success-color);
+        }
+
+        .file-details h4 {
+            margin: 0 0 0.25rem 0;
+            color: var(--text-primary);
+        }
+
+        .file-details p {
+            margin: 0;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .sheet-selection {
+            display: none;
+            margin-top: 2rem;
+            padding: 2rem;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .sheet-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .sheet-btn {
+            background: var(--bg-card);
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 150px;
+            text-align: center;
+        }
+
+        .sheet-btn:hover {
+            border-color: var(--primary-color);
+            background: var(--primary-light);
+        }
+
+        .sheet-btn.selected {
+            border-color: var(--primary-color);
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .sheet-name {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .sheet-info {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .sheet-btn.selected .sheet-info {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .field-mapping {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 1rem;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background: var(--bg-card);
+            border-radius: 6px;
+            border: 1px solid var(--border-light);
+        }
+
+        .field-mapping.mapped {
+            border-color: var(--success-color);
+            background: var(--success-light);
+        }
+
+        .source-field {
+            font-weight: 500;
+            color: var(--text-primary);
+            padding: 0.5rem;
+            background: var(--bg-primary);
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .mapping-arrow {
+            font-size: 1.5rem;
+            color: var(--text-secondary);
+            text-align: center;
+        }
+
+        .field-mapping.mapped .mapping-arrow {
+            color: var(--success-color);
+        }
+
+        .target-select {
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background: white;
+            font-weight: 500;
+            min-width: 200px;
+        }
+
+        .field-mapping.mapped .target-select {
+            border-color: var(--success-color);
+            background: var(--success-light);
+        }
+
+        .mapping-stats {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background: var(--bg-primary);
+            border-radius: 6px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .auto-map-btn {
+            background: var(--secondary-color);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.3s ease;
+        }
+
+        .auto-map-btn:hover {
+            background: var(--secondary-dark);
+        }
+
+        .sample-data {
+            margin-top: 0.5rem;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        .preview-section {
+            display: none;
+            margin-top: 2rem;
+        }
+
+        .preview-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .preview-table th,
+        .preview-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .preview-table th {
+            background: var(--bg-primary);
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .import-actions {
+            margin-top: 2rem;
+            text-align: center;
+        }
+
+        .import-btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .import-btn:hover {
+            background: var(--primary-dark);
+        }
+
+        .import-btn:disabled {
+            background: var(--text-muted);
+            cursor: not-allowed;
+        }
+
+        .progress-section {
+            display: none;
+            margin-top: 2rem;
+            padding: 2rem;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: var(--border-light);
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 1rem 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--success-color);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .import-log {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: var(--bg-primary);
+            border-radius: 6px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 0.9rem;
+            display: none;
+        }
+
+        .log-entry {
+            margin-bottom: 0.25rem;
+        }
+
+        .log-success { color: var(--success-color); }
+        .log-error { color: var(--danger-color); }
+        .log-warning { color: var(--warning-color); }
+        .log-info { color: var(--text-secondary); }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .import-sections {
+                grid-template-columns: 1fr;
+            }
+            
+            .field-mapping {
+                grid-template-columns: 1fr;
+                gap: 0.5rem;
+            }
+        }
+
+        /* Hide content until authenticated */
+        body:not(.authenticated) .import-container {
+            display: none;
+        }
+
+        body.authenticated {
+            padding-top: 60px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Indicator -->
+    <div id="loading-indicator" style="
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        text-align: center;
+        z-index: 1000;
+    ">
+        📊 Inizializzazione sistema import...
+        <div style="margin-top: 10px;">
+            <div class="spinner" style="
+                width: 20px;
+                height: 20px;
+                border: 2px solid #f3f4f6;
+                border-top: 2px solid #3b82f6;
+                border-radius: 50%;
+                animation: spin 1s linear infinite;
+                margin: 0 auto;
+            "></div>
+        </div>
+    </div>
+
+    <style>
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    </style>
+
+    <!-- Main Content -->
+    <div class="import-container">
+        <!-- Header -->
+        <div class="import-header">
+            <h1>📊 Import Database RECORP</h1>
+            <p>Importa i tuoi dati esistenti nel sistema RECORP ALL-IN-ONE</p>
+        </div>
+
+        <!-- Import Sections -->
+        <div class="import-sections">
+            <!-- Artisti -->
+            <div class="import-section" data-type="artisti">
+                <div class="section-icon">🎭</div>
+                <h3 class="section-title">Database Artisti</h3>
+                <p class="section-description">
+                    Importa la lista completa dei tuoi artisti con tutti i dati anagrafici, 
+                    professionali e fiscali necessari per le agibilità ENPALS.
+                </p>
+                
+                <div class="file-upload-area" onclick="triggerFileInput('artisti')">
+                    <div class="upload-icon">📄</div>
+                    <div class="upload-text">Clicca o trascina il file qui</div>
+                    <div class="file-types">Excel (.xlsx), CSV (.csv), JSON (.json)</div>
+                </div>
+                
+                <input type="file" class="file-input" id="file-artisti" accept=".xlsx,.csv,.json" onchange="handleFileSelect(event, 'artisti')">
+                
+                <div class="selected-file" id="selected-artisti">
+                    <div class="file-info">
+                        <div class="file-icon">📄</div>
+                        <div class="file-details">
+                            <h4 id="filename-artisti"></h4>
+                            <p id="filesize-artisti"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Agibilità -->
+            <div class="import-section" data-type="agibilita">
+                <div class="section-icon">✨</div>
+                <h3 class="section-title">Agibilità Precedenti</h3>
+                <p class="section-description">
+                    Importa lo storico delle agibilità già create per mantenere 
+                    continuità nei dati e nelle numerazioni progressive.
+                </p>
+                
+                <div class="file-upload-area" onclick="triggerFileInput('agibilita')">
+                    <div class="upload-icon">📄</div>
+                    <div class="upload-text">Clicca o trascina il file qui</div>
+                    <div class="file-types">Excel (.xlsx), CSV (.csv), JSON (.json)</div>
+                </div>
+                
+                <input type="file" class="file-input" id="file-agibilita" accept=".xlsx,.csv,.json" onchange="handleFileSelect(event, 'agibilita')">
+                
+                <div class="selected-file" id="selected-agibilita">
+                    <div class="file-info">
+                        <div class="file-icon">📄</div>
+                        <div class="file-details">
+                            <h4 id="filename-agibilita"></h4>
+                            <p id="filesize-agibilita"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Venues -->
+            <div class="import-section" data-type="venues">
+                <div class="section-icon">🏢</div>
+                <h3 class="section-title">Venue e Location</h3>
+                <p class="section-description">
+                    Importa la lista delle venue, locali e location dove si svolgono 
+                    gli eventi per velocizzare la creazione delle agibilità.
+                </p>
+                
+                <div class="file-upload-area" onclick="triggerFileInput('venues')">
+                    <div class="upload-icon">📄</div>
+                    <div class="upload-text">Clicca o trascina il file qui</div>
+                    <div class="file-types">Excel (.xlsx), CSV (.csv), JSON (.json)</div>
+                </div>
+                
+                <input type="file" class="file-input" id="file-venues" accept=".xlsx,.csv,.json" onchange="handleFileSelect(event, 'venues')">
+                
+                <div class="selected-file" id="selected-venues">
+                    <div class="file-info">
+                        <div class="file-icon">📄</div>
+                        <div class="file-details">
+                            <h4 id="filename-venues"></h4>
+                            <p id="filesize-venues"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sheet Selection Section -->
+        <div class="sheet-selection" id="sheet-selection" style="display: none;">
+            <h3 class="mapping-title">📋 Seleziona Foglio Excel</h3>
+            <p>Il file Excel contiene più fogli. Seleziona quello da importare:</p>
+            <div class="sheet-buttons" id="sheet-buttons">
+                <!-- Popolato dinamicamente -->
+            </div>
+        </div>
+
+        <!-- Mapping Section -->
+        <div class="mapping-section" id="mapping-section">
+            <h3 class="mapping-title">🔄 Mappatura Campi</h3>
+            <p>Associa i campi del tuo file con i campi del database RECORP:</p>
+            <div id="field-mappings">
+                <!-- Popolato dinamicamente -->
+            </div>
+        </div>
+
+        <!-- Preview Section -->
+        <div class="preview-section" id="preview-section">
+            <h3>👀 Anteprima Dati (Prime 5 righe)</h3>
+            <div style="overflow-x: auto;">
+                <table class="preview-table" id="preview-table">
+                    <!-- Popolata dinamicamente -->
+                </table>
+            </div>
+        </div>
+
+        <!-- Import Actions -->
+        <div class="import-actions" id="import-actions" style="display: none;">
+            <button class="import-btn" id="start-import" onclick="startImport()">
+                📊 Avvia Importazione
+            </button>
+        </div>
+
+        <!-- Progress Section -->
+        <div class="progress-section" id="progress-section">
+            <h3>⏳ Importazione in corso...</h3>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+            <p id="progress-text">Preparazione...</p>
+        </div>
+
+        <!-- Import Log -->
+        <div class="import-log" id="import-log">
+            <!-- Log entries -->
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script type="module" src="supabase-config.js"></script>
+    <script type="module" src="auth-guard.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/papaparse/5.4.1/papaparse.min.js"></script>
+
+    <script type="module">
+        // Import DatabaseService
+        import { DatabaseService } from './supabase-config.js';
+
+        // ==================== CONFIGURAZIONE IMPORT ====================
+
+        const IMPORT_CONFIG = {
+            maxFileSize: 50 * 1024 * 1024, // 50MB
+            supportedFormats: ['xlsx', 'csv', 'json'],
+            batchSize: 100,
+            validationRules: {
+                artisti: {
+                    required: ['nome', 'cognome'],
+                    optional: ['codice_fiscale', 'email', 'telefono', 'indirizzo', 'mansione', 'iban']
+                },
+                agibilita: {
+                    required: ['numero', 'data_inizio'],
+                    optional: ['tipo_spettacolo', 'venue', 'stato']
+                },
+                venues: {
+                    required: ['nome', 'indirizzo'],
+                    optional: ['citta', 'provincia', 'cap', 'telefono', 'email']
+                }
+            }
+        };
+
+        // Mappature campi standard
+        const FIELD_MAPPINGS = {
+            artisti: {
+                'nome': ['nome', 'name', 'first_name', 'firstname'],
+                'cognome': ['cognome', 'surname', 'last_name', 'lastname'],
+                'codice_fiscale': ['codice_fiscale', 'cf', 'fiscal_code', 'tax_code'],
+                'email': ['email', 'e-mail', 'mail'],
+                'telefono': ['telefono', 'phone', 'tel', 'cellulare'],
+                'indirizzo': ['indirizzo', 'address', 'via'],
+                'citta': ['citta', 'city', 'comune'],
+                'provincia': ['provincia', 'prov', 'province'],
+                'cap': ['cap', 'postal_code', 'zip'],
+                'mansione': ['mansione', 'role', 'job', 'professione'],
+                'iban': ['iban', 'bank_account', 'conto'],
+                'partita_iva': ['partita_iva', 'piva', 'vat', 'vat_number'],
+                'data_nascita': ['data_nascita', 'birthday', 'birth_date', 'nato_il']
+            },
+            agibilita: {
+                'numero': ['numero', 'number', 'id', 'progressive'],
+                'data_inizio': ['data_inizio', 'start_date', 'data', 'date'],
+                'data_fine': ['data_fine', 'end_date', 'data_termine'],
+                'tipo_spettacolo': ['tipo_spettacolo', 'type', 'categoria', 'genre'],
+                'venue': ['venue', 'location', 'locale', 'luogo'],
+                'stato': ['stato', 'status', 'state'],
+                'compenso_totale': ['compenso_totale', 'total', 'importo', 'amount']
+            },
+            venues: {
+                'nome': ['nome', 'name', 'venue_name', 'location_name'],
+                'indirizzo': ['indirizzo', 'address', 'via'],
+                'citta': ['citta', 'city', 'comune'],
+                'provincia': ['provincia', 'prov', 'province'],
+                'cap': ['cap', 'postal_code', 'zip'],
+                'telefono': ['telefono', 'phone', 'tel'],
+                'email': ['email', 'e-mail', 'mail'],
+                'capienza': ['capienza', 'capacity', 'posti'],
+                'tipologia': ['tipologia', 'type', 'categoria']
+            }
+        };
+
+        // ==================== CLASSE IMPORT MANAGER ====================
+
+        class ImportManager {
+            constructor() {
+                this.currentFile = null;
+                this.currentType = null;
+                this.parsedData = null;
+                this.fieldMapping = {};
+                this.validatedData = [];
+                this.importProgress = 0;
+                this.workbook = null;
+                this.selectedSheet = null;
+                this.allSheets = {};
+                
+                console.log('📊 ImportManager inizializzato');
+            }
+
+            async processFile(file, type) {
+                console.log(`📄 Elaborazione file: ${file.name} (${type})`);
+                
+                try {
+                    if (!this.validateFile(file)) {
+                        return;
+                    }
+
+                    this.currentFile = file;
+                    this.currentType = type;
+                    
+                    const extension = file.name.split('.').pop().toLowerCase();
+                    
+                    if (extension === 'xlsx') {
+                        await this.parseExcelWithSheets(file);
+                    } else {
+                        const data = await this.parseFile(file);
+                        
+                        if (!data || data.length === 0) {
+                            this.showError('File vuoto o formato non valido');
+                            return;
+                        }
+
+                        this.parsedData = data;
+                        this.log(`✅ File parsato: ${data.length} righe trovate`, 'success');
+                        
+                        this.showFieldMapping();
+                        this.showPreview();
+                    }
+                    
+                } catch (error) {
+                    console.error('❌ Errore elaborazione file:', error);
+                    this.showError('Errore durante l\'elaborazione del file: ' + error.message);
+                }
+            }
+
+            async parseExcelWithSheets(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    
+                    reader.onload = (e) => {
+                        try {
+                            const data = new Uint8Array(e.target.result);
+                            this.workbook = XLSX.read(data, { type: 'array' });
+                            
+                            // Analizza tutti i fogli
+                            this.allSheets = {};
+                            
+                            this.workbook.SheetNames.forEach(sheetName => {
+                                const sheet = this.workbook.Sheets[sheetName];
+                                const jsonData = XLSX.utils.sheet_to_json(sheet, { 
+                                    header: 1,
+                                    defval: ''
+                                });
+                                
+                                if (jsonData.length >= 2) {
+                                    const headers = jsonData[0];
+                                    const rows = jsonData.slice(1);
+                                    
+                                    const result = rows.map(row => {
+                                        const obj = {};
+                                        headers.forEach((header, index) => {
+                                            obj[header] = row[index] || '';
+                                        });
+                                        return obj;
+                                    });
+                                    
+                                    this.allSheets[sheetName] = {
+                                        data: result,
+                                        headers: headers,
+                                        rowCount: rows.length
+                                    };
+                                }
+                            });
+                            
+                            if (Object.keys(this.allSheets).length === 0) {
+                                reject(new Error('Nessun foglio valido trovato nel file Excel'));
+                                return;
+                            }
+                            
+                            // Se c'è un solo foglio, selezionalo automaticamente
+                            if (Object.keys(this.allSheets).length === 1) {
+                                const sheetName = Object.keys(this.allSheets)[0];
+                                this.selectSheet(sheetName);
+                            } else {
+                                // Mostra selezione fogli
+                                this.showSheetSelection();
+                            }
+                            
+                            resolve();
+                        } catch (error) {
+                            reject(error);
+                        }
+                    };
+                    
+                    reader.onerror = () => reject(new Error('Errore lettura file Excel'));
+                    reader.readAsArrayBuffer(file);
+                });
+            }
+
+            showSheetSelection() {
+                const sheetSection = document.getElementById('sheet-selection');
+                const sheetButtons = document.getElementById('sheet-buttons');
+                
+                let buttonsHTML = '';
+                
+                Object.entries(this.allSheets).forEach(([sheetName, sheetInfo]) => {
+                    buttonsHTML += `
+                        <div class="sheet-btn" onclick="importManager.selectSheet('${sheetName}')">
+                            <div class="sheet-name">${sheetName}</div>
+                            <div class="sheet-info">
+                                ${sheetInfo.rowCount} righe<br>
+                                ${sheetInfo.headers.length} colonne
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                sheetButtons.innerHTML = buttonsHTML;
+                sheetSection.style.display = 'block';
+                
+                this.log(`📋 Trovati ${Object.keys(this.allSheets).length} fogli Excel`, 'info');
+            }
+
+            selectSheet(sheetName) {
+                this.selectedSheet = sheetName;
+                this.parsedData = this.allSheets[sheetName].data;
+                
+                // Aggiorna UI selezione foglio
+                document.querySelectorAll('.sheet-btn').forEach(btn => {
+                    btn.classList.remove('selected');
+                });
+                
+                document.querySelector(`[onclick="importManager.selectSheet('${sheetName}')"]`)?.classList.add('selected');
+                
+                this.log(`✅ Selezionato foglio: ${sheetName} (${this.parsedData.length} righe)`, 'success');
+                
+                // Mostra mappatura e preview
+                this.showFieldMapping();
+                this.showPreview();
+            }
+
+            showFieldMapping() {
+                if (!this.parsedData || this.parsedData.length === 0) return;
+
+                const mappingSection = document.getElementById('mapping-section');
+                const fieldMappings = document.getElementById('field-mappings');
+                
+                const sourceFields = Object.keys(this.parsedData[0]);
+                const targetFields = Object.keys(FIELD_MAPPINGS[this.currentType]);
+                
+                this.fieldMapping = {};
+                
+                // Statistiche mappatura
+                let statsHTML = `
+                    <div class="mapping-stats">
+                        <div class="stat-item">
+                            <div class="stat-number">${sourceFields.length}</div>
+                            <div class="stat-label">Campi File</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number" id="mapped-count">0</div>
+                            <div class="stat-label">Mappati</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">${targetFields.length}</div>
+                            <div class="stat-label">Campi Database</div>
+                        </div>
+                        <div class="stat-item">
+                            <button class="auto-map-btn" onclick="importManager.autoMapFields()">
+                                🤖 Mappa Automatico
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                let mappingHTML = '';
+                
+                sourceFields.forEach(sourceField => {
+                    const cleanSource = sourceField.toLowerCase().trim();
+                    
+                    // Auto-mappatura iniziale
+                    let autoMatch = '';
+                    for (const [targetField, aliases] of Object.entries(FIELD_MAPPINGS[this.currentType])) {
+                        if (aliases.some(alias => cleanSource.includes(alias.toLowerCase()))) {
+                            autoMatch = targetField;
+                            break;
+                        }
+                    }
+                    
+                    // Campione di dati per questo campo
+                    const sampleData = this.parsedData.slice(0, 3)
+                        .map(row => row[sourceField])
+                        .filter(val => val && val.toString().trim())
+                        .slice(0, 2);
+                    
+                    const mappedClass = autoMatch ? 'mapped' : '';
+                    
+                    mappingHTML += `
+                        <div class="field-mapping ${mappedClass}" data-source="${sourceField}">
+                            <div class="source-field">
+                                <strong>${sourceField}</strong>
+                                ${sampleData.length > 0 ? `<div class="sample-data">Es: ${sampleData.join(', ')}</div>` : ''}
+                            </div>
+                            <div class="mapping-arrow">→</div>
+                            <select class="target-select" data-source="${sourceField}">
+                                <option value="">-- Ignora campo --</option>
+                                ${targetFields.map(field => 
+                                    `<option value="${field}" ${autoMatch === field ? 'selected' : ''}>${this.getFieldDisplayName(field)}</option>`
+                                ).join('')}
+                            </select>
+                        </div>
+                    `;
+                    
+                    if (autoMatch) {
+                        this.fieldMapping[sourceField] = autoMatch;
+                    }
+                });
+                
+                fieldMappings.innerHTML = statsHTML + mappingHTML;
+                mappingSection.style.display = 'block';
+                
+                // Event listeners per le select
+                fieldMappings.querySelectorAll('.target-select').forEach(select => {
+                    select.addEventListener('change', (e) => {
+                        const sourceField = e.target.getAttribute('data-source');
+                        const targetField = e.target.value;
+                        const fieldMapping = e.target.closest('.field-mapping');
+                        
+                        if (targetField) {
+                            this.fieldMapping[sourceField] = targetField;
+                            fieldMapping.classList.add('mapped');
+                        } else {
+                            delete this.fieldMapping[sourceField];
+                            fieldMapping.classList.remove('mapped');
+                        }
+                        
+                        this.updateMappingStats();
+                        this.updatePreview();
+                    });
+                });
+
+                this.updateMappingStats();
+                this.log(`🔄 Mappatura automatica applicata per ${Object.keys(this.fieldMapping).length} campi`, 'info');
+            }
+
+            autoMapFields() {
+                const sourceFields = Object.keys(this.parsedData[0]);
+                let autoMappedCount = 0;
+                
+                sourceFields.forEach(sourceField => {
+                    const cleanSource = sourceField.toLowerCase().trim();
+                    
+                    // Cerca corrispondenza con algoritmo migliorato
+                    let bestMatch = '';
+                    let bestScore = 0;
+                    
+                    for (const [targetField, aliases] of Object.entries(FIELD_MAPPINGS[this.currentType])) {
+                        // Verifica già mappato
+                        if (Object.values(this.fieldMapping).includes(targetField)) {
+                            continue;
+                        }
+                        
+                        aliases.forEach(alias => {
+                            const score = this.calculateSimilarity(cleanSource, alias.toLowerCase());
+                            if (score > bestScore && score > 0.6) {
+                                bestScore = score;
+                                bestMatch = targetField;
+                            }
+                        });
+                    }
+                    
+                    if (bestMatch && !this.fieldMapping[sourceField]) {
+                        this.fieldMapping[sourceField] = bestMatch;
+                        autoMappedCount++;
+                        
+                        // Aggiorna UI
+                        const select = document.querySelector(`[data-source="${sourceField}"]`);
+                        if (select) {
+                            select.value = bestMatch;
+                            select.closest('.field-mapping').classList.add('mapped');
+                        }
+                    }
+                });
+                
+                this.updateMappingStats();
+                this.updatePreview();
+                this.log(`🤖 Auto-mappatura completata: ${autoMappedCount} nuovi campi mappati`, 'success');
+            }
+
+            calculateSimilarity(str1, str2) {
+                // Algoritmo di similarità semplice
+                if (str1.includes(str2) || str2.includes(str1)) return 1;
+                
+                // Calcola distanza Levenshtein normalizzata
+                const longer = str1.length > str2.length ? str1 : str2;
+                const shorter = str1.length > str2.length ? str2 : str1;
+                
+                if (longer.length === 0) return 1;
+                
+                const distance = this.levenshteinDistance(longer, shorter);
+                return (longer.length - distance) / longer.length;
+            }
+
+            levenshteinDistance(str1, str2) {
+                const matrix = [];
+                
+                for (let i = 0; i <= str2.length; i++) {
+                    matrix[i] = [i];
+                }
+                
+                for (let j = 0; j <= str1.length; j++) {
+                    matrix[0][j] = j;
+                }
+                
+                for (let i = 1; i <= str2.length; i++) {
+                    for (let j = 1; j <= str1.length; j++) {
+                        if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+                            matrix[i][j] = matrix[i - 1][j - 1];
+                        } else {
+                            matrix[i][j] = Math.min(
+                                matrix[i - 1][j - 1] + 1,
+                                matrix[i][j - 1] + 1,
+                                matrix[i - 1][j] + 1
+                            );
+                        }
+                    }
+                }
+                
+                return matrix[str2.length][str1.length];
+            }
+
+            updateMappingStats() {
+                const mappedCount = Object.keys(this.fieldMapping).length;
+                const mappedCountElement = document.getElementById('mapped-count');
+                if (mappedCountElement) {
+                    mappedCountElement.textContent = mappedCount;
+                }
+            }
+
+            validateFile(file) {
+                if (file.size > IMPORT_CONFIG.maxFileSize) {
+                    this.showError(`File troppo grande. Massimo ${IMPORT_CONFIG.maxFileSize / 1024 / 1024}MB`);
+                    return false;
+                }
+
+                const extension = file.name.split('.').pop().toLowerCase();
+                if (!IMPORT_CONFIG.supportedFormats.includes(extension)) {
+                    this.showError(`Formato non supportato. Usa: ${IMPORT_CONFIG.supportedFormats.join(', ')}`);
+                    return false;
+                }
+
+                return true;
+            }
+
+            async parseFile(file) {
+                const extension = file.name.split('.').pop().toLowerCase();
+                
+                switch (extension) {
+                    case 'xlsx':
+                        return await this.parseExcel(file);
+                    case 'csv':
+                        return await this.parseCSV(file);
+                    case 'json':
+                        return await this.parseJSON(file);
+                    default:
+                        throw new Error('Formato file non supportato');
+                }
+            }
+
+            async parseExcel(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    
+                    reader.onload = function(e) {
+                        try {
+                            const data = new Uint8Array(e.target.result);
+                            const workbook = XLSX.read(data, { type: 'array' });
+                            
+                            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                            const jsonData = XLSX.utils.sheet_to_json(firstSheet, { 
+                                header: 1,
+                                defval: ''
+                            });
+                            
+                            if (jsonData.length < 2) {
+                                reject(new Error('File Excel deve avere almeno 2 righe (header + dati)'));
+                                return;
+                            }
+                            
+                            const headers = jsonData[0];
+                            const rows = jsonData.slice(1);
+                            
+                            const result = rows.map(row => {
+                                const obj = {};
+                                headers.forEach((header, index) => {
+                                    obj[header] = row[index] || '';
+                                });
+                                return obj;
+                            });
+                            
+                            resolve(result);
+                        } catch (error) {
+                            reject(error);
+                        }
+                    };
+                    
+                    reader.onerror = () => reject(new Error('Errore lettura file Excel'));
+                    reader.readAsArrayBuffer(file);
+                });
+            }
+
+            async parseCSV(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    
+                    reader.onload = function(e) {
+                        try {
+                            Papa.parse(e.target.result, {
+                                header: true,
+                                skipEmptyLines: true,
+                                transformHeader: function(header) {
+                                    return header.trim();
+                                },
+                                complete: function(results) {
+                                    if (results.errors.length > 0) {
+                                        console.warn('⚠️ Errori CSV:', results.errors);
+                                    }
+                                    resolve(results.data);
+                                },
+                                error: function(error) {
+                                    reject(error);
+                                }
+                            });
+                        } catch (error) {
+                            reject(error);
+                        }
+                    };
+                    
+                    reader.onerror = () => reject(new Error('Errore lettura file CSV'));
+                    reader.readAsText(file);
+                });
+            }
+
+            async parseJSON(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    
+                    reader.onload = function(e) {
+                        try {
+                            const data = JSON.parse(e.target.result);
+                            
+                            if (!Array.isArray(data)) {
+                                reject(new Error('File JSON deve contenere un array di oggetti'));
+                                return;
+                            }
+                            
+                            resolve(data);
+                        } catch (error) {
+                            reject(new Error('File JSON non valido: ' + error.message));
+                        }
+                    };
+                    
+                    reader.onerror = () => reject(new Error('Errore lettura file JSON'));
+                    reader.readAsText(file);
+                });
+            }
+
+            showFieldMapping() {
+                if (!this.parsedData || this.parsedData.length === 0) return;
+
+                const mappingSection = document.getElementById('mapping-section');
+                const fieldMappings = document.getElementById('field-mappings');
+                
+                const sourceFields = Object.keys(this.parsedData[0]);
+                const targetFields = Object.keys(FIELD_MAPPINGS[this.currentType]);
+                
+                this.fieldMapping = {};
+                
+                // Statistiche mappatura
+                let statsHTML = `
+                    <div class="mapping-stats">
+                        <div class="stat-item">
+                            <div class="stat-number">${sourceFields.length}</div>
+                            <div class="stat-label">Campi File</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number" id="mapped-count">0</div>
+                            <div class="stat-label">Mappati</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">${targetFields.length}</div>
+                            <div class="stat-label">Campi Database</div>
+                        </div>
+                        <div class="stat-item">
+                            <button class="auto-map-btn" onclick="importManager.autoMapFields()">
+                                🤖 Mappa Automatico
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                let mappingHTML = '';
+                
+                sourceFields.forEach(sourceField => {
+                    const cleanSource = sourceField.toLowerCase().trim();
+                    
+                    // Auto-mappatura iniziale
+                    let autoMatch = '';
+                    for (const [targetField, aliases] of Object.entries(FIELD_MAPPINGS[this.currentType])) {
+                        if (aliases.some(alias => cleanSource.includes(alias.toLowerCase()))) {
+                            autoMatch = targetField;
+                            break;
+                        }
+                    }
+                    
+                    // Campione di dati per questo campo
+                    const sampleData = this.parsedData.slice(0, 3)
+                        .map(row => row[sourceField])
+                        .filter(val => val && val.toString().trim())
+                        .slice(0, 2);
+                    
+                    const mappedClass = autoMatch ? 'mapped' : '';
+                    
+                    mappingHTML += `
+                        <div class="field-mapping ${mappedClass}" data-source="${sourceField}">
+                            <div class="source-field">
+                                <strong>${sourceField}</strong>
+                                ${sampleData.length > 0 ? `<div class="sample-data">Es: ${sampleData.join(', ')}</div>` : ''}
+                            </div>
+                            <div class="mapping-arrow">→</div>
+                            <select class="target-select" data-source="${sourceField}">
+                                <option value="">-- Ignora campo --</option>
+                                ${targetFields.map(field => 
+                                    `<option value="${field}" ${autoMatch === field ? 'selected' : ''}>${this.getFieldDisplayName(field)}</option>`
+                                ).join('')}
+                            </select>
+                        </div>
+                    `;
+                    
+                    if (autoMatch) {
+                        this.fieldMapping[sourceField] = autoMatch;
+                    }
+                });
+                
+                fieldMappings.innerHTML = statsHTML + mappingHTML;
+                mappingSection.style.display = 'block';
+                
+                // Event listeners per le select
+                fieldMappings.querySelectorAll('.target-select').forEach(select => {
+                    select.addEventListener('change', (e) => {
+                        const sourceField = e.target.getAttribute('data-source');
+                        const targetField = e.target.value;
+                        const fieldMapping = e.target.closest('.field-mapping');
+                        
+                        if (targetField) {
+                            this.fieldMapping[sourceField] = targetField;
+                            fieldMapping.classList.add('mapped');
+                        } else {
+                            delete this.fieldMapping[sourceField];
+                            fieldMapping.classList.remove('mapped');
+                        }
+                        
+                        this.updateMappingStats();
+                        this.updatePreview();
+                    });
+                });
+
+                this.updateMappingStats();
+                this.log(`🔄 Mappatura automatica applicata per ${Object.keys(this.fieldMapping).length} campi`, 'info');
+            }
+
+            getFieldDisplayName(field) {
+                const displayNames = {
+                    'nome': 'Nome',
+                    'cognome': 'Cognome',
+                    'codice_fiscale': 'Codice Fiscale',
+                    'email': 'Email',
+                    'telefono': 'Telefono',
+                    'indirizzo': 'Indirizzo',
+                    'citta': 'Città',
+                    'provincia': 'Provincia',
+                    'cap': 'CAP',
+                    'mansione': 'Mansione',
+                    'iban': 'IBAN',
+                    'partita_iva': 'Partita IVA',
+                    'data_nascita': 'Data Nascita',
+                    'numero': 'Numero',
+                    'data_inizio': 'Data Inizio',
+                    'data_fine': 'Data Fine',
+                    'tipo_spettacolo': 'Tipo Spettacolo',
+                    'venue': 'Venue',
+                    'stato': 'Stato',
+                    'compenso_totale': 'Compenso Totale',
+                    'capienza': 'Capienza',
+                    'tipologia': 'Tipologia'
+                };
+                
+                return displayNames[field] || field;
+            }
+
+            showPreview() {
+                this.updatePreview();
+                document.getElementById('preview-section').style.display = 'block';
+                document.getElementById('import-actions').style.display = 'block';
+            }
+
+            updatePreview() {
+                if (!this.parsedData || !this.fieldMapping) return;
+
+                const previewTable = document.getElementById('preview-table');
+                const mappedData = this.applyMapping(this.parsedData.slice(0, 5));
+                
+                if (mappedData.length === 0) {
+                    previewTable.innerHTML = '<tr><td colspan="100%">Nessun dato da visualizzare</td></tr>';
+                    return;
+                }
+
+                const headers = Object.keys(mappedData[0]);
+                
+                let tableHTML = '<thead><tr>';
+                headers.forEach(header => {
+                    tableHTML += `<th>${this.getFieldDisplayName(header)}</th>`;
+                });
+                tableHTML += '</tr></thead><tbody>';
+                
+                mappedData.forEach(row => {
+                    tableHTML += '<tr>';
+                    headers.forEach(header => {
+                        tableHTML += `<td>${row[header] || ''}</td>`;
+                    });
+                    tableHTML += '</tr>';
+                });
+                
+                tableHTML += '</tbody>';
+                previewTable.innerHTML = tableHTML;
+            }
+
+            applyMapping(data) {
+                return data.map(row => {
+                    const mappedRow = {};
+                    
+                    for (const [sourceField, targetField] of Object.entries(this.fieldMapping)) {
+                        if (row.hasOwnProperty(sourceField)) {
+                            mappedRow[targetField] = row[sourceField];
+                        }
+                    }
+                    
+                    return mappedRow;
+                });
+            }
+
+            async startImport() {
+                if (!this.parsedData || Object.keys(this.fieldMapping).length === 0) {
+                    this.showError('Configura prima la mappatura dei campi');
+                    return;
+                }
+
+                this.log('🚀 Avvio importazione...', 'info');
+                
+                const progressSection = document.getElementById('progress-section');
+                const importActions = document.getElementById('import-actions');
+                const logSection = document.getElementById('import-log');
+                
+                progressSection.style.display = 'block';
+                importActions.style.display = 'none';
+                logSection.style.display = 'block';
+                
+                try {
+                    const mappedData = this.applyMapping(this.parsedData);
+                    
+                    this.validatedData = await this.validateData(mappedData);
+                    
+                    if (this.validatedData.length === 0) {
+                        this.showError('Nessun record valido trovato dopo la validazione');
+                        return;
+                    }
+
+                    this.log(`✅ Validati ${this.validatedData.length} record su ${mappedData.length}`, 'success');
+                    
+                    await this.importInBatches();
+                    
+                    this.log('🎉 Importazione completata con successo!', 'success');
+                    this.updateProgress(100, 'Importazione completata!');
+                    
+                } catch (error) {
+                    console.error('❌ Errore importazione:', error);
+                    this.log(`❌ Errore importazione: ${error.message}`, 'error');
+                    this.showError('Errore durante l\'importazione: ' + error.message);
+                }
+            }
+
+            async validateData(data) {
+                const rules = IMPORT_CONFIG.validationRules[this.currentType];
+                const validData = [];
+                let validCount = 0;
+                let errorCount = 0;
+
+                for (let i = 0; i < data.length; i++) {
+                    const row = data[i];
+                    const errors = [];
+
+                    rules.required.forEach(field => {
+                        if (!row[field] || row[field].toString().trim() === '') {
+                            errors.push(`Campo obbligatorio mancante: ${this.getFieldDisplayName(field)}`);
+                        }
+                    });
+
+                    if (this.currentType === 'artisti') {
+                        if (row.codice_fiscale && !this.validateCodiceFiscale(row.codice_fiscale)) {
+                            errors.push('Codice fiscale non valido');
+                        }
+                        
+                        if (row.email && !this.validateEmail(row.email)) {
+                            errors.push('Email non valida');
+                        }
+                    }
+
+                    if (errors.length === 0) {
+                        validData.push(row);
+                        validCount++;
+                    } else {
+                        errorCount++;
+                        this.log(`⚠️ Riga ${i + 1}: ${errors.join(', ')}`, 'warning');
+                    }
+
+                    if (i % 50 === 0) {
+                        this.updateProgress((i / data.length) * 50, `Validazione: ${i}/${data.length}`);
+                    }
+                }
+
+                this.log(`📊 Validazione completata: ${validCount} validi, ${errorCount} errori`, 'info');
+                return validData;
+            }
+
+            async importInBatches() {
+                const totalRecords = this.validatedData.length;
+                let importedCount = 0;
+
+                for (let i = 0; i < totalRecords; i += IMPORT_CONFIG.batchSize) {
+                    const batch = this.validatedData.slice(i, i + IMPORT_CONFIG.batchSize);
+                    
+                    try {
+                        await this.importBatch(batch);
+                        importedCount += batch.length;
+                        
+                        const progress = 50 + ((importedCount / totalRecords) * 50);
+                        this.updateProgress(progress, `Importati: ${importedCount}/${totalRecords}`);
+                        
+                        this.log(`✅ Batch ${Math.floor(i / IMPORT_CONFIG.batchSize) + 1}: ${batch.length} record importati`, 'success');
+                        
+                    } catch (error) {
+                        this.log(`❌ Errore batch ${Math.floor(i / IMPORT_CONFIG.batchSize) + 1}: ${error.message}`, 'error');
+                        throw error;
+                    }
+                }
+            }
+
+            async importBatch(batch) {
+                switch (this.currentType) {
+                    case 'artisti':
+                        return await this.importArtistiBatch(batch);
+                    case 'agibilita':
+                        return await this.importAgibilitaBatch(batch);
+                    case 'venues':
+                        return await this.importVenuesBatch(batch);
+                    default:
+                        throw new Error('Tipo importazione non supportato');
+                }
+            }
+
+            async importArtistiBatch(batch) {
+                for (const artist of batch) {
+                    try {
+                        const artistData = {
+                            nome: artist.nome?.toUpperCase() || '',
+                            cognome: artist.cognome?.toUpperCase() || '',
+                            codice_fiscale: artist.codice_fiscale?.toUpperCase() || null,
+                            email: artist.email || '',
+                            telefono: artist.telefono || '',
+                            indirizzo: artist.indirizzo || '',
+                            citta: artist.citta || '',
+                            provincia: artist.provincia?.toUpperCase() || '',
+                            cap: artist.cap || '',
+                            mansione: artist.mansione || '',
+                            iban: artist.iban?.toUpperCase().replace(/\s/g, '') || '',
+                            partita_iva: artist.partita_iva || '',
+                            data_nascita: this.parseDate(artist.data_nascita),
+                            nazionalita: 'IT',
+                            has_partita_iva: !!artist.partita_iva,
+                            tipo_rapporto: artist.partita_iva ? '' : 'occasionale'
+                        };
+
+                        await DatabaseService.saveArtist(artistData);
+                        
+                    } catch (error) {
+                        this.log(`⚠️ Errore importazione artista ${artist.nome} ${artist.cognome}: ${error.message}`, 'warning');
+                    }
+                }
+            }
+
+            async importAgibilitaBatch(batch) {
+                this.log('📋 Importazione agibilità non ancora implementata', 'warning');
+            }
+
+            async importVenuesBatch(batch) {
+                this.log('🏢 Importazione venues non ancora implementata', 'warning');
+            }
+
+            validateCodiceFiscale(cf) {
+                if (!cf || cf.length !== 16) return false;
+                const pattern = /^[A-Z]{6}[0-9]{2}[A-Z][0-9]{2}[A-Z][0-9]{3}[A-Z]$/;
+                return pattern.test(cf.toUpperCase());
+            }
+
+            validateEmail(email) {
+                const pattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                return pattern.test(email);
+            }
+
+            parseDate(dateString) {
+                if (!dateString) return null;
+                
+                const formats = [
+                    /^(\d{4})-(\d{2})-(\d{2})$/,
+                    /^(\d{2})\/(\d{2})\/(\d{4})$/,
+                    /^(\d{2})-(\d{2})-(\d{4})$/,
+                ];
+                
+                for (const format of formats) {
+                    const match = dateString.match(format);
+                    if (match) {
+                        if (format === formats[0]) {
+                            return `${match[1]}-${match[2]}-${match[3]}`;
+                        } else {
+                            return `${match[3]}-${match[2]}-${match[1]}`;
+                        }
+                    }
+                }
+                
+                return null;
+            }
+
+            updateProgress(percentage, text) {
+                const progressFill = document.getElementById('progress-fill');
+                const progressText = document.getElementById('progress-text');
+                
+                progressFill.style.width = `${percentage}%`;
+                progressText.textContent = text;
+                
+                this.importProgress = percentage;
+            }
+
+            log(message, type = 'info') {
+                console.log(message);
+                
+                const logContainer = document.getElementById('import-log');
+                const timestamp = new Date().toLocaleTimeString();
+                
+                const logEntry = document.createElement('div');
+                logEntry.className = `log-entry log-${type}`;
+                logEntry.textContent = `[${timestamp}] ${message}`;
+                
+                logContainer.appendChild(logEntry);
+                logContainer.scrollTop = logContainer.scrollHeight;
+            }
+
+            showError(message) {
+                this.log(`❌ ${message}`, 'error');
+                alert(message);
+            }
+        }
+
+        // ==================== FUNZIONI GLOBALI ====================
+
+        let importManager = new ImportManager();
+        window.ImportManager = importManager;
+
+        window.triggerFileInput = function(type) {
+            document.getElementById(`file-${type}`).click();
+        }
+
+        window.handleFileSelect = function(event, type) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const selectedDiv = document.getElementById(`selected-${type}`);
+            const filename = document.getElementById(`filename-${type}`);
+            const filesize = document.getElementById(`filesize-${type}`);
+            
+            filename.textContent = file.name;
+            filesize.textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB`;
+            selectedDiv.style.display = 'block';
+
+            importManager.processFile(file, type);
+        }
+
+        window.startImport = function() {
+            importManager.startImport();
+        }
+
+        // ==================== INIZIALIZZAZIONE ====================
+
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('📊 Inizializzazione sistema import...');
+            
+            const checkAuth = setInterval(() => {
+                if (window.AuthGuard && window.AuthGuard.getCurrentUser) {
+                    window.AuthGuard.getCurrentUser().then(user => {
+                        if (user) {
+                            showAuthenticatedContent();
+                            clearInterval(checkAuth);
+                        }
+                    }).catch(err => {
+                        console.log('Auth check in progress...', err);
+                    });
+                }
+            }, 1000);
+
+            setTimeout(() => {
+                clearInterval(checkAuth);
+                showAuthenticatedContent();
+            }, 10000);
+
+            setupDragAndDrop();
+        });
+
+        function showAuthenticatedContent() {
+            document.body.classList.add('authenticated');
+            const loadingIndicator = document.getElementById('loading-indicator');
+            if (loadingIndicator) {
+                loadingIndicator.style.display = 'none';
+            }
+        }
+
+        function setupDragAndDrop() {
+            const uploadAreas = document.querySelectorAll('.file-upload-area');
+            
+            uploadAreas.forEach(area => {
+                area.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    area.classList.add('dragover');
+                });
+
+                area.addEventListener('dragleave', () => {
+                    area.classList.remove('dragover');
+                });
+
+                area.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    area.classList.remove('dragover');
+                    
+                    const files = e.dataTransfer.files;
+                    if (files.length > 0) {
+                        const section = area.closest('.import-section');
+                        const type = section.getAttribute('data-type');
+                        const fileInput = document.getElementById(`file-${type}`);
+                        fileInput.files = files;
+                        
+                        const event = new Event('change');
+                        fileInput.dispatchEvent(event);
+                    }
+                });
+            });
+        }
+    </script>
+</body>
+</html>
