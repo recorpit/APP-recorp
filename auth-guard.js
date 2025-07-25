@@ -75,19 +75,53 @@ export class AuthGuard {
   }
 
   /**
-   * Reindirizza alla pagina di login
+   * Reindirizza alla pagina di login - VERSIONE CORRETTA PER GITHUB PAGES
    */
   static redirectToLogin() {
-    const currentUrl = window.location.pathname + window.location.search;
-    const loginUrl = new URL('login.html', window.location.origin);
-    
-    // Salva URL corrente per redirect dopo login
-    if (!currentUrl.includes('login.html')) {
-      loginUrl.searchParams.set('redirect', currentUrl);
+    try {
+      const currentPath = window.location.pathname;
+      const currentSearch = window.location.search;
+      const currentHash = window.location.hash;
+      
+      // Costruisci l'URL di redirect completo
+      const fullCurrentUrl = currentPath + currentSearch + currentHash;
+      
+      // Determina il path corretto per login.html basato sulla posizione attuale
+      let loginPath;
+      
+      if (currentPath.includes('/agibilita/')) {
+        // Siamo nella cartella agibilita
+        loginPath = '../login.html';
+      } else if (currentPath.includes('/APP-recorp/')) {
+        // Siamo nella root del progetto
+        loginPath = './login.html';
+      } else {
+        // Fallback: prova path relativo
+        loginPath = './login.html';
+      }
+      
+      // Aggiungi parametro redirect se non siamo già nella pagina login
+      if (!currentPath.includes('login.html')) {
+        const redirectParam = encodeURIComponent(fullCurrentUrl);
+        loginPath += `?redirect=${redirectParam}`;
+      }
+      
+      console.log('🔄 Redirect a login:', loginPath);
+      console.log('📍 Current path:', currentPath);
+      console.log('🔗 Redirect URL:', fullCurrentUrl);
+      
+      window.location.href = loginPath;
+      
+    } catch (error) {
+      console.error('❌ Errore costruzione redirect:', error);
+      
+      // Fallback sicuro basato su path detection
+      if (window.location.pathname.includes('/agibilita/')) {
+        window.location.href = '../login.html';
+      } else {
+        window.location.href = './login.html';
+      }
     }
-    
-    console.log('🔄 Redirect a login:', loginUrl.href);
-    window.location.href = loginUrl.href;
   }
 
   /**
@@ -112,14 +146,24 @@ export class AuthGuard {
       // Rimuovi dati locali
       localStorage.removeItem('recorp_user_session');
       
-      // Reindirizza al login
-      window.location.href = './login.html';
+      // Reindirizza al login con path corretto
+      if (window.location.pathname.includes('/agibilita/')) {
+        window.location.href = '../login.html';
+      } else {
+        window.location.href = './login.html';
+      }
       
     } catch (error) {
       console.error('❌ Errore critico logout:', error);
       // Forza cleanup anche in caso di errore
       localStorage.removeItem('recorp_user_session');
-      window.location.href = './login.html';
+      
+      // Fallback logout redirect
+      if (window.location.pathname.includes('/agibilita/')) {
+        window.location.href = '../login.html';
+      } else {
+        window.location.href = './login.html';
+      }
     }
   }
 
@@ -319,6 +363,11 @@ export class AuthGuard {
       align-items: center;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       font-size: 0.9rem;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 1001;
     `;
 
     header.innerHTML = `
@@ -336,10 +385,22 @@ export class AuthGuard {
         border-radius: 6px;
         font-size: 0.8rem;
         cursor: pointer;
+        transition: all 0.2s ease;
       ">
         Logout Sicuro
       </button>
     `;
+
+    // Aggiungi hover effect al logout button
+    const logoutBtn = header.querySelector('button');
+    logoutBtn.addEventListener('mouseover', () => {
+      logoutBtn.style.background = '#dc2626';
+      logoutBtn.style.transform = 'translateY(-1px)';
+    });
+    logoutBtn.addEventListener('mouseout', () => {
+      logoutBtn.style.background = '#ef4444';
+      logoutBtn.style.transform = 'translateY(0)';
+    });
 
     return header;
   }
@@ -356,6 +417,9 @@ export class AuthGuard {
       const header = await this.createUserHeader();
       if (header) {
         document.body.insertBefore(header, document.body.firstChild);
+        
+        // Aggiungi padding-top al body per compensare header fisso
+        document.body.style.paddingTop = '50px';
       }
       
       // Setup listener per cambiamenti auth
@@ -386,7 +450,7 @@ export class AuthGuard {
             console.log('👋 Utente disconnesso');
             localStorage.removeItem('recorp_user_session');
             if (!window.location.pathname.includes('login.html')) {
-              window.location.href = './login.html';
+              this.redirectToLogin();
             }
             break;
             
