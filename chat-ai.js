@@ -73,15 +73,22 @@ export class ChatAI {
     async initialize() {
         console.log('🤖 Inizializzazione Chat AI...');
         
+        // 🔍 DEBUG: Mostra configurazione corrente
+        console.log('🔧 CONFIGURAZIONE ALICE:', {
+            provider: AI_CONFIG.provider,
+            hasApiKey: !!AI_CONFIG.apiKey && AI_CONFIG.apiKey !== '',
+            apiKeyPrefix: AI_CONFIG.apiKey ? AI_CONFIG.apiKey.substring(0, 8) + '...' : 'MANCANTE'
+        });
+        
         try {
             // Carica API key in modo sicuro
             const apiKey = await this.loadAPIKey();
             if (apiKey && apiKey !== '') {
                 AI_CONFIG.apiKey = apiKey;
-                console.log(`🔑 API Key caricata per provider: ${AI_CONFIG.provider}`);
+                console.log(`🔑 API Key caricata per Alice con provider: ${AI_CONFIG.provider}`);
             } else if (AI_CONFIG.provider !== 'mock') {
-                console.warn('⚠️ Nessuna API key trovata, uso provider mock');
-                AI_CONFIG.provider = 'mock';
+                console.warn('⚠️ Nessuna API key trovata, Alice userà risposte mock');
+                // NON cambiare provider - mantieni groq
             }
             
             // Ottieni user session
@@ -104,11 +111,14 @@ export class ChatAI {
                 await this.testAIConnection();
             }
             
-            console.log('✅ Chat AI inizializzata con successo');
+            console.log('✅ Alice inizializzata con successo');
+            
+            // 🎯 STATO FINALE ALICE
+            console.log(`🎭 ALICE STATUS: Provider=${AI_CONFIG.provider}, API=${!!AI_CONFIG.apiKey ? 'CONFIGURATA' : 'MANCANTE'}`);
+            
         } catch (error) {
-            console.error('❌ Errore inizializzazione Chat AI:', error);
-            // Continua comunque con il provider mock
-            AI_CONFIG.provider = 'mock';
+            console.error('❌ Errore inizializzazione Alice:', error);
+            // NON cambiare a mock - mantieni groq per quando viene configurata l'API
         }
     }
 
@@ -1591,3 +1601,15 @@ document.addEventListener('DOMContentLoaded', async function() {
 
 // Export per moduli
 export default ChatAI;
+
+// ==================== DEBUG E TESTING ====================
+
+// Controllo sintassi JavaScript
+console.log('✅ chat-ai.js caricato senza errori di sintassi');
+
+// Test configurazione di base
+if (typeof AI_CONFIG !== 'undefined') {
+    console.log('✅ AI_CONFIG definito correttamente');
+} else {
+    console.error('❌ AI_CONFIG non definito!');
+}
