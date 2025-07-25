@@ -3,313 +3,435 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat Agibilità - RECORP ALL-IN-ONE</title>
-    <link rel="stylesheet" href="../assets/style.css">
+    <title>Chat Agibilità AI - RECORP ALL-IN-ONE</title>
+    <link rel="stylesheet" href="assets/style.css">
     <style>
-        /* Chat specific styles */
+        /* ==================== CHAT AI SPECIFIC STYLES ==================== */
+        
+        /* Chat Container */
         .chat-container {
-            max-width: 800px;
+            max-width: 1200px;
             margin: 0 auto;
-            height: 600px;
+            height: calc(100vh - 120px);
             display: flex;
             flex-direction: column;
-            background: white;
+            background: var(--bg-card);
             border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
             overflow: hidden;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }
 
+        /* Chat Header */
         .chat-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
             color: white;
-            padding: 1.5rem;
+            padding: 20px;
             text-align: center;
+            position: relative;
         }
 
-        .chat-header h2 {
+        .chat-header h1 {
             margin: 0;
             font-size: 1.5rem;
+            font-weight: 600;
         }
 
-        .chat-header p {
-            margin: 0.5rem 0 0;
+        .chat-header .subtitle {
+            margin: 5px 0 0 0;
             opacity: 0.9;
             font-size: 0.9rem;
         }
 
-        .chat-messages {
-            flex: 1;
-            overflow-y: auto;
-            padding: 1.5rem;
-            background: #f8f9fa;
-        }
-
-        .message {
-            margin-bottom: 1rem;
-            display: flex;
-            gap: 0.5rem;
-            animation: fadeIn 0.3s ease-in;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .message.user {
-            justify-content: flex-end;
-        }
-
-        .message-content {
-            max-width: 70%;
-            padding: 0.75rem 1rem;
-            border-radius: 12px;
-            position: relative;
-        }
-
-        .message.bot .message-content {
-            background: white;
-            border: 1px solid #e5e7eb;
-            color: #1f2937;
-        }
-
-        .message.user .message-content {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-
-        .message-icon {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
+        /* AI Status Indicator */
+        .ai-status {
+            position: absolute;
+            top: 20px;
+            right: 20px;
             display: flex;
             align-items: center;
-            justify-content: center;
-            font-size: 1.2rem;
-            flex-shrink: 0;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
         }
 
-        .message.bot .message-icon {
-            background: #e5e7eb;
-        }
-
-        .message.user .message-icon {
-            background: #764ba2;
-            color: white;
-        }
-
-        .chat-input-container {
-            padding: 1.5rem;
-            background: white;
-            border-top: 1px solid #e5e7eb;
-        }
-
-        .chat-input-wrapper {
-            display: flex;
-            gap: 1rem;
-            align-items: center;
-        }
-
-        .chat-input {
-            flex: 1;
-            padding: 0.75rem 1rem;
-            border: 2px solid #e5e7eb;
-            border-radius: 25px;
-            font-size: 1rem;
-            transition: all 0.3s ease;
-        }
-
-        .chat-input:focus {
-            outline: none;
-            border-color: var(--primary);
-        }
-
-        .send-button {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 45px;
-            height: 45px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .send-button:hover {
-            transform: scale(1.1);
-        }
-
-        .send-button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .typing-indicator {
-            display: none;
-            padding: 0.5rem 0;
-        }
-
-        .typing-indicator.active {
-            display: block;
-        }
-
-        .typing-dot {
-            display: inline-block;
+        .ai-status-dot {
             width: 8px;
             height: 8px;
             border-radius: 50%;
-            background: #6b7280;
-            margin: 0 2px;
-            animation: typing 1.4s infinite;
+            background: #10b981;
+            animation: pulse 2s infinite;
         }
 
-        .typing-dot:nth-child(2) {
-            animation-delay: 0.2s;
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
         }
 
-        .typing-dot:nth-child(3) {
-            animation-delay: 0.4s;
+        /* Chat Messages Area */
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            background: var(--bg-primary);
         }
 
-        @keyframes typing {
-            0%, 60%, 100% {
+        /* Message Bubbles */
+        .message {
+            max-width: 80%;
+            word-wrap: break-word;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
                 transform: translateY(0);
+            }
+        }
+
+        .message.user {
+            align-self: flex-end;
+        }
+
+        .message.assistant {
+            align-self: flex-start;
+        }
+
+        .message-bubble {
+            padding: 12px 16px;
+            border-radius: 18px;
+            position: relative;
+            line-height: 1.4;
+        }
+
+        .message.user .message-bubble {
+            background: var(--primary-color);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.assistant .message-bubble {
+            background: white;
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .message-timestamp {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            margin-top: 4px;
+            text-align: center;
+        }
+
+        /* AI Thinking Indicator */
+        .thinking-indicator {
+            align-self: flex-start;
+            max-width: 80px;
+        }
+
+        .thinking-bubble {
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: 18px;
+            border-bottom-left-radius: 4px;
+            padding: 12px 16px;
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .thinking-dot {
+            width: 6px;
+            height: 6px;
+            background: var(--text-secondary);
+            border-radius: 50%;
+            animation: thinking 1.4s ease-in-out infinite both;
+        }
+
+        .thinking-dot:nth-child(1) { animation-delay: -0.32s; }
+        .thinking-dot:nth-child(2) { animation-delay: -0.16s; }
+        .thinking-dot:nth-child(3) { animation-delay: 0s; }
+
+        @keyframes thinking {
+            0%, 80%, 100% {
+                transform: scale(0.8);
                 opacity: 0.5;
             }
-            30% {
-                transform: translateY(-10px);
+            40% {
+                transform: scale(1);
                 opacity: 1;
             }
         }
 
-        .suggestions {
-            margin-top: 1rem;
+        /* Chat Input Area */
+        .chat-input-container {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .chat-input-wrapper {
             display: flex;
-            gap: 0.5rem;
+            gap: 12px;
+            align-items: flex-end;
+            max-width: 100%;
+        }
+
+        .chat-input {
+            flex: 1;
+            min-height: 44px;
+            max-height: 120px;
+            padding: 12px 16px;
+            border: 2px solid var(--border-color);
+            border-radius: 22px;
+            resize: none;
+            font-family: inherit;
+            font-size: 0.9rem;
+            line-height: 1.4;
+            outline: none;
+            transition: border-color 0.2s ease;
+            overflow-y: auto;
+        }
+
+        .chat-input:focus {
+            border-color: var(--primary-color);
+        }
+
+        .chat-input::placeholder {
+            color: var(--text-secondary);
+        }
+
+        .send-button {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: none;
+            background: var(--primary-color);
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .send-button:hover:not(:disabled) {
+            background: var(--primary-dark);
+            transform: scale(1.05);
+        }
+
+        .send-button:disabled {
+            background: var(--text-secondary);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Quick Actions */
+        .quick-actions {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
             flex-wrap: wrap;
         }
 
-        .suggestion-chip {
-            background: #e5e7eb;
-            border: 1px solid #d1d5db;
-            padding: 0.5rem 1rem;
-            border-radius: 20px;
-            font-size: 0.875rem;
+        .quick-action {
+            padding: 6px 12px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            font-size: 0.8rem;
             cursor: pointer;
             transition: all 0.2s ease;
+            white-space: nowrap;
         }
 
-        .suggestion-chip:hover {
-            background: #d1d5db;
-            transform: translateY(-1px);
-        }
-
-        .action-buttons {
-            margin-top: 1rem;
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .action-button {
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-            font-size: 0.875rem;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            border: none;
-        }
-
-        .action-button.primary {
-            background: var(--primary);
+        .quick-action:hover {
+            background: var(--primary-color);
             color: white;
+            border-color: var(--primary-color);
         }
 
-        .action-button.secondary {
-            background: #e5e7eb;
-            color: var(--dark);
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .chat-container {
+                height: calc(100vh - 80px);
+                margin: 0;
+                border-radius: 0;
+            }
+
+            .message {
+                max-width: 90%;
+            }
+
+            .ai-status {
+                position: static;
+                margin-top: 10px;
+                align-self: center;
+            }
+
+            .chat-header {
+                padding: 15px;
+            }
+
+            .chat-messages {
+                padding: 15px;
+            }
+
+            .chat-input-container {
+                padding: 15px;
+            }
         }
 
-        .action-button:hover {
-            transform: translateY(-1px);
+        /* Loading and Error States */
+        .error-message {
+            background: #fef2f2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin: 10px 0;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+
+        .system-message {
+            background: #f3f4f6;
+            color: var(--text-secondary);
+            padding: 8px 12px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            text-align: center;
+            margin: 10px auto;
+            max-width: 300px;
+        }
+
+        /* Hide content until authenticated */
+        body:not(.authenticated) .main-container {
+            display: none;
+        }
+
+        /* Ensure proper spacing for auth header */
+        body.authenticated {
+            padding-top: 60px;
         }
     </style>
 </head>
 <body>
+    <!-- Loading Indicator -->
+    <div id="loading-indicator" style="
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        text-align: center;
+        z-index: 1000;
+    ">
+        🤖 Inizializzazione Chat AI...
+        <div style="margin-top: 10px;">
+            <div class="spinner" style="
+                width: 20px;
+                height: 20px;
+                border: 2px solid #f3f4f6;
+                border-top: 2px solid #3b82f6;
+                border-radius: 50%;
+                animation: spin 1s linear infinite;
+                margin: 0 auto;
+            "></div>
+        </div>
+    </div>
+
+    <style>
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    </style>
+
+    <!-- Main Content -->
     <div class="main-container">
-        <!-- Header -->
-        <div class="header">
-            <h1>Assistente AI Agibilità</h1>
-            <p>Crea agibilità con comandi naturali</p>
-        </div>
-
-        <!-- Breadcrumb -->
-        <div class="breadcrumb">
-            <a href="../index.html" class="breadcrumb-item">Dashboard</a>
-            <span class="breadcrumb-separator">›</span>
-            <span class="breadcrumb-item active">Chat Agibilità</span>
-        </div>
-
-        <!-- Chat Container -->
         <div class="chat-container">
+            <!-- Chat Header -->
             <div class="chat-header">
-                <h2>🤖 Assistente Agibilità</h2>
-                <p>Dimmi cosa vuoi fare e ci penso io!</p>
-            </div>
-
-            <div class="chat-messages" id="chatMessages">
-                <!-- Welcome message -->
-                <div class="message bot">
-                    <div class="message-icon">🤖</div>
-                    <div class="message-content">
-                        <p>Ciao! Sono il tuo assistente per le agibilità. Posso aiutarti a:</p>
-                        <ul style="margin: 0.5rem 0; padding-left: 1.5rem;">
-                            <li>Creare nuove agibilità</li>
-                            <li>Cercare artisti e locali</li>
-                            <li>Generare documenti</li>
-                        </ul>
-                        <p style="margin-top: 0.5rem;">Prova a dirmi qualcosa come:</p>
-                        <div class="suggestions">
-                            <div class="suggestion-chip" onclick="sendSuggestion('Crea agibilità per Mario Rossi al Teatro Olimpico domani')">
-                                Crea agibilità per Mario Rossi al Teatro Olimpico domani
-                            </div>
-                            <div class="suggestion-chip" onclick="sendSuggestion('Fai agibilità per CF RSSMRA85M01H501Z')">
-                                Fai agibilità per CF RSSMRA85M01H501Z
-                            </div>
-                            <div class="suggestion-chip" onclick="sendSuggestion('Aggiungi Laura Bianchi come vocalist')">
-                                Aggiungi Laura Bianchi come vocalist
-                            </div>
-                        </div>
-                    </div>
+                <h1>🤖 Chat Agibilità AI</h1>
+                <p class="subtitle">Assistente intelligente per la gestione delle agibilità ENPALS</p>
+                <div class="ai-status">
+                    <div class="ai-status-dot"></div>
+                    <span>AI Online</span>
                 </div>
             </div>
 
-            <div class="typing-indicator" id="typingIndicator">
-                <div class="message bot">
-                    <div class="message-icon">🤖</div>
-                    <div class="message-content">
-                        <span class="typing-dot"></span>
-                        <span class="typing-dot"></span>
-                        <span class="typing-dot"></span>
+            <!-- Chat Messages -->
+            <div class="chat-messages" id="chat-messages">
+                <!-- Welcome Message -->
+                <div class="message assistant">
+                    <div class="message-bubble">
+                        👋 Ciao! Sono il tuo assistente AI per le agibilità ENPALS. 
+                        <br><br>
+                        Posso aiutarti con:
+                        <br>• ✨ Creazione guidata di nuove agibilità
+                        <br>• 🎭 Registrazione e modifica artisti
+                        <br>• 🔍 Ricerca nel database artisti
+                        <br>• 💰 Calcoli compensi e contributi
+                        <br>• 📄 Generazione XML per INPS
+                        <br>• 📚 Normative e procedure ENPALS
+                        <br><br>
+                        Esempio: <em>"Registra un nuovo artista DJ di nome Mario Rossi con CF RSSMRA85T10A562S"</em>
+                        <br><br>
+                        Come posso aiutarti oggi?
                     </div>
+                    <div class="message-timestamp">Assistente AI • Ora</div>
                 </div>
             </div>
 
+            <!-- Chat Input -->
             <div class="chat-input-container">
+                <!-- Quick Actions -->
+                <div class="quick-actions">
+                    <div class="quick-action" onclick="sendQuickMessage('Crea una nuova agibilità')">
+                        ✨ Nuova Agibilità
+                    </div>
+                    <div class="quick-action" onclick="sendQuickMessage('Registra un nuovo artista')">
+                        🎭 Nuovo Artista
+                    </div>
+                    <div class="quick-action" onclick="sendQuickMessage('Aiutami con i compensi degli artisti')">
+                        💰 Calcolo Compensi
+                    </div>
+                    <div class="quick-action" onclick="sendQuickMessage('Come genero l\'XML per INPS?')">
+                        📄 Genera XML
+                    </div>
+                    <div class="quick-action" onclick="sendQuickMessage('Spiegami la normativa ENPALS')">
+                        📚 Normativa
+                    </div>
+                </div>
+
+                <!-- Input Area -->
                 <div class="chat-input-wrapper">
-                    <input 
-                        type="text" 
+                    <textarea 
+                        id="chat-input" 
                         class="chat-input" 
-                        id="chatInput" 
-                        placeholder="Scrivi qui il tuo comando..."
-                        onkeypress="handleKeyPress(event)"
-                    >
-                    <button class="send-button" onclick="sendMessage()" id="sendButton">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <line x1="22" y1="2" x2="11" y2="13"></line>
-                            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                        placeholder="Scrivi la tua domanda... (Shift+Enter per nuova riga, Enter per inviare)"
+                        rows="1"
+                    ></textarea>
+                    <button id="send-button" class="send-button" onclick="sendMessage()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="m22 2-7 20-4-9-9-4z"/>
+                            <path d="M22 2 11 13"/>
                         </svg>
                     </button>
                 </div>
@@ -317,260 +439,138 @@
         </div>
     </div>
 
+    <!-- Scripts - ORDINE IMPORTANTE PER AUTH -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script type="module" src="supabase-config.js"></script>
+    <script type="module" src="auth-guard.js"></script>
+    <script src="comuni-loader.js"></script>
+    <script type="module" src="notification-service.js"></script>
+    <script type="module" src="chat-ai.js"></script>
+
     <script>
-        // Load databases
-        let artistsDB = JSON.parse(localStorage.getItem('artistsDB')) || [];
-        let venuesDB = JSON.parse(localStorage.getItem('venuesDB')) || [];
-        let agibilitaDB = JSON.parse(localStorage.getItem('agibilitaDB')) || [];
+        // Quick initialization and auth check
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🤖 Inizializzazione Chat AI...');
+            
+            // Auto-resize textarea
+            const chatInput = document.getElementById('chat-input');
+            chatInput.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+            });
 
-        // Current agibilità being created
-        let currentAgibilita = {
-            artisti: [],
-            locale: null,
-            dataInizio: null,
-            dataFine: null
-        };
+            // Handle Enter key for sending messages
+            chatInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
 
-        // Send message
-        function sendMessage() {
-            const input = document.getElementById('chatInput');
-            const message = input.value.trim();
-
-            if (!message) return;
-
-            // Add user message
-            addMessage(message, 'user');
-
-            // Clear input
-            input.value = '';
-
-            // Show typing indicator
-            showTyping();
-
-            // Process message
-            setTimeout(() => {
-                processMessage(message);
-                hideTyping();
+            // Check authentication status and show content
+            const checkAuth = setInterval(() => {
+                if (window.AuthGuard && window.AuthGuard.getCurrentUser) {
+                    window.AuthGuard.getCurrentUser().then(user => {
+                        if (user) {
+                            showAuthenticatedContent();
+                            clearInterval(checkAuth);
+                        }
+                    }).catch(err => {
+                        console.log('Auth check in progress...', err);
+                    });
+                }
             }, 1000);
-        }
 
-        // Handle key press
-        function handleKeyPress(event) {
-            if (event.key === 'Enter') {
-                sendMessage();
+            // Timeout fallback
+            setTimeout(() => {
+                clearInterval(checkAuth);
+                showAuthenticatedContent();
+            }, 10000);
+        });
+
+        // Show content when authenticated
+        function showAuthenticatedContent() {
+            document.body.classList.add('authenticated');
+            const loadingIndicator = document.getElementById('loading-indicator');
+            if (loadingIndicator) {
+                loadingIndicator.style.display = 'none';
             }
+            console.log('✅ Chat AI pronta!');
         }
 
-        // Send suggestion
-        function sendSuggestion(text) {
-            document.getElementById('chatInput').value = text;
+        // Quick message function
+        function sendQuickMessage(message) {
+            const chatInput = document.getElementById('chat-input');
+            chatInput.value = message;
             sendMessage();
         }
 
-        // Add message to chat
-        function addMessage(content, sender) {
-            const messagesContainer = document.getElementById('chatMessages');
+        // Placeholder functions - will be implemented in chat-ai.js
+        function sendMessage() {
+            const chatInput = document.getElementById('chat-input');
+            const message = chatInput.value.trim();
+            
+            if (!message) return;
+            
+            // Add user message to chat
+            addMessage(message, 'user');
+            chatInput.value = '';
+            chatInput.style.height = 'auto';
+            
+            // Show thinking indicator
+            showThinking();
+            
+            // Process with AI (to be implemented)
+            if (window.ChatAI && window.ChatAI.processMessage) {
+                window.ChatAI.processMessage(message);
+            } else {
+                // Fallback response
+                setTimeout(() => {
+                    hideThinking();
+                    addMessage('Funzionalità AI in fase di integrazione. Il tuo messaggio è stato ricevuto: "' + message + '"', 'assistant');
+                }, 1500);
+            }
+        }
+
+        function addMessage(text, sender) {
+            const messagesContainer = document.getElementById('chat-messages');
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${sender}`;
-
-            const icon = sender === 'bot' ? '🤖' : '👤';
-
+            
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+            
             messageDiv.innerHTML = `
-                <div class="message-icon">${icon}</div>
-                <div class="message-content">${content}</div>
+                <div class="message-bubble">${text}</div>
+                <div class="message-timestamp">${sender === 'user' ? 'Tu' : 'Assistente AI'} • ${timeString}</div>
             `;
-
+            
             messagesContainer.appendChild(messageDiv);
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
 
-        // Show typing indicator
-        function showTyping() {
-            document.getElementById('typingIndicator').classList.add('active');
+        function showThinking() {
+            const messagesContainer = document.getElementById('chat-messages');
+            const thinkingDiv = document.createElement('div');
+            thinkingDiv.className = 'thinking-indicator';
+            thinkingDiv.id = 'thinking-indicator';
+            thinkingDiv.innerHTML = `
+                <div class="thinking-bubble">
+                    <div class="thinking-dot"></div>
+                    <div class="thinking-dot"></div>
+                    <div class="thinking-dot"></div>
+                </div>
+            `;
+            
+            messagesContainer.appendChild(thinkingDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
 
-        // Hide typing indicator
-        function hideTyping() {
-            document.getElementById('typingIndicator').classList.remove('active');
-        }
-
-        // Process user message
-        function processMessage(message) {
-            const lowerMessage = message.toLowerCase();
-
-            // Extract CF from message
-            const cfMatch = message.match(/\b[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]\b/i);
-
-            // Extract date patterns
-            const tomorrow = lowerMessage.includes('domani');
-            const today = lowerMessage.includes('oggi');
-
-            // Check for artist name or CF
-            if (cfMatch || lowerMessage.includes('agibilità per') || lowerMessage.includes('fai agibilità')) {
-                handleAgibilitaCreation(message, cfMatch);
-            } else if (lowerMessage.includes('aggiungi') && (lowerMessage.includes('vocalist') || lowerMessage.includes('dj') || lowerMessage.includes('ballerino'))) {
-                handleAddArtist(message);
-            } else if (lowerMessage.includes('locale') || lowerMessage.includes('dove')) {
-                handleVenueSelection(message);
-            } else if (lowerMessage.includes('quando') || lowerMessage.includes('data')) {
-                handleDateSelection(message);
-            } else if (lowerMessage.includes('conferma') || lowerMessage.includes('procedi')) {
-                handleConfirmation();
-            } else {
-                showHelp();
+        function hideThinking() {
+            const thinkingIndicator = document.getElementById('thinking-indicator');
+            if (thinkingIndicator) {
+                thinkingIndicator.remove();
             }
-        }
-
-        // Handle agibilità creation
-        function handleAgibilitaCreation(message, cfMatch) {
-            let artist = null;
-
-            if (cfMatch) {
-                artist = artistsDB.find(a => a.cf.toUpperCase() === cfMatch[0].toUpperCase());
-            } else {
-                // Try to find by name
-                const words = message.split(' ');
-                for (let i = 0; i < artistsDB.length; i++) {
-                    const a = artistsDB[i];
-                    if (words.some(w => a.nome.toLowerCase().includes(w.toLowerCase())) ||
-                        words.some(w => a.cognome.toLowerCase().includes(w.toLowerCase()))) {
-                        artist = a;
-                        break;
-                    }
-                }
-            }
-
-            if (artist) {
-                currentAgibilita.artisti = [{
-                    ...artist,
-                    ruolo: artist.mansione || 'DJ',
-                    compenso: 300 // Default
-                }];
-
-                let response = `<p>Ho trovato <strong>${artist.nome} ${artist.cognome}</strong> (${artist.cf}).</p>`;
-
-                // Check for venue in message
-                const venueMatch = findVenueInMessage(message);
-                if (venueMatch) {
-                    currentAgibilita.locale = venueMatch;
-                    response += `<p>Locale: <strong>${venueMatch.nome}</strong></p>`;
-                }
-
-                // Set dates
-                const dates = extractDates(message);
-                currentAgibilita.dataInizio = dates.start;
-                currentAgibilita.dataFine = dates.end;
-                response += `<p>Date: dal ${formatDate(dates.start)} al ${formatDate(dates.end)}</p>`;
-
-                response += `
-                    <div class="action-buttons">
-                        <button class="action-button primary" onclick="confirmAgibilita()">
-                            ✅ Conferma e Crea
-                        </button>
-                        <button class="action-button secondary" onclick="modifyAgibilita()">
-                            ✏️ Modifica
-                        </button>
-                    </div>
-                `;
-
-                addMessage(response, 'bot');
-            } else {
-                addMessage(`Non ho trovato nessun artista. Vuoi che lo cerchi meglio o ne aggiunga uno nuovo?`, 'bot');
-            }
-        }
-
-        // Find venue in message
-        function findVenueInMessage(message) {
-            const lowerMessage = message.toLowerCase();
-
-            for (const venue of venuesDB) {
-                if (lowerMessage.includes(venue.nome.toLowerCase())) {
-                    return venue;
-                }
-            }
-
-            // Default venues if not found
-            if (lowerMessage.includes('teatro')) {
-                return {
-                    nome: 'Teatro Olimpico',
-                    indirizzo: 'Via Teatro',
-                    citta: 'Roma',
-                    cap: '00100',
-                    provincia: 'RM'
-                };
-            }
-
-            return null;
-        }
-
-        // Extract dates from message
-        function extractDates(message) {
-            const today = new Date();
-            const tomorrow = new Date(today);
-            tomorrow.setDate(tomorrow.getDate() + 1);
-
-            let startDate = today;
-            let endDate = today;
-
-            if (message.toLowerCase().includes('domani')) {
-                startDate = tomorrow;
-                endDate = tomorrow;
-            } else if (message.toLowerCase().includes('weekend')) {
-                const daysUntilSaturday = (6 - today.getDay() + 7) % 7;
-                startDate = new Date(today);
-                startDate.setDate(today.getDate() + daysUntilSaturday);
-                endDate = new Date(startDate);
-                endDate.setDate(startDate.getDate() + 1);
-            }
-
-            return {
-                start: startDate.toISOString().split('T')[0],
-                end: endDate.toISOString().split('T')[0]
-            };
-        }
-
-        // Format date
-        function formatDate(dateStr) {
-            const date = new Date(dateStr);
-            return date.toLocaleDateString('it-IT');
-        }
-
-        // Confirm agibilità
-        function confirmAgibilita() {
-            if (currentAgibilita.artisti.length === 0) {
-                addMessage('Devo prima selezionare almeno un artista!', 'bot');
-                return;
-            }
-
-            if (!currentAgibilita.locale) {
-                addMessage('Mi serve il locale! Dove si terrà l\'evento?', 'bot');
-                return;
-            }
-
-            // Save to sessionStorage and redirect
-            sessionStorage.setItem('quickAgibilita', JSON.stringify(currentAgibilita));
-
-            addMessage(`
-                <p>Perfetto! Sto creando l'agibilità...</p>
-                <p style="margin-top: 1rem;">🚀 Ti reindirizzo al modulo completo tra 2 secondi...</p>
-            `, 'bot');
-
-            setTimeout(() => {
-                window.location.href = '../agibilita/index.html';
-            }, 2000);
-        }
-
-        // Show help
-        function showHelp() {
-            addMessage(`
-                <p>Non ho capito. Prova con comandi come:</p>
-                <ul style="margin: 0.5rem 0; padding-left: 1.5rem;">
-                    <li>"Crea agibilità per [nome artista o CF]"</li>
-                    <li>"Aggiungi [nome] come vocalist"</li>
-                    <li>"L'evento è al [nome locale]"</li>
-                    <li>"La data è [domani/oggi/weekend]"</li>
-                </ul>
-            `, 'bot');
         }
     </script>
 </body>
