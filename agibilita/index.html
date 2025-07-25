@@ -392,20 +392,41 @@
             100% { transform: rotate(360deg); }
         }
         
-        /* Ensure body has padding for auth header */
+        /* CORREZIONE: Ensure body has padding for auth header */
         body {
             padding-top: 50px; /* Space for auth header */
         }
         
-        /* User header will be added by AuthGuard */
+        /* CORREZIONE: User header will be added by AuthGuard */
         .main-container {
             margin-top: 0; /* AuthGuard manages the spacing */
+            display: block !important; /* Forza visualizzazione */
+            visibility: visible !important;
+        }
+        
+        /* CORREZIONE: Step sections visibility */
+        .step-section {
+            display: none; /* Hidden by default */
+        }
+        
+        .step-section.active {
+            display: block !important; /* Show when active */
+            visibility: visible !important;
+        }
+        
+        /* CORREZIONE: Tipo section always visible initially */
+        #tipoSection {
+            display: block !important;
         }
         
         /* Loading state styles */
         .page-loading {
             opacity: 0.5;
             pointer-events: none;
+        }
+        
+        .page-loading .main-container {
+            display: none !important;
         }
         
         .auth-header {
@@ -478,24 +499,60 @@
         .autosave-indicator.success {
             background: #4caf50;
         }
+        
+        /* CORREZIONE: Debug visibility */
+        .debug-visible {
+            border: 2px solid red !important;
+            background: rgba(255,0,0,0.1) !important;
+            min-height: 100px !important;
+        }
     </style>
 
     <script>
         // Show loading indicator immediately
         document.addEventListener('DOMContentLoaded', () => {
+            console.log('🎯 DOM Content Loaded - inizializzazione immediata');
+            
             const loading = document.getElementById('loading-indicator');
             if (loading) {
                 loading.style.display = 'block';
                 document.body.classList.add('page-loading');
+                console.log('📍 Loading indicator mostrato');
             }
             
-            // Hide loading after auth verification (will be handled by auth-guard)
+            // CORREZIONE: Forza visualizzazione main-container dopo breve delay
+            setTimeout(() => {
+                document.body.classList.remove('page-loading');
+                const mainContainer = document.querySelector('.main-container');
+                if (mainContainer) {
+                    mainContainer.style.display = 'block';
+                    mainContainer.style.visibility = 'visible';
+                    console.log('📍 Main container forzato visibile');
+                }
+                
+                // CORREZIONE: Forza visualizzazione tipoSection
+                const tipoSection = document.getElementById('tipoSection');
+                if (tipoSection) {
+                    tipoSection.style.display = 'block';
+                    tipoSection.style.visibility = 'visible';
+                    tipoSection.classList.add('active', 'debug-visible');
+                    console.log('📍 TipoSection forzato visibile');
+                }
+                
+                if (loading) {
+                    loading.style.display = 'none';
+                    console.log('📍 Loading nascosto');
+                }
+            }, 1000);
+            
+            // Hide loading after longer timeout as fallback
             setTimeout(() => {
                 if (loading) {
                     loading.style.display = 'none';
                     document.body.classList.remove('page-loading');
+                    console.log('📍 Fallback timeout - loading rimosso');
                 }
-            }, 5000); // Fallback timeout
+            }, 5000);
         });
         
         // Global error handler for auth issues
@@ -505,6 +562,46 @@
                 // AuthGuard will handle the redirect
             }
         });
+        
+        // CORREZIONE: Debug function per verificare elementi
+        window.debugVisibility = function() {
+            const elements = {
+                mainContainer: document.querySelector('.main-container'),
+                tipoSection: document.getElementById('tipoSection'),
+                typeCards: document.querySelector('.type-cards')
+            };
+            
+            console.log('🔍 Debug Visibility:', {
+                mainContainer: {
+                    exists: !!elements.mainContainer,
+                    display: elements.mainContainer?.style.display,
+                    classes: elements.mainContainer?.className,
+                    visible: elements.mainContainer?.offsetParent !== null
+                },
+                tipoSection: {
+                    exists: !!elements.tipoSection,
+                    display: elements.tipoSection?.style.display,
+                    classes: elements.tipoSection?.className,
+                    visible: elements.tipoSection?.offsetParent !== null
+                },
+                typeCards: {
+                    exists: !!elements.typeCards,
+                    display: elements.typeCards?.style.display,
+                    visible: elements.typeCards?.offsetParent !== null
+                }
+            });
+            
+            // Forza visualizzazione di tutto
+            if (elements.mainContainer) {
+                elements.mainContainer.style.display = 'block';
+                elements.mainContainer.style.visibility = 'visible';
+            }
+            if (elements.tipoSection) {
+                elements.tipoSection.style.display = 'block';
+                elements.tipoSection.style.visibility = 'visible';
+                elements.tipoSection.classList.add('active');
+            }
+        };
     </script>
 </body>
 </html>
