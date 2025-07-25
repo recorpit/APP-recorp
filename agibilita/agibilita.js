@@ -155,27 +155,19 @@ document.addEventListener('DOMContentLoaded', async function() {
         // === INIZIALIZZA INTERFACCIA ===
         await initializeInterface();
         
+        // === MOSTRA CONTENUTO AUTENTICATO ===
+        if (window.showAuthenticatedContent) {
+            window.showAuthenticatedContent();
+        } else {
+            // Fallback: aggiungi classe direttamente
+            document.body.classList.add('authenticated');
+            console.log('✅ Classe authenticated aggiunta (fallback)');
+        }
+        
         // === FORZA VISUALIZZAZIONE SEZIONE TIPO ===
         setTimeout(() => {
             console.log('🎯 Forzando visualizzazione sezione tipo...');
             showSection('tipoSection');
-            
-            // Debug: Verifica elementi
-            const tipoSection = document.getElementById('tipoSection');
-            console.log('Debug tipoSection:', {
-                exists: !!tipoSection,
-                classes: tipoSection?.className,
-                style: tipoSection?.style.cssText,
-                display: tipoSection?.style.display,
-                visible: tipoSection?.offsetParent !== null
-            });
-            
-            // Forza visualizzazione se necessario
-            if (tipoSection) {
-                tipoSection.style.display = 'block';
-                tipoSection.style.visibility = 'visible';
-                tipoSection.classList.add('active');
-            }
         }, 100);
         
         console.log('✅ Sistema agibilità inizializzato con successo!');
@@ -208,8 +200,7 @@ async function initializeInterface() {
         const tipoSection = document.getElementById('tipoSection');
         if (tipoSection) {
             tipoSection.classList.add('active');
-            tipoSection.style.display = 'block'; // ← AGGIUNTO: Forza visualizzazione
-            console.log('✅ Sezione tipo attivata e visualizzata');
+            console.log('✅ Sezione tipo attivata');
         } else {
             console.error('❌ Elemento tipoSection non trovato!');
         }

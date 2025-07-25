@@ -58,7 +58,7 @@
         </div>
 
         <!-- Tipo Agibilità Section -->
-        <div id="tipoSection" class="step-section active">
+        <div id="tipoSection" class="step-section">
             <h2>Seleziona Tipo di Operazione</h2>
             <div class="type-cards">
                 <div class="type-card" onclick="startNewAgibilita()">
@@ -385,174 +385,59 @@
     <!-- 6. Agibilità Module (ultimo, dipende da tutto) -->
     <script type="module" src="agibilita.js"></script>
 
-    <style>
-        /* Loading animation */
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
-        /* CORREZIONE: Ensure body has padding for auth header */
-        body {
-            padding-top: 50px; /* Space for auth header */
-        }
-        
-        /* CORREZIONE: User header will be added by AuthGuard */
-        .main-container {
-            margin-top: 0; /* AuthGuard manages the spacing */
-            display: block !important; /* Forza visualizzazione */
-            visibility: visible !important;
-        }
-        
-        /* CORREZIONE: Step sections visibility */
-        .step-section {
-            display: none; /* Hidden by default */
-        }
-        
-        .step-section.active {
-            display: block !important; /* Show when active */
-            visibility: visible !important;
-        }
-        
-        /* CORREZIONE: Tipo section always visible initially */
-        #tipoSection {
-            display: block !important;
-        }
-        
-        /* Loading state styles */
-        .page-loading {
-            opacity: 0.5;
-            pointer-events: none;
-        }
-        
-        .page-loading .main-container {
-            display: none !important;
-        }
-        
-        .auth-header {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            z-index: 1001;
-            background: #f8fafc;
-            border-bottom: 1px solid #e2e8f0;
-            padding: 12px 20px;
-        }
-        
-        /* Reserved number display improvements */
-        .reserved-number-display {
-            background: #e3f2fd;
-            border: 1px solid #2196f3;
-            border-radius: 8px;
-            padding: 12px 16px;
-            margin: 15px 0;
-            display: none;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .reserved-number-badge {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .reserved-number-badge .numero {
-            font-weight: bold;
-            color: #1976d2;
-            font-size: 1.1em;
-        }
-
-        .reserved-number-badge .scadenza {
-            font-size: 0.9em;
-            color: #666;
-            background: #fff;
-            padding: 4px 8px;
-            border-radius: 4px;
-            border: 1px solid #ddd;
-        }
-
-        /* Autosave indicator */
-        .autosave-indicator {
-            position: fixed;
-            top: 70px; /* Below auth header */
-            right: 20px;
-            background: #4caf50;
-            color: white;
-            padding: 8px 16px;
-            border-radius: 6px;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-            z-index: 1000;
-            font-size: 0.9em;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-        }
-
-        .autosave-indicator.show {
-            opacity: 1;
-        }
-
-        .autosave-indicator.error {
-            background: #f44336;
-        }
-
-        .autosave-indicator.success {
-            background: #4caf50;
-        }
-        
-        /* CORREZIONE: Debug visibility */
-        .debug-visible {
-            border: 2px solid red !important;
-            background: rgba(255,0,0,0.1) !important;
-            min-height: 100px !important;
-        }
-    </style>
-
     <script>
-        // Show loading indicator immediately
+        // === GESTIONE CLASSE AUTHENTICATED ===
         document.addEventListener('DOMContentLoaded', () => {
-            console.log('🎯 DOM Content Loaded - inizializzazione immediata');
+            console.log('🎯 DOM Ready - Setup auth class management');
             
-            const loading = document.getElementById('loading-indicator');
-            if (loading) {
-                loading.style.display = 'block';
-                document.body.classList.add('page-loading');
-                console.log('📍 Loading indicator mostrato');
+            // Funzione per mostrare contenuto quando autenticato
+            function showAuthenticatedContent() {
+                document.body.classList.add('authenticated');
+                console.log('✅ Classe authenticated aggiunta al body');
+                
+                // Mostra tipoSection se esiste
+                const tipoSection = document.getElementById('tipoSection');
+                if (tipoSection && !tipoSection.classList.contains('active')) {
+                    tipoSection.classList.add('active');
+                    console.log('✅ TipoSection attivata');
+                }
             }
             
-            // CORREZIONE: Forza visualizzazione main-container dopo breve delay
-            setTimeout(() => {
-                document.body.classList.remove('page-loading');
-                const mainContainer = document.querySelector('.main-container');
-                if (mainContainer) {
-                    mainContainer.style.display = 'block';
-                    mainContainer.style.visibility = 'visible';
-                    console.log('📍 Main container forzato visibile');
-                }
+            // Funzione per nascondere contenuto quando non autenticato
+            function hideUnauthenticatedContent() {
+                document.body.classList.remove('authenticated');
+                console.log('❌ Classe authenticated rimossa dal body');
+            }
+            
+            // Esporta funzioni globalmente per AuthGuard
+            window.showAuthenticatedContent = showAuthenticatedContent;
+            window.hideUnauthenticatedContent = hideUnauthenticatedContent;
+            
+            // Controlla auth state ogni secondo per i primi 10 secondi
+            let attempts = 0;
+            const checkAuth = setInterval(() => {
+                attempts++;
                 
-                // CORREZIONE: Forza visualizzazione tipoSection
-                const tipoSection = document.getElementById('tipoSection');
-                if (tipoSection) {
-                    tipoSection.style.display = 'block';
-                    tipoSection.style.visibility = 'visible';
-                    tipoSection.classList.add('active', 'debug-visible');
-                    console.log('📍 TipoSection forzato visibile');
-                }
-                
-                if (loading) {
-                    loading.style.display = 'none';
-                    console.log('📍 Loading nascosto');
+                if (window.AuthGuard && window.AuthGuard.getCurrentUser) {
+                    window.AuthGuard.getCurrentUser().then(user => {
+                        if (user) {
+                            showAuthenticatedContent();
+                            clearInterval(checkAuth);
+                        } else if (attempts >= 10) {
+                            console.warn('⚠️ Nessun utente autenticato dopo 10 secondi');
+                            clearInterval(checkAuth);
+                        }
+                    }).catch(error => {
+                        console.warn('⚠️ Errore controllo auth:', error);
+                        if (attempts >= 10) {
+                            clearInterval(checkAuth);
+                        }
+                    });
+                } else if (attempts >= 10) {
+                    console.warn('⚠️ AuthGuard non disponibile dopo 10 secondi');
+                    clearInterval(checkAuth);
                 }
             }, 1000);
-            
-            // Hide loading after longer timeout as fallback
-            setTimeout(() => {
-                if (loading) {
-                    loading.style.display = 'none';
-                    document.body.classList.remove('page-loading');
-                    console.log('📍 Fallback timeout - loading rimosso');
-                }
-            }, 5000);
         });
         
         // Global error handler for auth issues
@@ -562,46 +447,6 @@
                 // AuthGuard will handle the redirect
             }
         });
-        
-        // CORREZIONE: Debug function per verificare elementi
-        window.debugVisibility = function() {
-            const elements = {
-                mainContainer: document.querySelector('.main-container'),
-                tipoSection: document.getElementById('tipoSection'),
-                typeCards: document.querySelector('.type-cards')
-            };
-            
-            console.log('🔍 Debug Visibility:', {
-                mainContainer: {
-                    exists: !!elements.mainContainer,
-                    display: elements.mainContainer?.style.display,
-                    classes: elements.mainContainer?.className,
-                    visible: elements.mainContainer?.offsetParent !== null
-                },
-                tipoSection: {
-                    exists: !!elements.tipoSection,
-                    display: elements.tipoSection?.style.display,
-                    classes: elements.tipoSection?.className,
-                    visible: elements.tipoSection?.offsetParent !== null
-                },
-                typeCards: {
-                    exists: !!elements.typeCards,
-                    display: elements.typeCards?.style.display,
-                    visible: elements.typeCards?.offsetParent !== null
-                }
-            });
-            
-            // Forza visualizzazione di tutto
-            if (elements.mainContainer) {
-                elements.mainContainer.style.display = 'block';
-                elements.mainContainer.style.visibility = 'visible';
-            }
-            if (elements.tipoSection) {
-                elements.tipoSection.style.display = 'block';
-                elements.tipoSection.style.visibility = 'visible';
-                elements.tipoSection.classList.add('active');
-            }
-        };
     </script>
 </body>
 </html>
