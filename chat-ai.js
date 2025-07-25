@@ -1,6 +1,12 @@
 // chat-ai.js - Sistema Chat AI per Agibilità RECORP
 // Assistente intelligente integrato con Supabase e sistema agibilità
 
+// ⚠️ IMPORTANTE SICUREZZA:
+// - Non condividere MAI le API key nel codice
+// - Non committare API key reali nei repository
+// - Usa variabili d'ambiente per la produzione
+// - Testa sempre in locale prima del deploy
+
 // Import delle dipendenze
 import { DatabaseService } from './supabase-config.js';
 import { notificationService } from './notification-service.js';
@@ -8,10 +14,30 @@ import { notificationService } from './notification-service.js';
 // ==================== CONFIGURAZIONE CHAT AI ====================
 
 const AI_CONFIG = {
-    provider: 'ollama', // 'ollama', 'openai', 'claude', 'mock'
-    model: 'llama3.1:8b',
-    baseURL: 'http://localhost:11434', // URL del server Ollama locale
-    timeout: 30000,
+    provider: 'mock', // Cambia per attivare AI reale: 'groq', 'huggingface', 'gemini', 'ollama', 'mock'
+    model: 'llama3-8b-8192',
+    
+    // 🆓 COME OTTENERE API KEY GRATUITE:
+    // 
+    // 🦙 GROQ (RACCOMANDATO - Veloce e Potente):
+    //    1. Vai su https://console.groq.com
+    //    2. Registrati gratis
+    //    3. Crea API key (inizia con gsk_)
+    //    4. Incolla qui sotto e cambia provider a 'groq'
+    //
+    // 🤗 HUGGING FACE:
+    //    1. Vai su https://huggingface.co/settings/tokens
+    //    2. Crea token gratuito (inizia con hf_)
+    //    3. Incolla qui sotto e cambia provider a 'huggingface'
+    //
+    // 🔍 GOOGLE GEMINI:
+    //    1. Vai su https://makersuite.google.com/app/apikey
+    //    2. Crea API key gratuita (inizia con AIza)
+    //    3. Incolla qui sotto e cambia provider a 'gemini'
+    
+    apiKey: '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', // ← INSERISCI QUI LA TUA API KEY (senza condividerla mai!)
+    baseURL: 'https://api.groq.com/openai/v1/chat/completions',
+    timeout: 10000,
     maxTokens: 1000,
     temperature: 0.7
 };
@@ -29,13 +55,42 @@ export class ChatAI {
         this.initialize();
     }
 
+    // ==================== GESTIONE SICURA API KEY ====================
+
+    async loadAPIKey() {
+        // 🔐 SICUREZZA: Le API key dovrebbero essere gestite in modo sicuro
+        
+        // Opzione 1: Variabile d'ambiente (per produzione)
+        if (typeof process !== 'undefined' && process.env) {
+            return process.env.GROQ_API_KEY || process.env.HF_API_KEY || process.env.GEMINI_API_KEY;
+        }
+        
+        // Opzione 2: Configurazione locale (per sviluppo)
+        // ATTENZIONE: Non committare mai API key reali nel codice!
+        return AI_CONFIG.apiKey;
+    }
+
     async initialize() {
         console.log('🤖 Inizializzazione Chat AI...');
         
         try {
+            // Carica API key in modo sicuro
+            const apiKey = await this.loadAPIKey();
+            if (apiKey && apiKey !== '') {
+                AI_CONFIG.apiKey = apiKey;
+                console.log(`🔑 API Key caricata per provider: ${AI_CONFIG.provider}`);
+            } else if (AI_CONFIG.provider !== 'mock') {
+                console.warn('⚠️ Nessuna API key trovata, uso provider mock');
+                AI_CONFIG.provider = 'mock';
+            }
+            
             // Ottieni user session
             if (window.AuthGuard && window.AuthGuard.getCurrentUser) {
-                this.userSession = await window.AuthGuard.getCurrentUser();
+                try {
+                    this.userSession = await window.AuthGuard.getCurrentUser();
+                } catch (error) {
+                    console.log('⚠️ Auth non ancora pronto, continuo senza utente:', error.message);
+                }
             }
             
             // Carica contesto agibilità se disponibile
@@ -44,9 +99,76 @@ export class ChatAI {
             // Setup system prompt
             this.setupSystemPrompt();
             
+            // Test connettività AI se configurato
+            if (AI_CONFIG.provider !== 'mock') {
+                await this.testAIConnection();
+            }
+            
             console.log('✅ Chat AI inizializzata con successo');
         } catch (error) {
             console.error('❌ Errore inizializzazione Chat AI:', error);
+            // Continua comunque con il provider mock
+            AI_CONFIG.provider = 'mock';
+        }
+    }
+
+    async testAIConnection() {
+        try {
+            let testEndpoint = '';
+            let testOptions = { method: 'GET' };
+
+            switch (AI_CONFIG.provider) {
+                case 'groq':
+                    if (!AI_CONFIG.apiKey) {
+                        throw new Error('API Key mancante');
+                    }
+                    testEndpoint = 'https://api.groq.com/openai/v1/models';
+                    testOptions = {
+                        method: 'GET',
+                        headers: { 'Authorization': `Bearer ${AI_CONFIG.apiKey}` }
+                    };
+                    break;
+
+                case 'huggingface':
+                    if (!AI_CONFIG.apiKey) {
+                        throw new Error('API Key mancante');
+                    }
+                    // Hugging Face non ha un endpoint di test semplice
+                    console.log('✅ Hugging Face configurato con API key');
+                    return;
+
+                case 'gemini':
+                    if (!AI_CONFIG.apiKey) {
+                        throw new Error('API Key mancante'); 
+                    }
+                    testEndpoint = `https://generativelanguage.googleapis.com/v1/models?key=${AI_CONFIG.apiKey}`;
+                    break;
+
+                case 'ollama':
+                    testEndpoint = `${AI_CONFIG.baseURL.replace('/api/generate', '')}/api/tags`;
+                    break;
+
+                default:
+                    return;
+            }
+
+            const controller = new AbortController();
+            setTimeout(() => controller.abort(), 3000);
+
+            const response = await fetch(testEndpoint, {
+                ...testOptions,
+                signal: controller.signal
+            });
+            
+            if (response.ok) {
+                console.log(`✅ ${AI_CONFIG.provider.toUpperCase()} API disponibile`);
+            } else {
+                throw new Error(`Server risponde con ${response.status}`);
+            }
+        } catch (error) {
+            console.warn(`⚠️ ${AI_CONFIG.provider.toUpperCase()} non disponibile:`, error.message);
+            console.log('🔄 Fallback automatico al provider mock');
+            AI_CONFIG.provider = 'mock';
         }
     }
 
@@ -359,6 +481,12 @@ Rispondi sempre in italiano e fornisci assistenza precisa per le agibilità ENPA
             
             // Scegli il provider AI
             switch (AI_CONFIG.provider) {
+                case 'groq':
+                    return await this.callGroqAPI(contextualPrompt);
+                case 'huggingface':
+                    return await this.callHuggingFaceAPI(contextualPrompt);
+                case 'gemini':
+                    return await this.callGeminiAPI(contextualPrompt);
                 case 'ollama':
                     return await this.callOllamaAPI(contextualPrompt);
                 case 'mock':
@@ -389,10 +517,155 @@ Rispondi sempre in italiano e fornisci assistenza precisa per le agibilità ENPA
         return prompt;
     }
 
-    // ==================== PROVIDER AI - OLLAMA ====================
+    // ==================== PROVIDER AI - GROQ (GRATUITO) ====================
+
+    async callGroqAPI(prompt) {
+        try {
+            if (!AI_CONFIG.apiKey) {
+                console.warn('⚠️ API Key Groq mancante, uso risposta mock');
+                return this.generateMockResponse(prompt, { intent: 'general' });
+            }
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), AI_CONFIG.timeout);
+
+            const response = await fetch(AI_CONFIG.baseURL, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${AI_CONFIG.apiKey}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: AI_CONFIG.model,
+                    messages: [
+                        {
+                            role: 'system',
+                            content: 'Sei l\'assistente AI RECORP per la gestione delle agibilità ENPALS. Rispondi in italiano in modo professionale ma amichevole. Usa emoji appropriate e formatta le risposte con bullet points quando utile.'
+                        },
+                        {
+                            role: 'user', 
+                            content: prompt
+                        }
+                    ],
+                    max_tokens: AI_CONFIG.maxTokens,
+                    temperature: AI_CONFIG.temperature
+                }),
+                signal: controller.signal
+            });
+
+            clearTimeout(timeoutId);
+
+            if (!response.ok) {
+                throw new Error(`Groq API error: ${response.status} - ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            return data.choices[0]?.message?.content || 'Risposta non disponibile';
+
+        } catch (error) {
+            console.warn('⚠️ Errore Groq API:', error.message);
+            return this.generateMockResponse(prompt, { intent: 'general' });
+        }
+    }
+
+    // ==================== PROVIDER AI - HUGGING FACE (GRATUITO) ====================
+
+    async callHuggingFaceAPI(prompt) {
+        try {
+            if (!AI_CONFIG.apiKey) {
+                console.warn('⚠️ API Key Hugging Face mancante, uso risposta mock');
+                return this.generateMockResponse(prompt, { intent: 'general' });
+            }
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), AI_CONFIG.timeout);
+
+            const response = await fetch('https://api-inference.huggingface.co/models/microsoft/DialoGPT-large', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${AI_CONFIG.apiKey}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    inputs: prompt,
+                    parameters: {
+                        max_length: AI_CONFIG.maxTokens,
+                        temperature: AI_CONFIG.temperature
+                    }
+                }),
+                signal: controller.signal
+            });
+
+            clearTimeout(timeoutId);
+
+            if (!response.ok) {
+                throw new Error(`Hugging Face API error: ${response.status}`);
+            }
+
+            const data = await response.json();
+            return data[0]?.generated_text || 'Risposta non disponibile';
+
+        } catch (error) {
+            console.warn('⚠️ Errore Hugging Face API:', error.message);
+            return this.generateMockResponse(prompt, { intent: 'general' });
+        }
+    }
+
+    // ==================== PROVIDER AI - GOOGLE GEMINI (GRATUITO) ====================
+
+    async callGeminiAPI(prompt) {
+        try {
+            if (!AI_CONFIG.apiKey) {
+                console.warn('⚠️ API Key Gemini mancante, uso risposta mock');
+                return this.generateMockResponse(prompt, { intent: 'general' });
+            }
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), AI_CONFIG.timeout);
+
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${AI_CONFIG.apiKey}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    contents: [
+                        {
+                            parts: [
+                                {
+                                    text: `Sei l'assistente AI RECORP per la gestione delle agibilità ENPALS. Rispondi in italiano in modo professionale ma amichevole. Usa emoji appropriate.\n\nDomanda: ${prompt}`
+                                }
+                            ]
+                        }
+                    ],
+                    generationConfig: {
+                        maxOutputTokens: AI_CONFIG.maxTokens,
+                        temperature: AI_CONFIG.temperature
+                    }
+                }),
+                signal: controller.signal
+            });
+
+            clearTimeout(timeoutId);
+
+            if (!response.ok) {
+                throw new Error(`Gemini API error: ${response.status}`);
+            }
+
+            const data = await response.json();
+            return data.candidates[0]?.content?.parts[0]?.text || 'Risposta non disponibile';
+
+        } catch (error) {
+            console.warn('⚠️ Errore Gemini API:', error.message);
+            return this.generateMockResponse(prompt, { intent: 'general' });
+        }
+    }
 
     async callOllamaAPI(prompt) {
         try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), AI_CONFIG.timeout);
+
             const response = await fetch(`${AI_CONFIG.baseURL}/api/generate`, {
                 method: 'POST',
                 headers: {
@@ -407,8 +680,10 @@ Rispondi sempre in italiano e fornisci assistenza precisa per le agibilità ENPA
                         max_tokens: AI_CONFIG.maxTokens
                     }
                 }),
-                signal: AbortSignal.timeout(AI_CONFIG.timeout)
+                signal: controller.signal
             });
+
+            clearTimeout(timeoutId);
 
             if (!response.ok) {
                 throw new Error(`Ollama API error: ${response.status}`);
@@ -418,8 +693,17 @@ Rispondi sempre in italiano e fornisci assistenza precisa per le agibilità ENPA
             return data.response || 'Risposta non disponibile';
 
         } catch (error) {
-            console.warn('⚠️ Ollama non disponibile, uso risposta mock:', error.message);
-            return this.generateMockResponse(prompt);
+            if (error.name === 'AbortError') {
+                console.warn('⚠️ Timeout connessione Ollama, uso risposta mock');
+            } else if (error.message.includes('Failed to fetch') || error.message.includes('ERR_CONNECTION_REFUSED')) {
+                console.warn('⚠️ Ollama non disponibile (server non avviato), uso risposta mock');
+            } else {
+                console.warn('⚠️ Errore Ollama:', error.message);
+            }
+            
+            // Fallback automatico a mock
+            AI_CONFIG.provider = 'mock';
+            return this.generateMockResponse(prompt, { intent: 'general' });
         }
     }
 
