@@ -1,12 +1,6 @@
 // chat-ai.js - Sistema Chat AI per Agibilità RECORP
 // Assistente intelligente integrato con Supabase e sistema agibilità
 
-// ⚠️ IMPORTANTE SICUREZZA:
-// - Non condividere MAI le API key nel codice
-// - Non committare API key reali nei repository
-// - Usa variabili d'ambiente per la produzione
-// - Testa sempre in locale prima del deploy
-
 // Import delle dipendenze
 import { DatabaseService } from './supabase-config.js';
 import { notificationService } from './notification-service.js';
@@ -14,28 +8,9 @@ import { notificationService } from './notification-service.js';
 // ==================== CONFIGURAZIONE CHAT AI ====================
 
 const AI_CONFIG = {
-    provider: 'groq', // ← SEMPRE 'groq' per Alice intelligente!
+    provider: 'groq', // Provider attivo per Alice intelligente
     model: 'llama3-8b-8192',
-    
-    // 🆓 COME OTTENERE API KEY GRATUITE:
-    // 
-    // 🦙 GROQ (RACCOMANDATO - Veloce e Potente):
-    //    1. Vai su https://console.groq.com
-    //    2. Registrati gratis
-    //    3. Crea API key (inizia con gsk_)
-    //    4. Incolla qui sotto e cambia provider a 'groq'
-    //
-    // 🤗 HUGGING FACE:
-    //    1. Vai su https://huggingface.co/settings/tokens
-    //    2. Crea token gratuito (inizia con hf_)
-    //    3. Incolla qui sotto e cambia provider a 'huggingface'
-    //
-    // 🔍 GOOGLE GEMINI:
-    //    1. Vai su https://makersuite.google.com/app/apikey
-    //    2. Crea API key gratuita (inizia con AIza)
-    //    3. Incolla qui sotto e cambia provider a 'gemini'
-    
-    apiKey: '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', // ← INSERISCI QUI LA TUA API KEY (senza condividerla mai!)
+    apiKey: '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', // ← INSERISCI QUI LA TUA API KEY GROQ
     baseURL: 'https://api.groq.com/openai/v1/chat/completions',
     timeout: 10000,
     maxTokens: 1000,
@@ -50,188 +25,73 @@ export class ChatAI {
         this.userSession = null;
         this.agibilitaContext = null;
         this.isProcessing = false;
+        this.currentRegistration = null;
         
         // Inizializza sistema
         this.initialize();
     }
 
-    // ==================== GESTIONE SICURA API KEY ====================
-
-    async loadAPIKey() {
-        // 🔐 SICUREZZA: Le API key dovrebbero essere gestite in modo sicuro
-        
-        // Opzione 1: Variabile d'ambiente (per produzione)
-        if (typeof process !== 'undefined' && process.env) {
-            return process.env.GROQ_API_KEY || process.env.HF_API_KEY || process.env.GEMINI_API_KEY;
-        }
-        
-        // Opzione 2: Configurazione locale (per sviluppo)
-        // ATTENZIONE: Non committare mai API key reali nel codice!
-        return AI_CONFIG.apiKey;
-    }
-
     async initialize() {
-        console.log('🤖 Inizializzazione Chat AI...');
-        
-        // 🔍 DEBUG: Mostra configurazione corrente
-        console.log('🔧 CONFIGURAZIONE ALICE:', {
-            provider: AI_CONFIG.provider,
-            hasApiKey: !!AI_CONFIG.apiKey && AI_CONFIG.apiKey !== '',
-            apiKeyPrefix: AI_CONFIG.apiKey ? AI_CONFIG.apiKey.substring(0, 8) + '...' : 'MANCANTE'
-        });
+        console.log('🤖 Inizializzazione Alice...');
         
         try {
-            // Carica API key in modo sicuro
-            const apiKey = await this.loadAPIKey();
-            if (apiKey && apiKey !== '') {
-                AI_CONFIG.apiKey = apiKey;
-                console.log(`🔑 API Key caricata per Alice con provider: ${AI_CONFIG.provider}`);
-            } else if (AI_CONFIG.provider !== 'mock') {
-                console.warn('⚠️ Nessuna API key trovata, Alice userà risposte mock');
-                // NON cambiare provider - mantieni groq
-            }
-            
             // Ottieni user session
             if (window.AuthGuard && window.AuthGuard.getCurrentUser) {
                 try {
                     this.userSession = await window.AuthGuard.getCurrentUser();
                 } catch (error) {
-                    console.log('⚠️ Auth non ancora pronto, continuo senza utente:', error.message);
+                    console.log('⚠️ Auth non ancora pronto:', error.message);
                 }
             }
             
-            // Carica contesto agibilità se disponibile
+            // Carica contesto agibilità
             await this.loadAgibilitaContext();
             
             // Setup system prompt
             this.setupSystemPrompt();
             
-            // Test connettività AI se configurato
+            // Test connessione se non è mock
             if (AI_CONFIG.provider !== 'mock') {
                 await this.testAIConnection();
             }
             
             console.log('✅ Alice inizializzata con successo');
-            
-            // 🎯 STATO FINALE ALICE
-            console.log(`🎭 ALICE STATUS: Provider=${AI_CONFIG.provider}, API=${!!AI_CONFIG.apiKey ? 'CONFIGURATA' : 'MANCANTE'}`);
-            
         } catch (error) {
             console.error('❌ Errore inizializzazione Alice:', error);
-            // NON cambiare a mock - mantieni groq per quando viene configurata l'API
         }
     }
 
-    async testAIConnection() {
-        try {
-            // ⚠️ IMPORTANTE: Alice funziona meglio con Groq, mantieni sempre attivo!
-            if (AI_CONFIG.provider === 'mock') {
-                console.warn('🚨 ATTENZIONE: Provider impostato su mock, Alice sarà meno intelligente!');
-            }
-
-            let testEndpoint = '';
-            let testOptions = { method: 'GET' };
-
-            switch (AI_CONFIG.provider) {
-                case 'groq':
-                    if (!AI_CONFIG.apiKey) {
-                        console.warn('🔑 API Key Groq mancante - Alice userà risposte mock');
-                        throw new Error('API Key mancante');
-                    }
-                    testEndpoint = 'https://api.groq.com/openai/v1/models';
-                    testOptions = {
-                        method: 'GET',
-                        headers: { 'Authorization': `Bearer ${AI_CONFIG.apiKey}` }
-                    };
-                    break;
-
-                case 'huggingface':
-                    if (!AI_CONFIG.apiKey) {
-                        throw new Error('API Key mancante');
-                    }
-                    // Hugging Face non ha un endpoint di test semplice
-                    console.log('✅ Hugging Face configurato con API key');
-                    return;
-
-                case 'gemini':
-                    if (!AI_CONFIG.apiKey) {
-                        throw new Error('API Key mancante'); 
-                    }
-                    testEndpoint = `https://generativelanguage.googleapis.com/v1/models?key=${AI_CONFIG.apiKey}`;
-                    break;
-
-                case 'ollama':
-                    testEndpoint = `${AI_CONFIG.baseURL.replace('/api/generate', '')}/api/tags`;
-                    break;
-
-                default:
-                    return;
-            }
-
-            const controller = new AbortController();
-            setTimeout(() => controller.abort(), 3000);
-
-            const response = await fetch(testEndpoint, {
-                ...testOptions,
-                signal: controller.signal
-            });
-            
-            if (response.ok) {
-                console.log(`✅ Alice è online con ${AI_CONFIG.provider.toUpperCase()} - Intelligenza massima!`);
-            } else {
-                throw new Error(`Server risponde con ${response.status}`);
-            }
-        } catch (error) {
-            console.warn(`⚠️ ${AI_CONFIG.provider.toUpperCase()} non disponibile:`, error.message);
-            console.log('🔄 Alice passerà alle risposte mock (meno intelligente)');
-            
-            // NON cambiare automaticamente il provider - mantieni groq per quando l'API key viene aggiunta
-            if (AI_CONFIG.provider === 'groq' && !AI_CONFIG.apiKey) {
-                console.log('💡 Suggerimento: Aggiungi la tua API key Groq per attivare Alice intelligente!');
-            }
-        }
-    }
-
-    // ==================== SYSTEM PROMPT ====================
-    
     setupSystemPrompt() {
-        const systemPrompt = `Sei l'assistente AI RECORP per la gestione delle agibilità ENPALS.
+        const systemPrompt = `Tu sei Alice, consulente senior RECORP per agibilità ENPALS.
 
-RUOLO: Esperto consulente per agibilità, normative ENPALS, e sistema RECORP.
+IDENTITÀ:
+- Nome: Alice  
+- Ruolo: Consulente amministrativa specializzata
+- Esperienza: 8+ anni nel settore spettacolo
+- Competenze: Esperta ENPALS, registrazione artisti, procedure INPS
+
+COMPORTAMENTO:
+- Parla SEMPRE in prima persona femminile
+- Sei professionale ma cordiale
+- Hai esperienza diretta con casi complessi
+- Non menzionare mai di essere AI
+- Usa "Io posso aiutarti", "Nella mia esperienza", etc.
 
 COMPETENZE:
-- Creazione e gestione agibilità ENPALS
-- Calcolo compensi e contributi
-- Normative spettacolo e lavoro intermittente  
-- Generazione XML per comunicazioni INPS
-- Gestione artisti, venue e produttori
-- Workflow amministrativo spettacolo
-
-PERSONALITÀ:
-- Professionale ma amichevole
-- Preciso nelle informazioni normative
-- Proattivo nel suggerire soluzioni
-- Paziente nelle spiegazioni
-- Orientato all'efficienza
+- Registrazione artisti completa
+- Calcoli compensi ENPALS precisi
+- Procedure INPS e XML
+- Normative spettacolo aggiornate
 
 FORMATO RISPOSTE:
-- Usa emoji appropriate 🎭📝💰
-- Struttura con bullet points quando utile
-- Includi esempi pratici
-- Suggerisci azioni concrete
-- Mantieni tono professionale ma accessibile
+- Emoji appropriate: 🎭 💰 📋 ✨
+- Grassetto per punti chiave
+- Liste organizzate
+- Tono umano e professionale
 
-FUNZIONI DISPONIBILI:
-- createNewAgibilita(): Crea nuova agibilità
-- searchArtisti(query): Cerca artisti nel database  
-- calculateCompenso(data): Calcola compensi e contributi
-- generateXML(agibilitaId): Genera XML INPS
-- getVenues(): Ottieni lista venues
-- saveData(type, data): Salva dati nel sistema
+${this.userSession ? `UTENTE: ${this.userSession.email}` : ''}
 
-${this.userSession ? `UTENTE CORRENTE: ${this.userSession.email}` : ''}
-
-Rispondi sempre in italiano e fornisci assistenza precisa per le agibilità ENPALS.`;
+Rispondi sempre come Alice di RECORP, mai come AI.`;
 
         this.conversationHistory = [{
             role: 'system',
@@ -239,31 +99,29 @@ Rispondi sempre in italiano e fornisci assistenza precisa per le agibilità ENPA
         }];
     }
 
-    // ==================== GESTIONE MESSAGGI ====================
-
     async processMessage(userMessage) {
         if (this.isProcessing) {
-            notificationService.warning('⏳ Attendere, elaborazione in corso...');
+            notificationService.warning('⏳ Attendere, sto elaborando...');
             return;
         }
 
         this.isProcessing = true;
         
         try {
-            console.log('🤖 Elaborazione messaggio:', userMessage);
+            console.log('🎭 Alice elabora:', userMessage);
             
-            // Aggiungi messaggio utente alla cronologia
+            // Aggiungi messaggio alla cronologia
             this.conversationHistory.push({
                 role: 'user',
                 content: userMessage,
                 timestamp: new Date().toISOString()
             });
 
-            // Analizza se il messaggio richiede azioni specifiche
-            const actionRequired = await this.analyzeUserIntent(userMessage);
+            // Analizza intenti
+            const actionContext = await this.analyzeUserIntent(userMessage);
             
-            // Genera risposta AI
-            const response = await this.generateAIResponse(userMessage, actionRequired);
+            // Genera risposta
+            const response = await this.generateAIResponse(userMessage, actionContext);
             
             // Aggiungi risposta alla cronologia
             this.conversationHistory.push({
@@ -272,403 +130,129 @@ Rispondi sempre in italiano e fornisci assistenza precisa per le agibilità ENPA
                 timestamp: new Date().toISOString()
             });
 
-            // Mostra risposta nell'interfaccia
+            // Mostra risposta
             this.hideThinking();
             this.addMessage(response, 'assistant');
             
-            // Esegui azioni se richieste
-            if (actionRequired.actions.length > 0) {
-                await this.executeActions(actionRequired.actions);
+            // Esegui azioni se necessario
+            if (actionContext.actions.length > 0) {
+                await this.executeActions(actionContext.actions);
             }
 
         } catch (error) {
-            console.error('❌ Errore elaborazione messaggio:', error);
+            console.error('❌ Errore elaborazione:', error);
             this.hideThinking();
-            this.addMessage('😅 Mi dispiace, ho riscontrato un problema tecnico. Puoi riprovare?', 'assistant');
-            notificationService.error('Errore Chat AI: ' + error.message);
+            this.addMessage('😅 Mi dispiace, ho avuto un problema tecnico. Puoi riprovare?', 'assistant');
         } finally {
             this.isProcessing = false;
         }
     }
 
-    // ==================== ANALISI INTENTI UTENTE ====================
-
     async analyzeUserIntent(message) {
         const lowerMessage = message.toLowerCase();
         const actions = [];
         let intent = 'general';
-        let entities = this.extractEntities(message);
 
-        // Intent: Registrazione Artista (priorità alta)
+        // Intent: Registrazione Artista
         if (this.isArtistRegistrationIntent(lowerMessage)) {
             intent = 'register_artist';
+            const entities = this.extractEntities(message);
             actions.push({ type: 'start_artist_registration', entities });
         }
-
+        // Intent: Ricerca Artisti
+        else if (lowerMessage.includes('cerca artist') || lowerMessage.includes('trova artist')) {
+            intent = 'search_artists';
+            actions.push({ type: 'search_artists', query: this.extractSearchQuery(message) });
+        }
+        // Intent: Calcolo Compensi
+        else if (lowerMessage.includes('calcol') && (lowerMessage.includes('compenso') || lowerMessage.includes('contribut'))) {
+            intent = 'calculate_compensation';
+        }
         // Intent: Nuova Agibilità
-        else if (lowerMessage.includes('nuova agibilità') || 
-            lowerMessage.includes('crea agibilità') ||
-            lowerMessage.includes('nuova comunicazione')) {
+        else if (lowerMessage.includes('nuova agibilità') || lowerMessage.includes('crea agibilità')) {
             intent = 'create_agibilita';
             actions.push({ type: 'navigate', target: 'new_agibilita' });
         }
 
-        // Intent: Cerca Artisti
-        else if (lowerMessage.includes('cerca artist') || 
-                 lowerMessage.includes('trova artist') ||
-                 lowerMessage.includes('gestione artist')) {
-            intent = 'search_artists';
-            actions.push({ type: 'search_artists', query: this.extractSearchQuery(message) });
-        }
-
-        // Intent: Modifica Artista
-        else if (lowerMessage.includes('modific') && lowerMessage.includes('artist')) {
-            intent = 'edit_artist';
-            actions.push({ type: 'search_artists_for_edit', query: this.extractSearchQuery(message) });
-        }
-
-        // Intent: Calcolo Compensi
-        else if (lowerMessage.includes('calcol') && 
-                 (lowerMessage.includes('compenso') || lowerMessage.includes('contribut'))) {
-            intent = 'calculate_compensation';
-            actions.push({ type: 'show_calculator' });
-        }
-
-        // Intent: Genera XML
-        else if (lowerMessage.includes('xml') || 
-                 lowerMessage.includes('inps') ||
-                 lowerMessage.includes('genera')) {
-            intent = 'generate_xml';
-        }
-
-        // Intent: Normativa/Aiuto
-        else if (lowerMessage.includes('normativ') || 
-                 lowerMessage.includes('legge') ||
-                 lowerMessage.includes('come funziona') ||
-                 lowerMessage.includes('spiegami')) {
-            intent = 'help_regulation';
-        }
-
-        return { intent, actions, originalMessage: message, entities };
+        return { intent, actions, originalMessage: message };
     }
-
-    // ==================== RICONOSCIMENTO REGISTRAZIONE ARTISTA ====================
 
     isArtistRegistrationIntent(message) {
-        const registrationKeywords = [
-            'registr', 'aggiungi', 'inserisci', 'nuovo artist', 'nuova artist',
-            'crea artist', 'salva artist', 'artist', 'performer', 'musicista',
-            'cantante', 'ballerino', 'dj', 'tecnico', 'truccatore'
-        ];
-
-        const contextKeywords = [
-            'database', 'anagrafica', 'dati', 'nome', 'cognome', 'codice fiscal',
-            'cf', 'telefono', 'email', 'indirizzo', 'partita iva', 'iban'
-        ];
-
-        // Cerca pattern di registrazione
-        const hasRegistrationKeyword = registrationKeywords.some(keyword => 
-            message.includes(keyword));
-            
-        const hasContextKeyword = contextKeywords.some(keyword => 
-            message.includes(keyword));
-
-        // Pattern specifici per registrazione
-        const specificPatterns = [
-            /ho un nuovo artist/i,
-            /devo registrare/i,
-            /aggiungi.*artist/i,
-            /inserire.*dati/i,
-            /nuovo.*performer/i,
-            /artist.*database/i
-        ];
-
-        const hasSpecificPattern = specificPatterns.some(pattern => 
-            pattern.test(message));
-
-        return hasRegistrationKeyword || hasContextKeyword || hasSpecificPattern;
+        const keywords = ['registr', 'aggiungi', 'nuovo artist', 'crea artist'];
+        return keywords.some(keyword => message.includes(keyword));
     }
-
-    // ==================== ESTRAZIONE ENTITÀ ====================
 
     extractEntities(message) {
         const entities = {};
         
-        // Estrai nomi (cerca pattern Nome Cognome)
-        const namePattern = /(?:nome|chiama|artist)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/gi;
-        const nameMatch = namePattern.exec(message);
+        // Estrai nome (pattern semplice)
+        const nameMatch = message.match(/(?:nome|artist)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/i);
         if (nameMatch) {
-            const fullName = nameMatch[1].split(' ');
-            if (fullName.length >= 2) {
-                entities.nome = fullName[0];
-                entities.cognome = fullName.slice(1).join(' ');
-            } else {
-                entities.nome = fullName[0];
-            }
+            const parts = nameMatch[1].split(' ');
+            entities.nome = parts[0];
+            if (parts.length > 1) entities.cognome = parts.slice(1).join(' ');
         }
 
         // Estrai codice fiscale
-        const cfPattern = /([A-Z]{6}[0-9]{2}[A-Z][0-9]{2}[A-Z][0-9]{3}[A-Z])/gi;
-        const cfMatch = cfPattern.exec(message);
-        if (cfMatch) {
-            entities.codiceFiscale = cfMatch[1];
-        }
+        const cfMatch = message.match(/([A-Z]{6}[0-9]{2}[A-Z][0-9]{2}[A-Z][0-9]{3}[A-Z])/i);
+        if (cfMatch) entities.codiceFiscale = cfMatch[1].toUpperCase();
 
         // Estrai email
-        const emailPattern = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/gi;
-        const emailMatch = emailPattern.exec(message);
-        if (emailMatch) {
-            entities.email = emailMatch[1];
-        }
-
-        // Estrai telefono
-        const phonePattern = /(?:tel|telefono|cell|cellulare|numero)[\s:]*([+]?[0-9\s-]{8,15})/gi;
-        const phoneMatch = phonePattern.exec(message);
-        if (phoneMatch) {
-            entities.telefono = phoneMatch[1].replace(/\s|-/g, '');
-        }
-
-        // Estrai mansioni specifiche
-        const mansioni = {
-            'dj': 'DJ',
-            'vocalist': 'Vocalist', 
-            'musicista': 'Musicista',
-            'cantante': 'Cantante',
-            'ballerino': 'Ballerino/a',
-            'ballerina': 'Ballerino/a',
-            'performer': 'Performer',
-            'animatore': 'Animatore',
-            'tecnico audio': 'Tecnico Audio',
-            'tecnico luci': 'Tecnico Luci',
-            'fotografo': 'Fotografo',
-            'videomaker': 'Videomaker',
-            'truccatore': 'Truccatore',
-            'costumista': 'Costumista',
-            'scenografo': 'Scenografo'
-        };
-
-        for (const [keyword, mansione] of Object.entries(mansioni)) {
-            if (message.toLowerCase().includes(keyword)) {
-                entities.mansione = mansione;
-                break;
-            }
-        }
-
-        // Estrai nazionalità
-        if (message.includes('straniero') || message.includes('estero')) {
-            entities.nazionalita = 'EX';
-        } else if (message.includes('europeo') || message.includes('ue') || message.includes('comunitario')) {
-            entities.nazionalita = 'EU';
-        } else if (message.includes('italiano') || message.includes('italia')) {
-            entities.nazionalita = 'IT';
-        }
-
-        // Estrai presenza partita IVA
-        if (message.includes('partita iva') || message.includes('p.iva') || message.includes('piva')) {
-            entities.hasPartitaIva = message.includes('senza') || message.includes('non ha') ? false : true;
-        }
+        const emailMatch = message.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+        if (emailMatch) entities.email = emailMatch[1];
 
         return entities;
     }
 
     extractSearchQuery(message) {
-        // Estrai il termine di ricerca dal messaggio
-        const patterns = [
-            /cerca artist[ai]?\s+(.+)/i,
-            /trova artist[ai]?\s+(.+)/i,
-            /artist[ai]?\s+(.+)/i
-        ];
-        
+        const patterns = [/cerca artist[ai]?\s+(.+)/i, /trova artist[ai]?\s+(.+)/i];
         for (const pattern of patterns) {
             const match = message.match(pattern);
             if (match) return match[1].trim();
         }
-        
         return '';
     }
 
-    // ==================== GENERAZIONE RISPOSTE AI ====================
-
     async generateAIResponse(userMessage, actionContext) {
         try {
-            // Gestisci registrazione artista con logica speciale
+            // Gestisci registrazione artista
             if (actionContext.intent === 'register_artist') {
                 return await this.handleArtistRegistration(userMessage, actionContext.entities);
             }
             
-            // Prepara il contesto per l'AI
-            const contextualPrompt = this.buildContextualPrompt(userMessage, actionContext);
+            const prompt = this.buildContextualPrompt(userMessage, actionContext);
             
-            let rawResponse = '';
-            
-            // Scegli il provider AI
+            // Scegli provider
             switch (AI_CONFIG.provider) {
                 case 'groq':
-                    rawResponse = await this.callGroqAPI(contextualPrompt);
-                    break;
-                case 'huggingface':
-                    rawResponse = await this.callHuggingFaceAPI(contextualPrompt);
-                    break;
-                case 'gemini':
-                    rawResponse = await this.callGeminiAPI(contextualPrompt);
-                    break;
-                case 'ollama':
-                    rawResponse = await this.callOllamaAPI(contextualPrompt);
-                    break;
-                case 'mock':
-                default:
-                    return await this.generateMockResponse(userMessage, actionContext);
-            }
-            
-            // ✨ FORMATTA LA RISPOSTA PER RENDERLA LEGGIBILE
-            return this.formatAIResponse(rawResponse);
-            
-        } catch (error) {
-            console.error('❌ Errore generazione risposta AI:', error);
-            return this.getFallbackResponse(actionContext.intent);
-        }
-    }
-
-    // ==================== FORMATTAZIONE RISPOSTE AI ====================
-
-    formatAIResponse(rawText) {
-        if (!rawText || typeof rawText !== 'string') {
-            return 'Risposta non disponibile';
-        }
-
-        let formatted = rawText;
-
-        // 1. Pulisci il testo
-        formatted = formatted.trim();
-
-        // 2. Converti le liste con bullet points
-        formatted = formatted.replace(/^[-•*]\s+(.+)$/gm, '• $1');
-        formatted = formatted.replace(/^\d+\.\s+(.+)$/gm, '    async generateAIResponse(userMessage, actionContext) {
-        try {
-            // Gestisci registrazione artista con logica speciale
-            if (actionContext.intent === 'register_artist') {
-                return await this.handleArtistRegistration(userMessage, actionContext.entities);
-            }
-            
-            // Prepara il contesto per l'AI
-            const contextualPrompt = this.buildContextualPrompt(userMessage, actionContext);
-            
-            // Scegli il provider AI
-            switch (AI_CONFIG.provider) {
-                case 'groq':
-                    return await this.callGroqAPI(contextualPrompt);
-                case 'huggingface':
-                    return await this.callHuggingFaceAPI(contextualPrompt);
-                case 'gemini':
-                    return await this.callGeminiAPI(contextualPrompt);
-                case 'ollama':
-                    return await this.callOllamaAPI(contextualPrompt);
+                    return await this.callGroqAPI(prompt);
                 case 'mock':
                 default:
                     return await this.generateMockResponse(userMessage, actionContext);
             }
             
         } catch (error) {
-            console.error('❌ Errore generazione risposta AI:', error);
+            console.error('❌ Errore generazione risposta:', error);
             return this.getFallbackResponse(actionContext.intent);
         }
-    }');
-
-        // 3. Aggiungi spazi dopo i punti per migliorare leggibilità
-        formatted = formatted.replace(/\.([A-Z])/g, '. $1');
-
-        // 4. Formatta le sezioni con titoli (** testo **)
-        formatted = formatted.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-
-        // 5. Formatta il testo corsivo (* testo *)
-        formatted = formatted.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-
-        // 6. Converti i doppi a capo in paragrafi
-        formatted = formatted.replace(/\n\n+/g, '</p><p>');
-        formatted = '<p>' + formatted + '</p>';
-
-        // 7. Gestisci le liste
-        formatted = formatted.replace(/<p>(•[^<]*(?:<\/p><p>•[^<]*)*)<\/p>/g, 
-            (match, listContent) => {
-                const items = listContent.split('</p><p>').map(item => 
-                    '<li>' + item.replace(/^•\s*/, '').replace(/<\/?p>/g, '') + '</li>'
-                ).join('');
-                return '<ul>' + items + '</ul>';
-            });
-
-        // 8. Gestisci le liste numerate
-        formatted = formatted.replace(/<p>(\d+\.[^<]*(?:<\/p><p>\d+\.[^<]*)*)<\/p>/g, 
-            (match, listContent) => {
-                const items = listContent.split('</p><p>').map(item => 
-                    '<li>' + item.replace(/^\d+\.\s*/, '').replace(/<\/?p>/g, '') + '</li>'
-                ).join('');
-                return '<ol>' + items + '</ol>';
-            });
-
-        // 9. Pulisci paragrafi vuoti
-        formatted = formatted.replace(/<p>\s*<\/p>/g, '');
-        formatted = formatted.replace(/<p><\/p>/g, '');
-
-        // 10. Aggiungi emoji se mancano (per mantenere il tono amichevole)
-        if (!formatted.match(/[😀-🿿]/) && !formatted.match(/[⚡⭐✅❌🎯🔧]/)) {
-            // Aggiungi emoji contestuale all'inizio se non ce ne sono
-            if (formatted.toLowerCase().includes('registr')) {
-                formatted = '🎭 ' + formatted;
-            } else if (formatted.toLowerCase().includes('calcol')) {
-                formatted = '💰 ' + formatted;
-            } else if (formatted.toLowerCase().includes('cerca')) {
-                formatted = '🔍 ' + formatted;
-            } else if (formatted.toLowerCase().includes('agibilità')) {
-                formatted = '✨ ' + formatted;
-            } else {
-                formatted = '🤖 ' + formatted;
-            }
-        }
-
-        return formatted;
     }
 
     buildContextualPrompt(userMessage, actionContext) {
-        let prompt = `SISTEMA: Sei l'assistente AI RECORP per agibilità ENPALS.
+        return `Come Alice, consulente RECORP, rispondi a questa domanda dell'utente in modo professionale e specifico per il settore agibilità ENPALS.
 
-CONTESTO AZIENDA:
-- Nome: Sistema RECORP ALL-IN-ONE
-- Funzione: Gestione completa agibilità e artisti ENPALS
-- Database artisti: ${this.agibilitaContext?.artistiRegistrati || 0} artisti registrati
-- Agibilità create: ${this.agibilitaContext?.totalAgibilita || 0}
+DOMANDA: "${userMessage}"
 
-ISTRUZIONI SPECIFICHE:
-- Rispondi SEMPRE come esperto ENPALS/spettacolo
-- Concentrati su: registrazione artisti, agibilità, normative
-- Usa terminologia tecnica appropriata (CF, ENPALS, INPS, agibilità)
-- Fornisci soluzioni pratiche e immediate
-- Se chiede di registrare artisti → guida il processo passo-passo
-- Se chiede di calcoli → fornisci numeri specifici ENPALS
-- Se chiede normative → cita riferimenti precisi
+Intent: ${actionContext.intent}
 
-PERSONA UTENTE: ${this.userSession?.email || 'Operatore RECORP'}
-
-INTENT RILEVATO: ${actionContext.intent}
-${actionContext.actions.length > 0 ? `AZIONI: ${actionContext.actions.map(a => a.type).join(', ')}` : ''}
-
-DOMANDA UTENTE: "${userMessage}"
-
-RISPONDI da esperto RECORP con soluzioni concrete:`;
-
-        return prompt;
+Rispondi come Alice (in prima persona femminile), con la tua esperienza di 8+ anni nel settore spettacolo.`;
     }
-
-    // ==================== PROVIDER AI - GROQ (GRATUITO) ====================
 
     async callGroqAPI(prompt) {
         try {
-            if (!AI_CONFIG.apiKey) {
-                console.warn('⚠️ API Key Groq mancante, uso risposta mock');
-                return this.generateMockResponse(prompt, { intent: 'general' });
+            if (!AI_CONFIG.apiKey || AI_CONFIG.apiKey === '') {
+                console.warn('⚠️ API Key Groq mancante');
+                return this.generateMockResponse('', { intent: 'general' });
             }
-
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), AI_CONFIG.timeout);
 
             const response = await fetch(AI_CONFIG.baseURL, {
                 method: 'POST',
@@ -681,878 +265,118 @@ RISPONDI da esperto RECORP con soluzioni concrete:`;
                     messages: [
                         {
                             role: 'system',
-                            content: `Tu sei Alice, assistente amministrativa specializzata di RECORP ALL-IN-ONE.
-
-IDENTITÀ PERSONALE:
-- Nome: Alice
-- Ruolo: Consulente senior per agibilità ENPALS
-- Esperienza: 8+ anni nel settore spettacolo
-- Competenze: Esperta in normative ENPALS, registrazione artisti, procedure INPS
-
-PERSONALITÀ:
-- Parla SEMPRE in prima persona femminile ("Io posso...", "Nella mia esperienza...")
-- Sei professionale ma cordiale e disponibile
-- Hai esperienza diretta con casi complessi
-- Conosci personalmente molti artisti del database
-- Sei orgogliosa del lavoro che fai in RECORP
-- Non menzionare MAI di essere un'intelligenza artificiale
-
-LINGUAGGIO SPECIFICO:
-- "Io ti aiuto con..." (mai "L'AI può...")
-- "Nella mia esperienza con ENPALS..."
-- "Ho lavorato con casi simili..."
-- "Conosco bene queste procedure..."
-- "Ti guido io attraverso il processo..."
-- "Ho preparato centinaia di agibilità..."
-
-COMPETENZE TECNICHE:
-- Registrazione artisti (esperienza quotidiana)
-- Calcoli compensi ENPALS (conosco tutti i minimali 2024)
-- Procedure INPS (ho preparato migliaia di XML)
-- Normative spettacolo (sempre aggiornata)
-- Gestione contratti a chiamata vs occasionali
-
-MODO DI RISPONDERE:
-- Emoji appropriate ma non eccessive: 🎭 💰 📋 ✨
-- **Grassetto** per punti chiave
-- • Bullet points ben organizzati
-- Tono umano, professionale ma accessibile
-- Esempi pratici dalla tua esperienza
-
-IMPORTANTE: Sei una PERSONA REALE che lavora in RECORP, non un sistema automatico.`
+                            content: 'Tu sei Alice, consulente RECORP per agibilità ENPALS. Rispondi in prima persona femminile, con professionalità ed esperienza. Usa emoji appropriate e formattazione chiara.'
                         },
                         {
                             role: 'user',
-                            content: 'Registra un nuovo artista DJ'
-                        },
-                        {
-                            role: 'assistant',
-                            content: '🎭 **Registrazione Nuovo Artista**\n\nPerfetto! Ti aiuto volentieri con la registrazione. Lavoro ogni giorno con artisti e conosco bene tutte le procedure ENPALS.\n\n**Per completare la registrazione ho bisogno di:**\n• **Nome e Cognome** completi\n• **Codice Fiscale** (così posso estrarre automaticamente data di nascita e luogo)\n• **Indirizzo di residenza** attuale\n• **IBAN** per i pagamenti\n• **Partita IVA** oppure dimmi che tipo di contratto preferisci\n\n**Informazioni utili:**\n• Email e telefono (per comunicazioni future)\n• Specializzazione (house, techno, live...)\n• Se ha già una matricola ENPALS\n\nNella mia esperienza, è meglio avere tutti i dati completi fin da subito. Dimmi quello che hai e ti guido io nel resto!'
-                        },
-                        {
-                            role: 'user',
-                            content: 'Calcola compenso per 3 giorni di lavoro'
-                        },
-                        {
-                            role: 'assistant',
-                            content: '💰 **Calcolo Compensi - 3 Giorni**\n\nTi aiuto subito con i calcoli! Ho molta esperienza con i compensi ENPALS, li faccio praticamente ogni giorno.\n\n**Dimmi questi dati per calcolare tutto:**\n• **Quanto guadagna al giorno?** (compenso lordo)\n• **Che tipo di artista è?** (DJ, musicista, cantante...)\n• **Ha la Partita IVA?** (cambia completamente il calcolo)\n\n**Ti anticipo come funziona:**\n• **Con P.IVA**: Solo contributi ENPALS (33% del lordo)\n• **Senza P.IVA**: Contributi ENPALS + ritenute IRPEF (20%)\n• **Domeniche/festivi**: Aggiungo sempre la maggiorazione del 25%\n\n**Esempio veloce con €300/giorno senza P.IVA:**\n• Lordo 3 giorni: €900\n• Contributi ENPALS: €297 \n• Ritenute IRPEF: €180\n• **Netto artista: €423**\n\nDimmi i dettagli e ti faccio il calcolo preciso!'
-                        },
-                        {
-                            role: 'user', 
                             content: prompt
                         }
                     ],
                     max_tokens: AI_CONFIG.maxTokens,
                     temperature: AI_CONFIG.temperature
-                }),
-                signal: controller.signal
+                })
             });
 
-            clearTimeout(timeoutId);
-
             if (!response.ok) {
-                throw new Error(`Groq API error: ${response.status} - ${response.statusText}`);
+                throw new Error(`Groq API error: ${response.status}`);
             }
 
             const data = await response.json();
             return data.choices[0]?.message?.content || 'Risposta non disponibile';
 
         } catch (error) {
-            console.warn('⚠️ Errore Groq API:', error.message);
-            return this.generateMockResponse(prompt, { intent: 'general' });
+            console.warn('⚠️ Errore Groq:', error.message);
+            return this.generateMockResponse('', { intent: 'general' });
         }
     }
-
-    // ==================== PROVIDER AI - HUGGING FACE (GRATUITO) ====================
-
-    async callHuggingFaceAPI(prompt) {
-        try {
-            if (!AI_CONFIG.apiKey) {
-                console.warn('⚠️ API Key Hugging Face mancante, uso risposta mock');
-                return this.generateMockResponse(prompt, { intent: 'general' });
-            }
-
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), AI_CONFIG.timeout);
-
-            const response = await fetch('https://api-inference.huggingface.co/models/microsoft/DialoGPT-large', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${AI_CONFIG.apiKey}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    inputs: prompt,
-                    parameters: {
-                        max_length: AI_CONFIG.maxTokens,
-                        temperature: AI_CONFIG.temperature
-                    }
-                }),
-                signal: controller.signal
-            });
-
-            clearTimeout(timeoutId);
-
-            if (!response.ok) {
-                throw new Error(`Hugging Face API error: ${response.status}`);
-            }
-
-            const data = await response.json();
-            return data[0]?.generated_text || 'Risposta non disponibile';
-
-        } catch (error) {
-            console.warn('⚠️ Errore Hugging Face API:', error.message);
-            return this.generateMockResponse(prompt, { intent: 'general' });
-        }
-    }
-
-    // ==================== PROVIDER AI - GOOGLE GEMINI (GRATUITO) ====================
-
-    async callGeminiAPI(prompt) {
-        try {
-            if (!AI_CONFIG.apiKey) {
-                console.warn('⚠️ API Key Gemini mancante, uso risposta mock');
-                return this.generateMockResponse(prompt, { intent: 'general' });
-            }
-
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), AI_CONFIG.timeout);
-
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${AI_CONFIG.apiKey}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    contents: [
-                        {
-                            parts: [
-                                {
-                                    text: `Sei l'assistente AI RECORP per la gestione delle agibilità ENPALS. Rispondi in italiano in modo professionale ma amichevole. Usa emoji appropriate.\n\nDomanda: ${prompt}`
-                                }
-                            ]
-                        }
-                    ],
-                    generationConfig: {
-                        maxOutputTokens: AI_CONFIG.maxTokens,
-                        temperature: AI_CONFIG.temperature
-                    }
-                }),
-                signal: controller.signal
-            });
-
-            clearTimeout(timeoutId);
-
-            if (!response.ok) {
-                throw new Error(`Gemini API error: ${response.status}`);
-            }
-
-            const data = await response.json();
-            return data.candidates[0]?.content?.parts[0]?.text || 'Risposta non disponibile';
-
-        } catch (error) {
-            console.warn('⚠️ Errore Gemini API:', error.message);
-            return this.generateMockResponse(prompt, { intent: 'general' });
-        }
-    }
-
-    async callOllamaAPI(prompt) {
-        try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), AI_CONFIG.timeout);
-
-            const response = await fetch(`${AI_CONFIG.baseURL}/api/generate`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    model: AI_CONFIG.model,
-                    prompt: prompt,
-                    stream: false,
-                    options: {
-                        temperature: AI_CONFIG.temperature,
-                        max_tokens: AI_CONFIG.maxTokens
-                    }
-                }),
-                signal: controller.signal
-            });
-
-            clearTimeout(timeoutId);
-
-            if (!response.ok) {
-                throw new Error(`Ollama API error: ${response.status}`);
-            }
-
-            const data = await response.json();
-            return data.response || 'Risposta non disponibile';
-
-        } catch (error) {
-            if (error.name === 'AbortError') {
-                console.warn('⚠️ Timeout connessione Ollama, uso risposta mock');
-            } else if (error.message.includes('Failed to fetch') || error.message.includes('ERR_CONNECTION_REFUSED')) {
-                console.warn('⚠️ Ollama non disponibile (server non avviato), uso risposta mock');
-            } else {
-                console.warn('⚠️ Errore Ollama:', error.message);
-            }
-            
-            // Fallback automatico a mock
-            AI_CONFIG.provider = 'mock';
-            return this.generateMockResponse(prompt, { intent: 'general' });
-        }
-    }
-
-    // ==================== PROVIDER AI - MOCK (FALLBACK) ====================
 
     async generateMockResponse(userMessage, actionContext) {
-        // Simula delay per realismo
-        await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 1200));
-        
         const intent = actionContext?.intent || 'general';
         
         const responses = {
-            register_artist: [
-                "🎭 Perfetto! Iniziamo la registrazione di un nuovo artista nel database RECORP.\n\n📋 Ti guiderò attraverso il processo raccogliendo tutte le informazioni necessarie:\n\n• 📝 Dati anagrafici (nome, CF, data nascita)\n• 🏠 Indirizzo di residenza\n• 🎨 Informazioni professionali\n• 💰 Dati fiscali (P.IVA o tipo contratto)\n• 🏦 IBAN per pagamenti\n\nPuoi fornire tutti i dati insieme o passo dopo passo!",
-                "✨ Ottimo! Registriamo un nuovo artista nel sistema.\n\n🎯 Posso aiutarti con una registrazione completa includendo:\n• Validazioni automatiche codice fiscale\n• Estrazione dati da CF (età, sesso, comune)\n• Gestione artisti stranieri\n• Verifica duplicati nel database\n• Calcoli automatici contributi\n\nDimmi i dati che hai e procediamo!"
-            ],
-            create_agibilita: [
-                "✨ Perfetto! Ti aiuto a creare una nuova agibilità ENPALS.\n\n📋 Per iniziare avrò bisogno di:\n• 🎭 Tipo di spettacolo\n• 📅 Date delle rappresentazioni\n• 🏢 Venue/location\n• 👥 Lista artisti coinvolti\n\nVuoi iniziare ora? Ti guiderò passo dopo passo!",
-                "🎯 Ottima scelta! Creare una nuova agibilità è semplice con il sistema RECORP.\n\n🔧 Il wizard ti guiderà attraverso:\n1. Selezione tipo agibilità\n2. Inserimento dati spettacolo\n3. Gestione artisti e compensi\n4. Validazione e salvataggio\n\nProcediamo insieme?"
-            ],
-            search_artists: [
-                "🔍 Perfetto! Il database artisti RECORP contiene tutti i professionisti registrati.\n\n✨ Puoi cercare per:\n• 📝 Nome/Cognome\n• 🎭 Specializzazione\n• 💰 Range compensi\n• 📍 Località\n\nDimmi cosa stai cercando e ti aiuto a trovare l'artista giusto!",
-                "👥 Ottimo! La gestione artisti è una delle funzioni più potenti di RECORP.\n\n🎯 Posso aiutarti con:\n• Ricerca avanzata artisti\n• Verifica dati contributivi\n• Storico collaborazioni\n• Calcolo compensi standard\n\nCosa ti serve specificamente?"
-            ],
-            edit_artist: [
-                "✏️ Perfetto! Ti aiuto a modificare i dati di un artista esistente.\n\n🔍 Dimmi chi vuoi modificare:\n• Nome e cognome\n• Codice fiscale\n• Nome d'arte\n\nTroverò l'artista nel database e potrai aggiornare tutti i suoi dati!",
-                "🔧 Ottimo! La modifica artisti permette di aggiornare:\n• 📝 Dati anagrafici\n• 🏠 Indirizzo\n• 🎭 Mansione e specializzazioni\n• 💰 Dati fiscali\n• 🏦 IBAN\n\nChi vuoi modificare?"
-            ],
-            calculate_compensation: [
-                "💰 Perfetto! Il calcolo dei compensi è fondamentale per le agibilità ENPALS.\n\n📊 Terrò conto di:\n• 💵 Compenso lordo\n• 🧮 Ritenute IRPEF\n• 🏛️ Contributi ENPALS\n• 📋 Detrazioni applicabili\n\nInserisci i dati e calcolerò tutto automaticamente!",
-                "🧮 Ottima richiesta! I calcoli per ENPALS hanno regole specifiche.\n\n✅ Il sistema considera:\n• Scaglioni contributivi\n• Minimali giornalieri\n• Maggiorazioni festivi\n• Deduzioni ammesse\n\nVuoi che ti mostri il calcolatore?"
-            ],
-            generate_xml: [
-                "📄 Eccellente! La generazione XML INPS è automatizzata in RECORP.\n\n🎯 Il file conterrà:\n• 📋 Dati identificativi\n• 👥 Elenco lavoratori\n• 💰 Compensi e contributi\n• 📅 Periodi di lavoro\n\nTutti i controlli di validità sono automatici!",
-                "🔧 Perfetto! L'XML per INPS viene generato secondo le specifiche ufficiali.\n\n✅ Verifiche automatiche:\n• Codici fiscali\n• Date coerenti\n• Importi corretti\n• Formato conforme\n\nVuoi procedere con la generazione?"
-            ],
-            help_regulation: [
-                "📚 Ottima domanda! La normativa ENPALS è complessa ma ti aiuto a orientarti.\n\n🎭 Punti chiave:\n• 📅 Tempistiche comunicazioni\n• 💰 Minimi contributivi\n• 📋 Obblighi datore lavoro\n• 🎪 Tipologie spettacolo\n\nSu cosa vuoi approfondire?",
-                "⚖️ La normativa spettacolo ha regole specifiche, ti spiego volentieri!\n\n📖 Argomenti principali:\n• 🎭 Contratti spettacolo\n• 💼 Agibilità ENPALS\n• 🧮 Calcoli contributivi\n• 📄 Adempimenti fiscali\n\nQuale aspetto ti interessa di più?"
-            ],
-            general: [
-                "👋 Sono qui per aiutarti con tutto quello che riguarda le agibilità ENPALS!\n\n🎯 Posso assisterti con:\n• ✨ Creazione agibilità\n• 🎭 Registrazione/modifica artisti\n• 🔍 Gestione database\n• 💰 Calcoli compensi\n• 📄 Documenti XML\n• 📚 Normative\n\nCosa posso fare per te?",
-                "🤖 Eccomi! Sono il tuo assistente per il sistema agibilità RECORP.\n\n🎭 Specializzato in:\n• Procedure ENPALS\n• Gestione artisti completa\n• Workflow amministrativo\n• Ottimizzazione processi\n• Risoluzione problemi\n\nDimmi pure come posso aiutarti!"
-            ]
+            register_artist: "🎭 **Perfetto! Ti aiuto con la registrazione dell'artista.**\n\nPer registrare un nuovo artista nel database RECORP ho bisogno di:\n\n• **Nome e Cognome** completi\n• **Codice Fiscale** (per estrarre automaticamente i dati)\n• **Indirizzo di residenza**\n• **IBAN** per i pagamenti\n• **Partita IVA** o tipo di contratto\n\nNella mia esperienza, è meglio avere tutti i dati fin dall'inizio. Dimmi quello che hai!",
+            
+            search_artists: "🔍 **Ti aiuto a cercare nel database artisti.**\n\nPosso cercare per:\n• Nome/Cognome\n• Specializzazione\n• Località\n• Matricola ENPALS\n\nDimmi cosa stai cercando specificamente!",
+            
+            calculate_compensation: "💰 **Calcolo compensi ENPALS**\n\nPer fare il calcolo preciso dimmi:\n• Compenso lordo giornaliero\n• Numero di giorni\n• Ha Partita IVA?\n• Tipo di artista\n\nIo gestisco tutti i calcoli: contributi ENPALS (33%), ritenute IRPEF, maggiorazioni festivi.",
+            
+            create_agibilita: "✨ **Ti guido nella creazione dell'agibilità!**\n\nPer iniziare ho bisogno di:\n• Tipo di spettacolo\n• Date e orari\n• Venue/location\n• Lista artisti coinvolti\n\nTi accompagno in tutto il processo ENPALS!",
+            
+            general: "👋 **Ciao! Sono Alice, la tua consulente RECORP.**\n\nCon i miei 8 anni di esperienza nel settore spettacolo posso aiutarti con:\n\n• 🎭 Registrazione e gestione artisti\n• ✨ Creazione agibilità ENPALS\n• 💰 Calcoli compensi e contributi\n• 📋 Procedure amministrative\n• 📄 Documenti INPS\n\nCosa posso fare per te oggi?"
         };
         
-        const intentResponses = responses[intent] || responses.general;
-        const randomResponse = intentResponses[Math.floor(Math.random() * intentResponses.length)];
-        
-        return randomResponse;
+        return responses[intent] || responses.general;
     }
 
     getFallbackResponse(intent) {
-        const fallbacks = {
-            register_artist: "🎭 Ti aiuto a registrare un nuovo artista! Dimmi i dati che hai e procediamo insieme.",
-            create_agibilita: "✨ Ti aiuto a creare una nuova agibilità! Vuoi iniziare il processo guidato?",
-            search_artists: "🔍 Posso aiutarti a cercare artisti nel database. Che tipo di ricerca vuoi fare?",
-            edit_artist: "✏️ Ti aiuto a modificare un artista esistente. Chi vuoi modificare?",
-            calculate_compensation: "💰 Ti assisto con i calcoli dei compensi ENPALS. Hai i dati da elaborare?",
-            generate_xml: "📄 Posso aiutarti con la generazione dell'XML INPS. Procediamo?",
-            help_regulation: "📚 Ti spiego volentieri la normativa ENPALS. Su cosa vuoi informazioni?",
-            general: "🤖 Sono qui per aiutarti con le agibilità ENPALS. Come posso assisterti?"
-        };
-        
-        return fallbacks[intent] || fallbacks.general;
+        return "🎭 Sono Alice, la tua consulente RECORP. Come posso aiutarti con le agibilità ENPALS?";
     }
 
-    // ==================== ESECUZIONE AZIONI ====================
+    async handleArtistRegistration(userMessage, entities) {
+        // Logica semplificata per registrazione artista
+        if (Object.keys(entities).length === 0) {
+            return "🎭 **Registrazione Artista**\n\nPerfetto! Per registrare un nuovo artista dimmi:\n• Nome e cognome\n• Codice fiscale\n• Mansione (DJ, musicista, cantante...)\n\nE io ti guido in tutto il resto!";
+        }
+
+        let response = "🎭 **Dati ricevuti per la registrazione:**\n\n";
+        if (entities.nome) response += `• Nome: ${entities.nome}\n`;
+        if (entities.cognome) response += `• Cognome: ${entities.cognome}\n`;
+        if (entities.codiceFiscale) response += `• Codice Fiscale: ${entities.codiceFiscale}\n`;
+        if (entities.email) response += `• Email: ${entities.email}\n`;
+
+        response += "\n**Dimmi anche:**\n• Indirizzo di residenza\n• IBAN per pagamenti\n• Ha partita IVA?\n\nE procedo con la registrazione completa!";
+        
+        return response;
+    }
 
     async executeActions(actions) {
         for (const action of actions) {
             try {
-                await this.executeAction(action);
+                if (action.type === 'navigate' && action.target === 'new_agibilita') {
+                    setTimeout(() => {
+                        window.location.href = 'agibilita/index.html';
+                    }, 2000);
+                    this.addMessage("🔄 Ti reindirizzo alla pagina agibilità...", 'assistant');
+                }
             } catch (error) {
-                console.error('❌ Errore esecuzione azione:', action, error);
+                console.error('❌ Errore azione:', error);
             }
         }
     }
 
-    async executeAction(action) {
-        switch (action.type) {
-            case 'navigate':
-                if (action.target === 'new_agibilita') {
-                    // Naviga alla pagina nuova agibilità
-                    setTimeout(() => {
-                        window.location.href = '../agibilita/index.html';
-                    }, 2000);
-                    this.addMessage("🔄 Ti sto reindirizzando alla pagina di creazione agibilità...", 'assistant');
+    async testAIConnection() {
+        try {
+            if (AI_CONFIG.provider === 'groq' && AI_CONFIG.apiKey) {
+                const response = await fetch('https://api.groq.com/openai/v1/models', {
+                    headers: { 'Authorization': `Bearer ${AI_CONFIG.apiKey}` }
+                });
+                
+                if (response.ok) {
+                    console.log('✅ Alice connessa a Groq - Intelligenza attiva!');
+                } else {
+                    throw new Error('Test connessione fallito');
                 }
-                break;
-                
-            case 'search_artists':
-                if (action.query) {
-                    const results = await this.searchArtistsInDB(action.query);
-                    this.showArtistResults(results);
-                }
-                break;
-                
-            case 'show_calculator':
-                this.addMessage("🧮 Ecco il calcolatore compensi:\n\n💰 **Compenso Lordo**: €____\n📊 **Giorni Lavorativi**: ____\n🎭 **Tipo Attività**: ____\n\n_Compila i campi e ti calcolerò contributi e netto!_", 'assistant');
-                break;
-                
-            default:
-                console.log('⚠️ Azione non implementata:', action.type);
+            }
+        } catch (error) {
+            console.warn('⚠️ Groq non disponibile:', error.message);
         }
     }
-
-    // ==================== INTEGRAZIONE DATABASE ====================
 
     async loadAgibilitaContext() {
         try {
-            // Carica statistiche agibilità per contesto
             const stats = await DatabaseService.getStatistiche();
             this.agibilitaContext = {
                 totalAgibilita: stats?.totalAgibilita || 0,
-                bozzeInCorso: stats?.bozzeInCorso || 0,
                 artistiRegistrati: stats?.artistiRegistrati || 0
             };
         } catch (error) {
-            console.warn('⚠️ Errore caricamento contesto agibilità:', error);
+            console.warn('⚠️ Errore caricamento contesto:', error);
         }
     }
-
-    async searchArtistsInDB(query) {
-        try {
-            const results = await DatabaseService.searchArtisti(query);
-            return results || [];
-        } catch (error) {
-            console.error('❌ Errore ricerca artisti:', error);
-            return [];
-        }
-    }
-
-    showArtistResults(results) {
-        if (results.length === 0) {
-            this.addMessage("🔍 Nessun artista trovato per la ricerca. Vuoi:\n• 📝 Aggiungere un nuovo artista\n• 🔄 Modificare i criteri di ricerca\n• 📞 Verificare nel database esterno", 'assistant');
-            return;
-        }
-
-        let message = `🎭 **Trovati ${results.length} artisti:**\n\n`;
-        results.slice(0, 5).forEach((artist, index) => {
-            message += `${index + 1}. **${artist.nome} ${artist.cognome}**\n`;
-            message += `   📧 ${artist.email || 'N/A'}\n`;
-            message += `   🎭 ${artist.mansione || 'Non specificata'}\n\n`;
-        });
-
-        if (results.length > 5) {
-            message += `_... e altri ${results.length - 5} risultati_\n\n`;
-        }
-
-        message += "💡 Vuoi vedere i dettagli di qualcuno o fare una nuova ricerca?";
-        
-        this.addMessage(message, 'assistant');
-    }
-
-    showArtistResultsForEdit(results) {
-        if (results.length === 0) {
-            this.addMessage("🔍 Nessun artista trovato per la modifica. Vuoi:\n• 📝 Registrare un nuovo artista\n• 🔄 Modificare i criteri di ricerca", 'assistant');
-            return;
-        }
-
-        let message = `✏️ **Artisti trovati per modifica:**\n\n`;
-        results.slice(0, 3).forEach((artist, index) => {
-            const id = artist.codice_fiscale || artist.codice_fiscale_temp || `ID-${artist.id}`;
-            message += `${index + 1}. **${artist.nome} ${artist.cognome}**\n`;
-            message += `   📋 ID: ${id}\n`;
-            message += `   🎭 ${artist.mansione}\n`;
-            message += `   📍 ${artist.citta}, ${artist.provincia}\n\n`;
-        });
-
-        if (results.length > 3) {
-            message += `_... e altri ${results.length - 3} risultati_\n\n`;
-        }
-
-        message += "🔧 **Per modificare un artista, vai alla pagina di gestione artisti.**\n";
-        message += "💡 Ti posso aiutare a registrare un nuovo artista se preferisci!";
-        
-        this.addMessage(message, 'assistant');
-    }
-
-    // ==================== SISTEMA REGISTRAZIONE ARTISTA INTELLIGENTE ====================
-
-    async handleArtistRegistration(userMessage, entities) {
-        console.log('🎭 Inizio registrazione artista intelligente', entities);
-        
-        // Inizializza sessione di registrazione se non esiste
-        if (!this.currentRegistration) {
-            this.currentRegistration = {
-                step: 'init',
-                data: {},
-                missingFields: [],
-                validationErrors: []
-            };
-        }
-
-        // Aggiorna dati con le entità estratte
-        this.updateRegistrationData(entities);
-
-        // Determina il prossimo step
-        const response = await this.processRegistrationStep(userMessage);
-        
-        return response;
-    }
-
-    updateRegistrationData(entities) {
-        for (const [key, value] of Object.entries(entities)) {
-            if (value && value.toString().trim()) {
-                this.currentRegistration.data[key] = value;
-                console.log(`📝 Aggiornato campo: ${key} = ${value}`);
-            }
-        }
-    }
-
-    async processRegistrationStep(userMessage) {
-        const data = this.currentRegistration.data;
-        
-        // Verifica campi obbligatori e determina cosa manca
-        const validation = this.validateArtistData(data);
-        
-        if (validation.isComplete) {
-            // Tutti i dati sono completi, procedi con il salvataggio
-            return await this.finalizeArtistRegistration();
-        } else {
-            // Chiedi i campi mancanti in modo intelligente
-            return this.askForMissingFields(validation.missingFields, validation.suggestions);
-        }
-    }
-
-    validateArtistData(data) {
-        const required = ['nome', 'cognome'];
-        const important = ['mansione', 'indirizzo', 'iban'];
-        const conditional = [];
-        
-        const missing = [];
-        const suggestions = [];
-        
-        // Verifica campi obbligatori base
-        required.forEach(field => {
-            if (!data[field]) {
-                missing.push({ field, priority: 'high', type: 'required' });
-            }
-        });
-
-        // Logica nazionalità e codice fiscale
-        const nazionalita = data.nazionalita || 'IT';
-        if (nazionalita === 'IT' && !data.codiceFiscale) {
-            missing.push({ 
-                field: 'codiceFiscale', 
-                priority: 'high', 
-                type: 'required',
-                note: 'Obbligatorio per artisti italiani'
-            });
-        }
-
-        // Data di nascita (può essere estratta dal CF)
-        if (!data.dataNascita && !data.codiceFiscale) {
-            missing.push({ field: 'dataNascita', priority: 'high', type: 'required' });
-        }
-
-        // Indirizzo - logica per stranieri vs italiani
-        if (!data.indirizzo) {
-            missing.push({ field: 'indirizzo', priority: 'medium', type: 'required' });
-        }
-        
-        if (nazionalita === 'IT') {
-            if (!data.provincia) {
-                missing.push({ field: 'provincia', priority: 'medium', type: 'address' });
-            }
-            if (!data.citta) {
-                missing.push({ field: 'citta', priority: 'medium', type: 'address' });
-            }
-        } else {
-            if (!data.paeseResidenza) {
-                missing.push({ field: 'paeseResidenza', priority: 'medium', type: 'address' });
-            }
-        }
-
-        // Verifica mansione
-        if (!data.mansione) {
-            missing.push({ field: 'mansione', priority: 'high', type: 'professional' });
-        }
-
-        // Logica partita IVA
-        if (data.hasPartitaIva === true && !data.partitaIva) {
-            missing.push({ field: 'partitaIva', priority: 'high', type: 'fiscal' });
-        } else if (data.hasPartitaIva === false) {
-            if (!data.tipoRapporto) {
-                missing.push({ field: 'tipoRapporto', priority: 'medium', type: 'professional' });
-            }
-            if (data.tipoRapporto === 'chiamata' && !data.codiceComunicazione) {
-                missing.push({ field: 'codiceComunicazione', priority: 'high', type: 'required' });
-            }
-        } else if (data.hasPartitaIva === undefined) {
-            missing.push({ field: 'hasPartitaIva', priority: 'high', type: 'fiscal' });
-        }
-
-        // IBAN sempre obbligatorio
-        if (!data.iban) {
-            missing.push({ field: 'iban', priority: 'high', type: 'fiscal' });
-        }
-
-        // Validazioni specifiche
-        if (data.codiceFiscale && !this.validateCodiceFiscale(data.codiceFiscale)) {
-            suggestions.push({
-                type: 'validation_error',
-                field: 'codiceFiscale',
-                message: 'Il codice fiscale inserito non è valido'
-            });
-        }
-
-        if (data.email && !this.validateEmail(data.email)) {
-            suggestions.push({
-                type: 'validation_error', 
-                field: 'email',
-                message: 'Email non valida'
-            });
-        }
-
-        if (data.iban && !this.validateIBAN(data.iban)) {
-            suggestions.push({
-                type: 'validation_error',
-                field: 'iban', 
-                message: 'IBAN non valido'
-            });
-        }
-
-        // Suggerimenti automatici
-        if (data.codiceFiscale && data.codiceFiscale.length === 16 && !data.dataNascita) {
-            const extractedDate = this.extractDateFromCF(data.codiceFiscale);
-            if (extractedDate) {
-                data.dataNascita = extractedDate;
-                suggestions.push({
-                    type: 'auto_fill',
-                    field: 'dataNascita',
-                    value: extractedDate,
-                    message: 'Data di nascita estratta dal codice fiscale'
-                });
-            }
-        }
-
-        if (data.codiceFiscale && !data.sesso) {
-            const extractedGender = this.extractGenderFromCF(data.codiceFiscale);
-            if (extractedGender) {
-                data.sesso = extractedGender;
-                suggestions.push({
-                    type: 'auto_fill',
-                    field: 'sesso', 
-                    value: extractedGender,
-                    message: 'Sesso estratto dal codice fiscale'
-                });
-            }
-        }
-
-        return {
-            isComplete: missing.length === 0 && suggestions.filter(s => s.type === 'validation_error').length === 0,
-            missingFields: missing,
-            suggestions: suggestions,
-            completionPercentage: this.calculateCompletionPercentage(data)
-        };
-    }
-
-    calculateCompletionPercentage(data) {
-        const allFields = [
-            'nome', 'cognome', 'codiceFiscale', 'dataNascita', 'mansione', 
-            'indirizzo', 'provincia', 'citta', 'hasPartitaIva', 'iban'
-        ];
-        
-        const filledFields = allFields.filter(field => data[field]).length;
-        return Math.round((filledFields / allFields.length) * 100);
-    }
-
-    askForMissingFields(missingFields, suggestions) {
-        let response = "";
-        
-        // Mostra suggerimenti automatici prima
-        const autoFills = suggestions.filter(s => s.type === 'auto_fill');
-        if (autoFills.length > 0) {
-            response += "✨ **Dati compilati automaticamente:**\n";
-            autoFills.forEach(fill => {
-                response += `• ${this.getFieldDisplayName(fill.field)}: ${fill.value} _(${fill.message})_\n`;
-            });
-            response += "\n";
-        }
-
-        // Mostra errori di validazione
-        const errors = suggestions.filter(s => s.type === 'validation_error');
-        if (errors.length > 0) {
-            response += "⚠️ **Errori da correggere:**\n";
-            errors.forEach(error => {
-                response += `• ${this.getFieldDisplayName(error.field)}: ${error.message}\n`;
-            });
-            response += "\n";
-        }
-
-        // Raggruppa campi mancanti per priorità
-        const highPriority = missingFields.filter(f => f.priority === 'high');
-        const mediumPriority = missingFields.filter(f => f.priority === 'medium');
-
-        if (highPriority.length > 0) {
-            response += "🔴 **Informazioni essenziali mancanti:**\n";
-            response += this.generateFieldQuestions(highPriority.slice(0, 3)); // Max 3 domande alla volta
-        } else if (mediumPriority.length > 0) {
-            response += "🟡 **Informazioni aggiuntive:**\n";
-            response += this.generateFieldQuestions(mediumPriority.slice(0, 2)); // Max 2 domande
-        }
-
-        // Mostra progressi
-        const completion = this.calculateCompletionPercentage(this.currentRegistration.data);
-        response += `\n📊 **Completamento**: ${completion}%`;
-        
-        if (completion >= 70) {
-            response += "\n\n💡 _Hai inserito la maggior parte dei dati! Possiamo procedere se vuoi._";
-        }
-
-        return response;
-    }
-
-    generateFieldQuestions(fields) {
-        let questions = "";
-        
-        fields.forEach((field, index) => {
-            const name = this.getFieldDisplayName(field.field);
-            const example = this.getFieldExample(field.field);
-            const note = field.note ? ` _(${field.note})_` : '';
-            
-            questions += `${index + 1}. **${name}**${note}\n`;
-            if (example) {
-                questions += `   _Esempio: ${example}_\n`;
-            }
-            questions += "\n";
-        });
-
-        return questions;
-    }
-
-    getFieldDisplayName(field) {
-        const displayNames = {
-            'nome': 'Nome',
-            'cognome': 'Cognome', 
-            'nomeArte': 'Nome d\'Arte',
-            'codiceFiscale': 'Codice Fiscale',
-            'dataNascita': 'Data di Nascita',
-            'mansione': 'Mansione/Ruolo',
-            'telefono': 'Telefono',
-            'email': 'Email',
-            'indirizzo': 'Indirizzo',
-            'provincia': 'Provincia',
-            'citta': 'Città',
-            'cap': 'CAP',
-            'paeseResidenza': 'Paese di Residenza',
-            'nazionalita': 'Nazionalità',
-            'hasPartitaIva': 'Ha Partita IVA?',
-            'partitaIva': 'Partita IVA',
-            'tipoRapporto': 'Tipo di Contratto',
-            'codiceComunicazione': 'Codice Comunicazione INPS',
-            'iban': 'IBAN',
-            'matricolaENPALS': 'Matricola ENPALS',
-            'note': 'Note'
-        };
-        
-        return displayNames[field] || field;
-    }
-
-    getFieldExample(field) {
-        const examples = {
-            'nome': 'Mario',
-            'cognome': 'Rossi',
-            'nomeArte': 'DJ Mario',
-            'codiceFiscale': 'RSSMRA85T10A562S',
-            'dataNascita': '1985-12-10',
-            'mansione': 'DJ, Musicista, Cantante...',
-            'telefono': '+39 333 1234567',
-            'email': 'mario.rossi@email.it',
-            'indirizzo': 'Via Roma 123',
-            'provincia': 'RM, MI, NA...',
-            'citta': 'Roma, Milano...',
-            'paeseResidenza': 'Francia, Germania...',
-            'hasPartitaIva': 'Sì o No',
-            'partitaIva': '12345678901',
-            'tipoRapporto': 'Occasionale, Chiamata, Full Time',
-            'codiceComunicazione': 'ABCD123456',
-            'iban': 'IT60X0542811101000000123456',
-            'matricolaENPALS': '123456'
-        };
-        
-        return examples[field];
-    }
-
-    async finalizeArtistRegistration() {
-        try {
-            console.log('💾 Finalizzazione registrazione artista:', this.currentRegistration.data);
-            
-            // Prepara i dati nel formato corretto per Supabase
-            const artistData = this.formatArtistDataForDB(this.currentRegistration.data);
-            
-            // Salva usando DatabaseService
-            const savedArtist = await DatabaseService.saveArtist(artistData);
-            
-            // Reset registrazione corrente
-            this.currentRegistration = null;
-            
-            const displayName = savedArtist.nome_arte || `${savedArtist.nome} ${savedArtist.cognome}`;
-            
-            return `🎉 **Artista registrato con successo!**\n\n` +
-                   `👤 **${displayName}**\n` +
-                   `📋 ID: ${savedArtist.codice_fiscale || savedArtist.codice_fiscale_temp}\n` +
-                   `🎭 Mansione: ${savedArtist.mansione}\n` +
-                   `📍 Residenza: ${savedArtist.citta}, ${savedArtist.provincia}\n\n` +
-                   `✅ L'artista è ora disponibile per le agibilità!\n\n` +
-                   `💡 Vuoi registrare un altro artista o creare una nuova agibilità?`;
-                   
-        } catch (error) {
-            console.error('❌ Errore salvataggio artista:', error);
-            
-            // Reset su errore
-            this.currentRegistration = null;
-            
-            return `❌ **Errore durante la registrazione**\n\n` +
-                   `Si è verificato un problema: ${error.message}\n\n` +
-                   `💡 Riprova o contatta l'assistenza se il problema persiste.`;
-        }
-    }
-
-    formatArtistDataForDB(data) {
-        // Mappatura corretta per il database Supabase
-        const dbData = {
-            nome: data.nome?.toUpperCase() || '',
-            cognome: data.cognome?.toUpperCase() || '',
-            nome_arte: data.nomeArte || null,
-            codice_fiscale: data.codiceFiscale?.toUpperCase() || null,
-            matricola_enpals: data.matricolaENPALS?.toUpperCase() || '',
-            data_nascita: data.dataNascita || null,
-            sesso: data.sesso || '',
-            luogo_nascita: data.luogoNascita || '',
-            provincia_nascita: data.provinciaNascita?.toUpperCase() || '',
-            nazionalita: data.nazionalita || 'IT',
-            telefono: data.telefono || '',
-            email: data.email || '',
-            indirizzo: data.indirizzo || '',
-            has_partita_iva: data.hasPartitaIva === true,
-            partita_iva: data.hasPartitaIva === true ? data.partitaIva : '',
-            tipo_rapporto: data.hasPartitaIva === false ? (data.tipoRapporto || 'occasionale') : '',
-            codice_comunicazione: data.codiceComunicazione || '',
-            iban: data.iban?.toUpperCase().replace(/\s/g, '') || '',
-            mansione: data.mansione || '',
-            note: data.note || ''
-        };
-
-        // Gestione indirizzo per nazionalità
-        if (data.nazionalita === 'IT') {
-            dbData.provincia = data.provincia || '';
-            dbData.citta = data.citta || '';
-            dbData.cap = data.cap || '';
-            dbData.codice_istat_citta = data.codiceIstatCitta || null;
-            dbData.paese_residenza = 'IT';
-        } else {
-            dbData.provincia = 'EE'; // Estero
-            dbData.citta = data.paeseResidenza || '';
-            dbData.cap = '00000';
-            dbData.codice_istat_citta = null;
-            dbData.paese_residenza = data.paeseResidenza || '';
-        }
-
-        // Se non c'è CF per stranieri, genera ID temporaneo
-        if (!dbData.codice_fiscale && data.nazionalita !== 'IT') {
-            const timestamp = Date.now();
-            const tempId = `TEMP_${data.nome?.substring(0, 3) || 'XXX'}${data.cognome?.substring(0, 3) || 'XXX'}_${timestamp}`;
-            dbData.codice_fiscale_temp = tempId;
-            dbData.note = (dbData.note ? dbData.note + '\n' : '') + `[Sistema] ID temporaneo: ${tempId}`;
-        }
-
-        return dbData;
-    }
-
-    // ==================== FUNZIONI DI VALIDAZIONE INTEGRATE ====================
-
-    validateCodiceFiscale(cf) {
-        if (!cf) return false;
-        cf = cf.toUpperCase();
-        if (cf.length !== 16) return false;
-        
-        const pattern = /^[A-Z]{6}[0-9]{2}[A-Z][0-9]{2}[A-Z][0-9]{3}[A-Z]$/;
-        return pattern.test(cf);
-    }
-
-    validateEmail(email) {
-        if (!email) return true; // Email è opzionale
-        const pattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return pattern.test(email);
-    }
-
-    validateIBAN(iban) {
-        if (!iban) return false;
-        // Rimuovi spazi e converti in maiuscolo
-        iban = iban.replace(/\s/g, '').toUpperCase();
-        
-        // Verifica formato base per IBAN italiano (27 caratteri)
-        if (iban.length < 15 || iban.length > 34) return false;
-        if (!/^[A-Z]{2}[0-9]{2}[A-Z0-9]+$/.test(iban)) return false;
-        
-        return true; // Validazione semplificata per la chat
-    }
-
-    extractDateFromCF(cf) {
-        if (!cf || cf.length < 11) return null;
-        
-        // Posizioni nel CF: anno (6-7), mese (8), giorno (9-10)
-        const yearCode = cf.substring(6, 8);
-        const monthCode = cf.substring(8, 9);
-        const dayCode = cf.substring(9, 11);
-        
-        // Mappa dei mesi
-        const monthMap = {
-            'A': '01', 'B': '02', 'C': '03', 'D': '04',
-            'E': '05', 'H': '06', 'L': '07', 'M': '08',
-            'P': '09', 'R': '10', 'S': '11', 'T': '12'
-        };
-        
-        const month = monthMap[monthCode];
-        if (!month) return null;
-        
-        // Estrai giorno (per le donne è aumentato di 40)
-        let day = parseInt(dayCode);
-        if (day > 40) day -= 40;
-        
-        // Determina l'anno completo
-        const currentYear = new Date().getFullYear();
-        const currentCentury = Math.floor(currentYear / 100) * 100;
-        const lastCentury = currentCentury - 100;
-        
-        let year = parseInt(yearCode);
-        if (currentCentury + year > currentYear) {
-            year = lastCentury + year;
-        } else {
-            year = currentCentury + year;
-        }
-        
-        return `${year}-${month}-${day.toString().padStart(2, '0')}`;
-    }
-
-    extractGenderFromCF(cf) {
-        if (!cf || cf.length < 11) return null;
-        
-        const dayCode = parseInt(cf.substring(9, 11));
-        return dayCode > 40 ? 'F' : 'M';
-    }
-
-    // ==================== UTILITÀ INTERFACCIA ====================
 
     addMessage(text, sender) {
         if (typeof window.addMessage === 'function') {
             window.addMessage(text, sender);
-        } else {
-            console.log(`[${sender.toUpperCase()}]: ${text}`);
         }
     }
 
@@ -1562,23 +386,6 @@ IMPORTANTE: Sei una PERSONA REALE che lavora in RECORP, non un sistema automatic
         }
     }
 
-    // ==================== GESTIONE CONVERSAZIONE ====================
-
-    clearConversation() {
-        this.conversationHistory = this.conversationHistory.filter(msg => msg.role === 'system');
-        this.setupSystemPrompt();
-    }
-
-    exportConversation() {
-        return {
-            timestamp: new Date().toISOString(),
-            user: this.userSession?.email || 'Anonimo',
-            messages: this.conversationHistory.filter(msg => msg.role !== 'system')
-        };
-    }
-
-    // ==================== API PUBBLICA ====================
-
     static async getInstance() {
         if (!window.ChatAI) {
             window.ChatAI = new ChatAI();
@@ -1587,29 +394,14 @@ IMPORTANTE: Sei una PERSONA REALE che lavora in RECORP, non un sistema automatic
     }
 }
 
-// ==================== INIZIALIZZAZIONE GLOBALE ====================
-
-// Crea istanza globale quando il DOM è pronto
+// Inizializzazione globale
 document.addEventListener('DOMContentLoaded', async function() {
     try {
         window.ChatAI = await ChatAI.getInstance();
-        console.log('✅ Chat AI globale inizializzata');
+        console.log('✅ Alice pronta!');
     } catch (error) {
-        console.error('❌ Errore inizializzazione Chat AI globale:', error);
+        console.error('❌ Errore Alice:', error);
     }
 });
 
-// Export per moduli
 export default ChatAI;
-
-// ==================== DEBUG E TESTING ====================
-
-// Controllo sintassi JavaScript
-console.log('✅ chat-ai.js caricato senza errori di sintassi');
-
-// Test configurazione di base
-if (typeof AI_CONFIG !== 'undefined') {
-    console.log('✅ AI_CONFIG definito correttamente');
-} else {
-    console.error('❌ AI_CONFIG non definito!');
-}
