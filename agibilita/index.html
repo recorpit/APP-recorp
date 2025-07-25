@@ -4,112 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestione Agibilità - RECORP ALL-IN-ONE</title>
+    
+    <!-- CSS -->
     <link rel="stylesheet" href="../assets/style.css">
-    <style>
-        /* CSS per supportare le nuove features */
-        .reserved-number-display {
-            background: #e3f2fd;
-            border: 1px solid #2196f3;
-            border-radius: 8px;
-            padding: 12px 16px;
-            margin: 15px 0;
-            display: none;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .reserved-number-badge {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .reserved-number-badge .numero {
-            font-weight: bold;
-            color: #1976d2;
-            font-size: 1.1em;
-        }
-
-        .reserved-number-badge .scadenza {
-            font-size: 0.9em;
-            color: #666;
-            background: #fff;
-            padding: 4px 8px;
-            border-radius: 4px;
-            border: 1px solid #ddd;
-        }
-
-        .autosave-indicator {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: #4caf50;
-            color: white;
-            padding: 8px 16px;
-            border-radius: 6px;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-            z-index: 1000;
-            font-size: 0.9em;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-        }
-
-        .autosave-indicator.show {
-            opacity: 1;
-        }
-
-        .autosave-indicator.error {
-            background: #f44336;
-        }
-
-        .autosave-indicator.success {
-            background: #4caf50;
-        }
-
-        .breadcrumb-container {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 20px;
-        }
-
-        .breadcrumb-container h2 {
-            margin: 0;
-            color: #333;
-        }
-
-        .main-progress-bar {
-            background: #f5f5f5;
-            border-radius: 8px;
-            padding: 10px;
-            margin: 15px 0;
-            display: none;
-        }
-
-        .progress-track {
-            background: #e0e0e0;
-            height: 8px;
-            border-radius: 4px;
-            overflow: hidden;
-            margin-bottom: 5px;
-        }
-
-        .progress-fill {
-            background: linear-gradient(90deg, #2196f3, #21cbf3);
-            height: 100%;
-            border-radius: 4px;
-            transition: width 0.3s ease;
-            width: 0%;
-        }
-
-        .progress-text {
-            font-size: 0.9em;
-            color: #666;
-            text-align: center;
-            display: block;
-        }
-    </style>
+    
+    <!-- Security Headers -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https:; img-src 'self' data: https:; font-src 'self' https:;">
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+    
+    <!-- Preload important resources -->
+    <link rel="preload" href="../assets/style.css" as="style">
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" as="script">
 </head>
 <body>
+    <!-- 🛡️ USER INFO BAR: Viene creata automaticamente da AuthGuard -->
+    
     <div class="main-container">
         <!-- Header -->
         <div class="header">
@@ -129,9 +38,6 @@
                 <!-- Popolato automaticamente da updateReservedNumberDisplay() -->
             </div>
         </div>
-
-        <!-- Progress Bar (creata dinamicamente) -->
-        <!-- <div id="main-progress-bar" class="main-progress-bar"></div> -->
 
         <!-- Dashboard Stats -->
         <div class="stats-section">
@@ -451,20 +357,154 @@
         </div>
     </div>
 
-    <!-- Toast Container (creato dinamicamente) -->
-    <!-- Autosave Indicator (creato dinamicamente) -->
+    <!-- Loading indicator (creato dinamicamente) -->
+    <div id="loading-indicator" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 9999; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+        <div style="text-align: center;">
+            <div style="margin-bottom: 10px;">🔐 Verifica autenticazione...</div>
+            <div style="width: 40px; height: 40px; border: 3px solid #f3f3f3; border-top: 3px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto;"></div>
+        </div>
+    </div>
 
-    <!-- Scripts -->
-    <!-- Supabase Client CDN -->
+    <!-- Scripts - ORDINE IMPORTANTE PER AUTH -->
+    
+    <!-- 1. Supabase Client CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
-    <!-- Comuni Loader -->
+    <!-- 2. Database Service (deve essere caricato prima di auth-guard) -->
+    <script type="module" src="../supabase-config.js"></script>
+    
+    <!-- 3. Auth Guard (deve essere caricato prima di agibilita.js) -->
+    <script type="module" src="../auth-guard.js"></script>
+    
+    <!-- 4. Comuni Loader -->
     <script src="../comuni-loader.js"></script>
     
-    <!-- Notification Service -->
+    <!-- 5. Notification Service -->
     <script type="module" src="../notification-service.js"></script>
     
-    <!-- Agibilità Module -->
+    <!-- 6. Agibilità Module (ultimo, dipende da tutto) -->
     <script type="module" src="agibilita.js"></script>
+
+    <style>
+        /* Loading animation */
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Ensure body has padding for auth header */
+        body {
+            padding-top: 50px; /* Space for auth header */
+        }
+        
+        /* User header will be added by AuthGuard */
+        .main-container {
+            margin-top: 0; /* AuthGuard manages the spacing */
+        }
+        
+        /* Loading state styles */
+        .page-loading {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+        
+        .auth-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1001;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 12px 20px;
+        }
+        
+        /* Reserved number display improvements */
+        .reserved-number-display {
+            background: #e3f2fd;
+            border: 1px solid #2196f3;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin: 15px 0;
+            display: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .reserved-number-badge {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .reserved-number-badge .numero {
+            font-weight: bold;
+            color: #1976d2;
+            font-size: 1.1em;
+        }
+
+        .reserved-number-badge .scadenza {
+            font-size: 0.9em;
+            color: #666;
+            background: #fff;
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+
+        /* Autosave indicator */
+        .autosave-indicator {
+            position: fixed;
+            top: 70px; /* Below auth header */
+            right: 20px;
+            background: #4caf50;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 1000;
+            font-size: 0.9em;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+
+        .autosave-indicator.show {
+            opacity: 1;
+        }
+
+        .autosave-indicator.error {
+            background: #f44336;
+        }
+
+        .autosave-indicator.success {
+            background: #4caf50;
+        }
+    </style>
+
+    <script>
+        // Show loading indicator immediately
+        document.addEventListener('DOMContentLoaded', () => {
+            const loading = document.getElementById('loading-indicator');
+            if (loading) {
+                loading.style.display = 'block';
+                document.body.classList.add('page-loading');
+            }
+            
+            // Hide loading after auth verification (will be handled by auth-guard)
+            setTimeout(() => {
+                if (loading) {
+                    loading.style.display = 'none';
+                    document.body.classList.remove('page-loading');
+                }
+            }, 5000); // Fallback timeout
+        });
+        
+        // Global error handler for auth issues
+        window.addEventListener('error', (e) => {
+            if (e.message && e.message.includes('auth')) {
+                console.error('Auth error detected:', e);
+                // AuthGuard will handle the redirect
+            }
+        });
+    </script>
 </body>
 </html>

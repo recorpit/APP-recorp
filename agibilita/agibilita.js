@@ -1,9 +1,8 @@
-// agibilita.js - Sistema Gestione Agibilità RECORP con Numerazione Thread-Safe
+// agibilita.js - Sistema Gestione Agibilità RECORP con Protezione Auth
 
-// Import Supabase DatabaseService
+// Import Supabase DatabaseService e AuthGuard
 import { DatabaseService } from '../supabase-config.js';
-// CORREZIONE: Import notificationService corretto
-import { notificationService } from '../notification-service.js';
+import { AuthGuard } from '../auth-guard.js';
 
 // ==================== VARIABILI GLOBALI ====================
 let selectedArtists = [];
@@ -17,14 +16,14 @@ let agibilitaData = {
     warningTimer: null
 };
 
-// Database - ora caricati da Supabase
+// Database - caricati da Supabase
 let artistsDB = [];
 let agibilitaDB = [];
 let venuesDB = [];
 let invoiceDB = [];
 let bozzeDB = [];
 
-// Nuova variabile per tracciare conferme compensi
+// Variabili per tracciare conferme compensi
 let compensiConfermati = new Set();
 
 // Variabili per autosalvataggio e lock
@@ -33,11 +32,12 @@ let lockCheckTimer = null;
 let currentLock = null;
 let currentBozzaId = null;
 
-// User session management
+// User session da AuthGuard (MODIFICATO)
 let userSession = {
     id: null,
-    name: null,
-    workstation: null
+    email: null, // ← Ora viene da Supabase Auth
+    workstation: null,
+    userId: null // ← User ID Supabase
 };
 
 // ==================== ESPORTA FUNZIONI GLOBALI SUBITO ====================
@@ -97,57 +97,93 @@ function exportGlobalFunctions() {
 // Esporta le funzioni immediatamente
 exportGlobalFunctions();
 
-// ==================== INIZIALIZZAZIONE ====================
+// ==================== INIZIALIZZAZIONE CON PROTEZIONE AUTH (MODIFICATA) ====================
 document.addEventListener('DOMContentLoaded', async function() {
-    console.log('🚀 Inizializzazione sistema agibilità...');
+    console.log('🚀 Inizializzazione sistema agibilità con protezione auth...');
     
-    // Inizializza sessione utente
-    await initializeUserSession();
-    
-    // Test connessione e carica dati
-    await initializeAgibilitaSystem();
-    
-    // Inizializza date
-    const today = new Date().toISOString().split('T')[0];
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowStr = tomorrow.toISOString().split('T')[0];
-    
-    const dataInizio = document.getElementById('dataInizio');
-    if (dataInizio) {
-        dataInizio.value = today;
-        dataInizio.min = today;
+    try {
+        // === STEP 1: VERIFICA AUTENTICAZIONE ===
+        console.log('🔐 Verifica autenticazione...');
+        const session = await AuthGuard.requireAuth();
         
-        // MODIFICA: Aggiungi event listener per autocompilare data fine
-        dataInizio.addEventListener('change', function() {
-            autocompletaDataFine();
-        });
-    }
-    
-    const dataFine = document.getElementById('dataFine');
-    if (dataFine) {
-        dataFine.min = today;
-        // MODIFICA: Imposta automaticamente domani come data fine
-        dataFine.value = tomorrowStr;
-    }
+        if (!session || !session.user) {
+            console.error('❌ Autenticazione fallita');
+            return; // AuthGuard si occupa del redirect
+        }
+        
+        // === STEP 2: INIZIALIZZA SESSIONE UTENTE (NUOVO) ===
+        await initializeUserSessionFromAuth(session);
+        
+        // === STEP 3: RESTO DELL'INIZIALIZZAZIONE (ORIGINALE) ===
+        await initializeAgibilitaSystem();
+        
+        // Inizializza date
+        const today = new Date().toISOString().split('T')[0];
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const tomorrowStr = tomorrow.toISOString().split('T')[0];
+        
+        const dataInizio = document.getElementById('dataInizio');
+        if (dataInizio) {
+            dataInizio.value = today;
+            dataInizio.min = today;
+            dataInizio.addEventListener('change', function() {
+                autocompletaDataFine();
+            });
+        }
+        
+        const dataFine = document.getElementById('dataFine');
+        if (dataFine) {
+            dataFine.min = today;
+            dataFine.value = tomorrowStr;
+        }
 
-    // Inizializza località
-    console.log('📍 Inizializzazione database località...');
-    
-    // Aspetta che il database GI sia caricato
-    setTimeout(() => {
-        loadProvinces();
-        setupEventListeners();
-        updateDashboardStats();
+        // Inizializza località
+        console.log('📍 Inizializzazione database località...');
         
-        // Focus sul primo campo
-        const descrizioneLocale = document.getElementById('descrizioneLocale');
-        if (descrizioneLocale) descrizioneLocale.focus();
-    }, 1500);
-    
-    // Inizializza shortcuts tastiera
-    initializeKeyboardShortcuts();
+        setTimeout(() => {
+            loadProvinces();
+            setupEventListeners();
+            updateDashboardStats();
+            
+            const descrizioneLocale = document.getElementById('descrizioneLocale');
+            if (descrizioneLocale) descrizioneLocale.focus();
+        }, 1500);
+        
+        initializeKeyboardShortcuts();
+        
+        console.log('✅ Sistema agibilità inizializzato con successo!');
+        
+    } catch (error) {
+        console.error('❌ Errore inizializzazione sistema agibilità:', error);
+        showToast('Errore di inizializzazione: ' + error.message, 'error');
+    }
 });
+
+// ==================== NUOVA FUNZIONE: INIZIALIZZA SESSIONE DA AUTH ====================
+async function initializeUserSessionFromAuth(session) {
+    console.log('👤 Inizializzazione sessione utente da auth...');
+    
+    // Genera workstation ID univoco
+    const workstationId = btoa(
+        navigator.userAgent + screen.width + screen.height
+    ).substring(0, 8);
+    
+    // Genera session ID basato su timestamp + user ID
+    const sessionId = `sess_${Date.now()}_${session.user.id.substring(0, 8)}`;
+    
+    userSession = {
+        id: sessionId,
+        email: session.user.email,     // ← Da Supabase Auth
+        workstation: workstationId,
+        userId: session.user.id        // ← User ID Supabase
+    };
+    
+    console.log('✅ Sessione utente inizializzata:', {
+        email: userSession.email,
+        workstation: userSession.workstation
+    });
+}
 
 // NUOVA FUNZIONE: Autocompila data fine con giorno successivo
 function autocompletaDataFine() {
@@ -164,90 +200,7 @@ function autocompletaDataFine() {
     }
 }
 
-// Inizializza sessione utente
-async function initializeUserSession() {
-    // Recupera o genera session ID
-    let sessionId = localStorage.getItem('userSessionId');
-    if (!sessionId) {
-        sessionId = generateSessionId();
-        localStorage.setItem('userSessionId', sessionId);
-    }
-    
-    // Recupera nome utente salvato
-    let userName = localStorage.getItem('userName');
-    const rememberMe = localStorage.getItem('rememberUser') === 'true';
-    
-    // Se non c'è nome salvato o remember me è false, chiedi
-    if (!userName || !rememberMe) {
-        const modal = createWelcomeModal();
-        document.body.appendChild(modal);
-        modal.style.display = 'block';
-        
-        // Aspetta input utente
-        await new Promise(resolve => {
-            window.saveUserName = function() {
-                const nameInput = document.getElementById('userNameInput');
-                const rememberCheckbox = document.getElementById('rememberMe');
-                
-                if (nameInput.value.trim()) {
-                    userName = nameInput.value.trim();
-                    localStorage.setItem('userName', userName);
-                    localStorage.setItem('rememberUser', rememberCheckbox.checked);
-                    modal.remove();
-                    resolve();
-                }
-            };
-        });
-    }
-    
-    // Genera workstation ID
-    const workstationId = btoa(
-        navigator.userAgent + screen.width + screen.height
-    ).substring(0, 8);
-    
-    userSession = {
-        id: sessionId,
-        name: userName,
-        workstation: workstationId
-    };
-    
-    console.log('👤 Sessione utente inizializzata:', userSession);
-}
-
-// Crea modal di benvenuto
-function createWelcomeModal() {
-    const modal = document.createElement('div');
-    modal.className = 'modal welcome-modal';
-    modal.innerHTML = `
-        <div class="modal-content" style="max-width: 400px;">
-            <div class="modal-header">
-                <h2>👋 Benvenuto!</h2>
-            </div>
-            <div class="modal-body">
-                <p>Per una migliore esperienza, inserisci il tuo nome:</p>
-                <div class="form-group">
-                    <input type="text" id="userNameInput" class="form-control" 
-                           placeholder="Il tuo nome..." autofocus>
-                </div>
-                <div class="form-group">
-                    <label style="display: flex; align-items: center; cursor: pointer;">
-                        <input type="checkbox" id="rememberMe" checked style="margin-right: 8px;">
-                        Ricorda su questo dispositivo
-                    </label>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-primary" onclick="saveUserName()">Continua</button>
-            </div>
-        </div>
-    `;
-    return modal;
-}
-
-// Genera ID sessione univoco
-function generateSessionId() {
-    return 'sess_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
-}
+// ==================== RESTO DEL CODICE ORIGINALE (MANTENUTO) ====================
 
 // Inizializzazione sistema agibilità con Supabase
 async function initializeAgibilitaSystem() {
@@ -1471,27 +1424,6 @@ async function saveAgibilitaToDatabase(xmlContent) {
 async function sendArtistNotifications() {
     console.log('📧 Notifiche disabilitate - saltate');
     // TODO: Implementa quando necessario con notificationService
-    /*
-    const dataInizio = document.getElementById('dataInizio').value;
-    const descrizioneLocale = document.getElementById('descrizioneLocale').value;
-    
-    for (const artist of selectedArtists) {
-        if (artist.email || artist.telefono) {
-            const message = `Ciao ${artist.nome}, è stata aperta un'agibilità per il ${new Date(dataInizio).toLocaleDateString('it-IT')} presso ${descrizioneLocale}. Ti confermiamo la tua partecipazione come ${artist.ruolo}.`;
-            
-            try {
-                if (artist.email) {
-                    await notificationService.sendEmail(artist.email, 'Nuova Agibilità', message);
-                }
-                if (artist.telefono) {
-                    await notificationService.sendSMS(artist.telefono, message);
-                }
-            } catch (error) {
-                console.error('Errore invio notifica:', error);
-            }
-        }
-    }
-    */
 }
 
 function confirmAndProceed() {
@@ -2786,4 +2718,4 @@ function setupEventListeners() {
    });
 }
 
-console.log('🎭 Sistema agibilità v4.0 - Con numerazione thread-safe integrata! 🚀');
+console.log('🎭 Sistema agibilità v5.0 - Con protezione auth integrata completa! 🛡️');
