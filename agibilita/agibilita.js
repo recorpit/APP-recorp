@@ -155,8 +155,28 @@ document.addEventListener('DOMContentLoaded', async function() {
         // === INIZIALIZZA INTERFACCIA ===
         await initializeInterface();
         
-        // === ASSICURATI CHE LA SEZIONE TIPO SIA VISIBILE ===
-        showSection('tipoSection');
+        // === FORZA VISUALIZZAZIONE SEZIONE TIPO ===
+        setTimeout(() => {
+            console.log('🎯 Forzando visualizzazione sezione tipo...');
+            showSection('tipoSection');
+            
+            // Debug: Verifica elementi
+            const tipoSection = document.getElementById('tipoSection');
+            console.log('Debug tipoSection:', {
+                exists: !!tipoSection,
+                classes: tipoSection?.className,
+                style: tipoSection?.style.cssText,
+                display: tipoSection?.style.display,
+                visible: tipoSection?.offsetParent !== null
+            });
+            
+            // Forza visualizzazione se necessario
+            if (tipoSection) {
+                tipoSection.style.display = 'block';
+                tipoSection.style.visibility = 'visible';
+                tipoSection.classList.add('active');
+            }
+        }, 100);
         
         console.log('✅ Sistema agibilità inizializzato con successo!');
         
@@ -188,7 +208,10 @@ async function initializeInterface() {
         const tipoSection = document.getElementById('tipoSection');
         if (tipoSection) {
             tipoSection.classList.add('active');
-            console.log('✅ Sezione tipo attivata');
+            tipoSection.style.display = 'block'; // ← AGGIUNTO: Forza visualizzazione
+            console.log('✅ Sezione tipo attivata e visualizzata');
+        } else {
+            console.error('❌ Elemento tipoSection non trovato!');
         }
         
         // Nasconde loading se presente
@@ -300,25 +323,31 @@ function getToastIcon(type) {
     return icons[type] || icons.info;
 }
 
-// ==================== FUNZIONI NAVIGAZIONE ====================
+// ==================== FUNZIONI NAVIGAZIONE (CORRETTE) ====================
 function showSection(sectionId) {
-    console.log('Showing section:', sectionId);
+    console.log('🎯 Showing section:', sectionId);
     
     // Rimuovi active da tutte le sezioni
     document.querySelectorAll('.step-section').forEach(section => {
         section.classList.remove('active');
+        section.style.display = 'none'; // ← AGGIUNTO: Nascondi esplicitamente
     });
     
     // Aggiungi active alla sezione target
     const targetSection = document.getElementById(sectionId);
     if (targetSection) {
         targetSection.classList.add('active');
+        targetSection.style.display = 'block'; // ← AGGIUNTO: Mostra esplicitamente
+        
+        console.log('✅ Sezione attivata:', sectionId, targetSection);
         
         // Aggiorna progress bar
         updateProgressBar();
         
         // Scroll top
         window.scrollTo(0, 0);
+    } else {
+        console.error('❌ Sezione non trovata:', sectionId);
     }
 }
 
