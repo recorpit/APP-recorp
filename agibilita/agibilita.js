@@ -141,16 +141,11 @@ document.addEventListener('DOMContentLoaded', async function() {
         // Inizializza località
         console.log('📍 Inizializzazione database località...');
         
-        setTimeout(() => {
-            loadProvinces();
-            setupEventListeners();
-            updateDashboardStats();
-            
-            const descrizioneLocale = document.getElementById('descrizioneLocale');
-            if (descrizioneLocale) descrizioneLocale.focus();
-        }, 1500);
+        // === CORREZIONE: Inizializzazione più robusta ===
+        await initializeInterface();
         
-        initializeKeyboardShortcuts();
+        // === ASSICURATI CHE LA SEZIONE TIPO SIA VISIBILE ===
+        showSection('tipoSection');
         
         console.log('✅ Sistema agibilità inizializzato con successo!');
         
@@ -185,7 +180,46 @@ async function initializeUserSessionFromAuth(session) {
     });
 }
 
-// NUOVA FUNZIONE: Autocompila data fine con giorno successivo
+// ==================== NUOVA FUNZIONE: INIZIALIZZA INTERFACCIA ====================
+async function initializeInterface() {
+    console.log('🎨 Inizializzazione interfaccia...');
+    
+    try {
+        // Carica province e località
+        await loadProvinces();
+        
+        // Setup event listeners
+        setupEventListeners();
+        
+        // Aggiorna dashboard stats
+        updateDashboardStats();
+        
+        // Inizializza shortcuts tastiera
+        initializeKeyboardShortcuts();
+        
+        // Assicurati che la sezione tipo sia attiva
+        const tipoSection = document.getElementById('tipoSection');
+        if (tipoSection) {
+            tipoSection.classList.add('active');
+            console.log('✅ Sezione tipo attivata');
+        }
+        
+        // Nasconde loading se presente
+        const loading = document.getElementById('loading-indicator');
+        if (loading) {
+            loading.style.display = 'none';
+        }
+        
+        // Rimuovi classe loading dal body
+        document.body.classList.remove('page-loading');
+        
+        console.log('✅ Interfaccia inizializzata con successo');
+        
+    } catch (error) {
+        console.error('❌ Errore inizializzazione interfaccia:', error);
+        showToast('Errore inizializzazione interfaccia: ' + error.message, 'warning');
+    }
+}
 function autocompletaDataFine() {
     const dataInizioInput = document.getElementById('dataInizio');
     const dataFineInput = document.getElementById('dataFine');
@@ -820,22 +854,48 @@ function createProgressBar() {
     return bar;
 }
 
-// ==================== DASHBOARD STATS ====================
-function updateDashboardStats() {
-    // Conta bozze
-    const bozzeCount = bozzeDB.filter(b => !b.locked_by).length;
-    const agibilitaMonth = agibilitaDB.filter(a => {
-        const date = new Date(a.created_at);
+// ==================== DASHBOARD STATS (CORRETTO) ====================
+async function updateDashboardStats() {
+    console.log('📊 Aggiornamento statistiche dashboard...');
+    
+    try {
+        // Conta bozze (gestisce caso array vuoto)
+        const bozzeCount = Array.isArray(bozzeDB) ? bozzeDB.filter(b => !b.locked_by).length : 0;
+        
+        // Conta agibilità del mese corrente
         const now = new Date();
-        return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-    }).length;
-    
-    // Aggiorna badge se esistono
-    const bozzeBadge = document.getElementById('bozze-badge');
-    if (bozzeBadge) bozzeBadge.textContent = bozzeCount;
-    
-    const monthBadge = document.getElementById('month-badge');
-    if (monthBadge) monthBadge.textContent = agibilitaMonth;
+        const agibilitaMonth = Array.isArray(agibilitaDB) ? agibilitaDB.filter(a => {
+            if (!a.created_at) return false;
+            const date = new Date(a.created_at);
+            return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+        }).length : 0;
+        
+        // Aggiorna badge se esistono
+        const bozzeBadge = document.getElementById('bozze-badge');
+        if (bozzeBadge) {
+            bozzeBadge.textContent = bozzeCount;
+            console.log(`✅ Bozze badge aggiornato: ${bozzeCount}`);
+        }
+        
+        const monthBadge = document.getElementById('month-badge');
+        if (monthBadge) {
+            monthBadge.textContent = agibilitaMonth;
+            console.log(`✅ Month badge aggiornato: ${agibilitaMonth}`);
+        }
+        
+        // Aggiorna badge bozze count nel tipo card
+        const bozzeCountBadge = document.getElementById('bozze-count');
+        if (bozzeCountBadge) {
+            bozzeCountBadge.textContent = bozzeCount;
+            bozzeCountBadge.style.display = bozzeCount > 0 ? 'inline' : 'none';
+        }
+        
+        console.log('✅ Statistiche dashboard aggiornate');
+        
+    } catch (error) {
+        console.error('❌ Errore aggiornamento statistiche:', error);
+        // Non bloccare l'inizializzazione per questo
+    }
 }
 
 // ==================== CALENDARIO ====================
@@ -1739,43 +1799,64 @@ function goToRegistration() {
    window.location.href = '../registrazione-artista.html';
 }
 
-// ==================== GESTIONE LOCALITÀ ====================
-function loadProvinces() {
-   try {
-       const provinceSelect = document.getElementById('provincia');
-       if (!provinceSelect) return;
-       
-       provinceSelect.innerHTML = '<option value="">Seleziona provincia...</option>';
-       
-       const province = window.GIDatabase.getProvince();
-       
-       if (province.length === 0) {
-           console.error('❌ Nessuna provincia trovata nel database');
-           provinceSelect.innerHTML = '<option value="">Errore: nessuna provincia disponibile</option>';
-           return;
-       }
-       
-       console.log(`✅ Caricate ${province.length} province dal database`);
-       
-       province.sort((a, b) => {
-           if (!a.sigla || !b.sigla) return 0;
-           return a.sigla.localeCompare(b.sigla);
-       });
-       
-       province.forEach(p => {
-           const option = document.createElement('option');
-           option.value = p.sigla;
-           option.textContent = `${p.sigla} - ${p.nome}`;
-           provinceSelect.appendChild(option);
-       });
-       
-   } catch (error) {
-       console.error('Errore caricamento province:', error);
-       const provinceSelect = document.getElementById('provincia');
-       if (provinceSelect) {
-           provinceSelect.innerHTML = '<option value="">Errore caricamento province</option>';
-       }
-   }
+// ==================== GESTIONE LOCALITÀ (CORRETTA) ====================
+async function loadProvinces() {
+    console.log('📍 Caricamento province...');
+    
+    try {
+        const provinceSelect = document.getElementById('provincia');
+        if (!provinceSelect) {
+            console.warn('⚠️ Element provincia non trovato');
+            return;
+        }
+        
+        provinceSelect.innerHTML = '<option value="">Seleziona provincia...</option>';
+        
+        // Attendi che il database GI sia caricato
+        let attempts = 0;
+        while (attempts < 10 && (!window.GIDatabase || !window.GIDatabase.getProvince)) {
+            console.log(`⏳ Attendo caricamento GIDatabase (tentativo ${attempts + 1})...`);
+            await new Promise(resolve => setTimeout(resolve, 500));
+            attempts++;
+        }
+        
+        if (!window.GIDatabase || !window.GIDatabase.getProvince) {
+            console.error('❌ GIDatabase non disponibile dopo 5 secondi');
+            provinceSelect.innerHTML = '<option value="">Database località non disponibile</option>';
+            return;
+        }
+        
+        const province = window.GIDatabase.getProvince();
+        
+        if (!province || province.length === 0) {
+            console.error('❌ Nessuna provincia trovata nel database');
+            provinceSelect.innerHTML = '<option value="">Errore: nessuna provincia disponibile</option>';
+            return;
+        }
+        
+        console.log(`✅ Caricate ${province.length} province dal database`);
+        
+        province.sort((a, b) => {
+            if (!a.sigla || !b.sigla) return 0;
+            return a.sigla.localeCompare(b.sigla);
+        });
+        
+        province.forEach(p => {
+            const option = document.createElement('option');
+            option.value = p.sigla;
+            option.textContent = `${p.sigla} - ${p.nome}`;
+            provinceSelect.appendChild(option);
+        });
+        
+        console.log('✅ Province caricate con successo');
+        
+    } catch (error) {
+        console.error('❌ Errore caricamento province:', error);
+        const provinceSelect = document.getElementById('provincia');
+        if (provinceSelect) {
+            provinceSelect.innerHTML = '<option value="">Errore caricamento province</option>';
+        }
+    }
 }
 
 function loadCitta(provincia) {
