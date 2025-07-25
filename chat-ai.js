@@ -14,7 +14,7 @@ import { notificationService } from './notification-service.js';
 // ==================== CONFIGURAZIONE CHAT AI ====================
 
 const AI_CONFIG = {
-    provider: 'mock', // Cambia per attivare AI reale: 'groq', 'huggingface', 'gemini', 'ollama', 'mock'
+    provider: 'groq', // Cambia per attivare AI reale: 'groq', 'huggingface', 'gemini', 'ollama', 'mock'
     model: 'llama3-8b-8192',
     
     // 🆓 COME OTTENERE API KEY GRATUITE:
