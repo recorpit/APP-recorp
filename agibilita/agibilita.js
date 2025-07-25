@@ -97,24 +97,38 @@ function exportGlobalFunctions() {
 // Esporta le funzioni immediatamente
 exportGlobalFunctions();
 
-// ==================== INIZIALIZZAZIONE CON PROTEZIONE AUTH (MODIFICATA) ====================
+// ==================== INIZIALIZZAZIONE SEMPLIFICATA (SENZA AUTH RIDONDANTE) ====================
 document.addEventListener('DOMContentLoaded', async function() {
-    console.log('🚀 Inizializzazione sistema agibilità con protezione auth...');
+    console.log('🚀 Inizializzazione sistema agibilità...');
     
     try {
-        // === STEP 1: VERIFICA AUTENTICAZIONE ===
-        console.log('🔐 Verifica autenticazione...');
-        const session = await AuthGuard.requireAuth();
-        
-        if (!session || !session.user) {
-            console.error('❌ Autenticazione fallita');
-            return; // AuthGuard si occupa del redirect
+        // === OTTIENI USER SESSION DA AUTHGUARD (GIÀ ATTIVO) ===
+        const user = await AuthGuard.getCurrentUser();
+        if (user) {
+            // Genera workstation ID univoco
+            const workstationId = btoa(
+                navigator.userAgent + screen.width + screen.height
+            ).substring(0, 8);
+            
+            // Genera session ID basato su timestamp + user ID
+            const sessionId = `sess_${Date.now()}_${user.id ? user.id.substring(0, 8) : 'unknown'}`;
+            
+            userSession = {
+                id: sessionId,
+                email: user.email,
+                workstation: workstationId,
+                userId: user.id || 'unknown'
+            };
+            
+            console.log('✅ Sessione utente ottenuta da AuthGuard:', {
+                email: userSession.email,
+                workstation: userSession.workstation
+            });
+        } else {
+            console.warn('⚠️ User session non disponibile - AuthGuard gestirà il redirect');
         }
         
-        // === STEP 2: INIZIALIZZA SESSIONE UTENTE (NUOVO) ===
-        await initializeUserSessionFromAuth(session);
-        
-        // === STEP 3: RESTO DELL'INIZIALIZZAZIONE (ORIGINALE) ===
+        // === INIZIALIZZA SISTEMA ===
         await initializeAgibilitaSystem();
         
         // Inizializza date
@@ -138,10 +152,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             dataFine.value = tomorrowStr;
         }
 
-        // Inizializza località
-        console.log('📍 Inizializzazione database località...');
-        
-        // === CORREZIONE: Inizializzazione più robusta ===
+        // === INIZIALIZZA INTERFACCIA ===
         await initializeInterface();
         
         // === ASSICURATI CHE LA SEZIONE TIPO SIA VISIBILE ===
@@ -152,35 +163,11 @@ document.addEventListener('DOMContentLoaded', async function() {
     } catch (error) {
         console.error('❌ Errore inizializzazione sistema agibilità:', error);
         showToast('Errore di inizializzazione: ' + error.message, 'error');
+        // AuthGuard gestisce eventuali problemi di autenticazione
     }
 });
 
-// ==================== NUOVA FUNZIONE: INIZIALIZZA SESSIONE DA AUTH ====================
-async function initializeUserSessionFromAuth(session) {
-    console.log('👤 Inizializzazione sessione utente da auth...');
-    
-    // Genera workstation ID univoco
-    const workstationId = btoa(
-        navigator.userAgent + screen.width + screen.height
-    ).substring(0, 8);
-    
-    // Genera session ID basato su timestamp + user ID
-    const sessionId = `sess_${Date.now()}_${session.user.id.substring(0, 8)}`;
-    
-    userSession = {
-        id: sessionId,
-        email: session.user.email,     // ← Da Supabase Auth
-        workstation: workstationId,
-        userId: session.user.id        // ← User ID Supabase
-    };
-    
-    console.log('✅ Sessione utente inizializzata:', {
-        email: userSession.email,
-        workstation: userSession.workstation
-    });
-}
-
-// ==================== NUOVA FUNZIONE: INIZIALIZZA INTERFACCIA ====================
+// NUOVA FUNZIONE: Autocompila data fine con giorno successivo
 async function initializeInterface() {
     console.log('🎨 Inizializzazione interfaccia...');
     
