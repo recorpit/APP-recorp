@@ -15,307 +15,6 @@
     <!-- Preload important resources -->
     <link rel="preload" href="../assets/style.css" as="style">
     <link rel="preload" href="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" as="script">
-    
-    <style>
-        /* ==================== STILI INTEGRATI PER RICERCHE ESTERNE ==================== */
-        
-        /* DROPDOWN VENUE ENHANCED */
-        .enhanced-dropdown {
-            max-height: 400px;
-            overflow-y: auto;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            border-radius: 8px;
-            z-index: 1000;
-        }
-
-        .autocomplete-section-header {
-            background: #f8f9fa;
-            padding: 8px 12px;
-            font-weight: 600;
-            font-size: 12px;
-            color: #495057;
-            border-bottom: 1px solid #dee2e6;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .venue-result {
-            padding: 12px;
-            border-bottom: 1px solid #eee;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            position: relative;
-        }
-
-        .venue-result:hover {
-            background-color: #f8f9fa;
-            transform: translateX(2px);
-        }
-
-        .venue-result.local {
-            border-left: 3px solid #28a745;
-        }
-
-        .venue-result.external {
-            border-left: 3px solid #007bff;
-        }
-
-        .venue-main {
-            display: flex;
-            align-items: center;
-            margin-bottom: 4px;
-        }
-
-        .venue-icon {
-            margin-right: 8px;
-            font-size: 16px;
-        }
-
-        .venue-details {
-            color: #666;
-            line-height: 1.4;
-            margin-left: 24px;
-        }
-
-        .venue-source {
-            color: #007bff;
-            font-weight: 500;
-        }
-
-        .autocomplete-item.loading {
-            text-align: center;
-            padding: 16px;
-            color: #007bff;
-            font-style: italic;
-        }
-
-        .autocomplete-item.error {
-            text-align: center;
-            padding: 16px;
-            color: #dc3545;
-            background-color: #f8d7da;
-        }
-
-        .autocomplete-item.no-results {
-            text-align: center;
-            padding: 16px;
-            color: #6c757d;
-        }
-
-        .autocomplete-item.info {
-            text-align: center;
-            padding: 8px;
-            color: #6c757d;
-            font-style: italic;
-            font-size: 12px;
-        }
-
-        /* RICERCA P.IVA */
-        #searchPIVABtn {
-            margin-top: 8px;
-            width: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            transition: all 0.3s ease;
-        }
-
-        #searchPIVABtn:hover {
-            background-color: #0056b3;
-            color: white;
-            transform: translateY(-1px);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        #searchPIVABtn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        /* Campi auto-compilati */
-        .auto-filled {
-            background-color: #d4edda !important;
-            border-color: #28a745 !important;
-            animation: autoFillGlow 0.5s ease-in-out;
-        }
-
-        @keyframes autoFillGlow {
-            0% { 
-                background-color: #fff3cd;
-                border-color: #ffc107;
-            }
-            100% { 
-                background-color: #d4edda;
-                border-color: #28a745;
-            }
-        }
-
-        /* INDICATORI DI STATO */
-        .search-status-indicator {
-            position: absolute;
-            right: 10px;
-            top: 50%;
-            transform: translateY(-50%);
-            pointer-events: none;
-        }
-
-        .search-status-indicator.searching {
-            color: #007bff;
-            animation: spin 1s linear infinite;
-        }
-
-        .search-status-indicator.found {
-            color: #28a745;
-        }
-
-        .search-status-indicator.error {
-            color: #dc3545;
-        }
-
-        @keyframes spin {
-            0% { transform: translateY(-50%) rotate(0deg); }
-            100% { transform: translateY(-50%) rotate(360deg); }
-        }
-
-        /* LOADING STATES */
-        .btn-loading {
-            position: relative;
-            color: transparent !important;
-        }
-
-        .btn-loading::after {
-            content: '';
-            position: absolute;
-            width: 16px;
-            height: 16px;
-            top: 50%;
-            left: 50%;
-            margin-left: -8px;
-            margin-top: -8px;
-            border: 2px solid transparent;
-            border-top-color: currentColor;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        /* RESPONSIVO */
-        @media (max-width: 768px) {
-            .enhanced-dropdown {
-                max-height: 300px;
-            }
-            
-            .venue-result {
-                padding: 10px;
-            }
-            
-            .venue-main {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-            
-            .venue-icon {
-                margin-bottom: 4px;
-            }
-            
-            .venue-details {
-                margin-left: 0;
-                font-size: 12px;
-            }
-        }
-
-        /* TOAST NOTIFICATIONS ENHANCED */
-        .toast-container {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 9999;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .toast {
-            min-width: 300px;
-            max-width: 500px;
-            padding: 12px 16px;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            transform: translateX(400px);
-            opacity: 0;
-            transition: all 0.3s ease-in-out;
-        }
-
-        .toast.show {
-            transform: translateX(0);
-            opacity: 1;
-        }
-
-        .toast-success {
-            background: linear-gradient(135deg, #28a745, #20c997);
-            color: white;
-        }
-
-        .toast-error {
-            background: linear-gradient(135deg, #dc3545, #e74c3c);
-            color: white;
-        }
-
-        .toast-warning {
-            background: linear-gradient(135deg, #ffc107, #fd7e14);
-            color: #212529;
-        }
-
-        .toast-info {
-            background: linear-gradient(135deg, #007bff, #6f42c1);
-            color: white;
-        }
-
-        .toast-content {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .toast-icon {
-            font-size: 18px;
-            flex-shrink: 0;
-        }
-
-        .toast-message {
-            flex: 1;
-            line-height: 1.4;
-        }
-
-        /* ACCESSIBILITY */
-        .venue-result:focus,
-        .autocomplete-item:focus {
-            outline: 2px solid #007bff;
-            outline-offset: -2px;
-        }
-
-        .venue-result[aria-selected="true"] {
-            background-color: #007bff;
-            color: white;
-        }
-
-        .venue-result[aria-selected="true"] .venue-details {
-            color: rgba(255,255,255,0.8);
-        }
-
-        .sr-only {
-            position: absolute;
-            width: 1px;
-            height: 1px;
-            padding: 0;
-            margin: -1px;
-            overflow: hidden;
-            clip: rect(0,0,0,0);
-            white-space: nowrap;
-            border: 0;
-        }
-    </style>
 </head>
 <body>
     <!-- 🛡️ USER INFO BAR: Viene creata automaticamente da AuthGuard -->
@@ -362,18 +61,18 @@
         <div id="tipoSection" class="step-section">
             <h2>Seleziona Tipo di Operazione</h2>
             <div class="type-cards">
-                <div class="type-card" onclick="handleStartNewAgibilita()">
+                <div class="type-card" onclick="startNewAgibilita()">
                     <div class="type-card-icon">📄</div>
                     <h3>Nuova Agibilità</h3>
                     <p>Crea una nuova pratica di agibilità</p>
                     <small class="text-muted">Numero riservato automaticamente</small>
                 </div>
-                <div class="type-card" onclick="handleShowEditAgibilita()">
+                <div class="type-card" onclick="showEditAgibilita()">
                     <div class="type-card-icon">📝</div>
                     <h3>Modifica Agibilità</h3>
                     <p>Modifica o gestisci agibilità esistenti</p>
                 </div>
-                <div class="type-card" onclick="handleShowBozzeAgibilita()">
+                <div class="type-card" onclick="showBozzeAgibilita()">
                     <div class="type-card-icon">📋</div>
                     <h3>Bozze Agibilità</h3>
                     <p>Riprendi le bozze salvate</p>
@@ -450,21 +149,14 @@
             
             <div class="form-section">
                 <h3>📍 Luogo dell'Evento</h3>
-                
-                <!-- SEZIONE RICERCA VENUE MIGLIORATA -->
                 <div class="form-group">
                     <label class="form-label">Descrizione Locale <span class="required">*</span></label>
-                    <div class="alert alert-info" style="margin-bottom: 10px;">
-                        <small>💡 <strong>Ricerca intelligente:</strong> Digita il nome del locale per cercare sia nel database RECORP che online</small>
-                    </div>
                     <div style="position: relative;">
                         <input type="text" class="form-control" id="descrizioneLocale" required 
-                               placeholder="Es: Teatro Olimpico, Discoteca Pachuka..."
-                               autocomplete="off">
-                        <div id="venueDropdown" class="autocomplete-dropdown enhanced-dropdown" style="display: none;"></div>
+                               oninput="searchVenue()" placeholder="Es: Teatro Olimpico">
+                        <div id="venueDropdown" class="autocomplete-dropdown" style="display: none;"></div>
                     </div>
                 </div>
-                
                 <div class="form-group">
                     <label class="form-label">Indirizzo <span class="required">*</span></label>
                     <input type="text" class="form-control" id="indirizzo" required>
@@ -498,11 +190,11 @@
                 </div>
             </div>
 
-            <!-- SEZIONE FATTURAZIONE MIGLIORATA -->
+            <!-- SEZIONE FATTURAZIONE -->
             <div class="form-section">
                 <h3>💰 Dati Fatturazione</h3>
                 <div class="alert alert-info">
-                    <small>💡 I dati di fatturazione verranno salvati e associati a questo locale per usi futuri</small>
+                    <small>I dati di fatturazione verranno salvati e associati a questo locale per usi futuri</small>
                 </div>
                 
                 <div class="form-group">
@@ -511,11 +203,9 @@
                 </div>
                 
                 <div class="form-row">
-                    <div class="form-group has-search-button">
+                    <div class="form-group">
                         <label class="form-label">Partita IVA</label>
-                        <input type="text" class="form-control" id="piva" pattern="[0-9]{11}" maxlength="11" 
-                               placeholder="11 cifre (es: 04433920248)">
-                        <!-- Il pulsante "Cerca azienda" verrà aggiunto automaticamente qui -->
+                        <input type="text" class="form-control" id="piva" pattern="[0-9]{11}" maxlength="11">
                     </div>
                     <div class="form-group">
                         <label class="form-label">Codice Fiscale</label>
@@ -692,10 +382,7 @@
     <!-- 5. Notification Service -->
     <script type="module" src="../notification-service.js"></script>
     
-    <!-- 6. NUOVO: External Search Service -->
-    <script type="module" src="external-search-service.js"></script>
-    
-    <!-- 7. Agibilità Module Enhanced (ultimo, dipende da tutto) -->
+    <!-- 6. Agibilità Module (ultimo, dipende da tutto) -->
     <script type="module" src="agibilita.js"></script>
 
     <script>
@@ -760,61 +447,6 @@
                 // AuthGuard will handle the redirect
             }
         });
-        
-        // ==================== HANDLER FUNCTIONS PER ONCLICK ====================
-        // Queste funzioni attendono che i moduli siano caricati
-        function handleStartNewAgibilita() {
-            console.log('🆕 Click su Nuova Agibilità');
-            if (window.startNewAgibilita && typeof window.startNewAgibilita === 'function') {
-                window.startNewAgibilita();
-            } else {
-                console.warn('⚠️ startNewAgibilita non ancora disponibile, riprovo...');
-                setTimeout(() => {
-                    if (window.startNewAgibilita) {
-                        window.startNewAgibilita();
-                    } else {
-                        alert('Errore: Sistema non ancora inizializzato. Ricarica la pagina.');
-                    }
-                }, 500);
-            }
-        }
-        
-        function handleShowEditAgibilita() {
-            console.log('📝 Click su Modifica Agibilità');
-            if (window.showEditAgibilita && typeof window.showEditAgibilita === 'function') {
-                window.showEditAgibilita();
-            } else {
-                console.warn('⚠️ showEditAgibilita non ancora disponibile, riprovo...');
-                setTimeout(() => {
-                    if (window.showEditAgibilita) {
-                        window.showEditAgibilita();
-                    } else {
-                        alert('Errore: Sistema non ancora inizializzato. Ricarica la pagina.');
-                    }
-                }, 500);
-            }
-        }
-        
-        function handleShowBozzeAgibilita() {
-            console.log('📋 Click su Bozze Agibilità');
-            if (window.showBozzeAgibilita && typeof window.showBozzeAgibilita === 'function') {
-                window.showBozzeAgibilita();
-            } else {
-                console.warn('⚠️ showBozzeAgibilita non ancora disponibile, riprovo...');
-                setTimeout(() => {
-                    if (window.showBozzeAgibilita) {
-                        window.showBozzeAgibilita();
-                    } else {
-                        alert('Errore: Sistema non ancora inizializzato. Ricarica la pagina.');
-                    }
-                }, 500);
-            }
-        }
-        
-        // Rendi le funzioni handler disponibili globalmente
-        window.handleStartNewAgibilita = handleStartNewAgibilita;
-        window.handleShowEditAgibilita = handleShowEditAgibilita;
-        window.handleShowBozzeAgibilita = handleShowBozzeAgibilita;
     </script>
 </body>
 </html>
