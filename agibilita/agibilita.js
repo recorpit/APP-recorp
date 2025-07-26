@@ -177,6 +177,19 @@ document.addEventListener('DOMContentLoaded', async function() {
             showSection('tipoSection');
         }, 100);
         
+        // === FORZA RE-EXPORT DELLE FUNZIONI ===
+        setTimeout(() => {
+            console.log('🔄 Re-export funzioni globali...');
+            exportGlobalFunctions();
+            
+            // Test che le funzioni principali siano disponibili
+            if (typeof window.startNewAgibilita === 'function') {
+                console.log('✅ Funzioni principali disponibili');
+            } else {
+                console.error('❌ Funzioni principali NON disponibili');
+            }
+        }, 200);
+        
         console.log('✅ Sistema agibilità inizializzato con ricerche esterne!');
         
     } catch (error) {
