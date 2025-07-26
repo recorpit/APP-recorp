@@ -362,18 +362,18 @@
         <div id="tipoSection" class="step-section">
             <h2>Seleziona Tipo di Operazione</h2>
             <div class="type-cards">
-                <div class="type-card" onclick="startNewAgibilita()">
+                <div class="type-card" onclick="handleStartNewAgibilita()">
                     <div class="type-card-icon">📄</div>
                     <h3>Nuova Agibilità</h3>
                     <p>Crea una nuova pratica di agibilità</p>
                     <small class="text-muted">Numero riservato automaticamente</small>
                 </div>
-                <div class="type-card" onclick="showEditAgibilita()">
+                <div class="type-card" onclick="handleShowEditAgibilita()">
                     <div class="type-card-icon">📝</div>
                     <h3>Modifica Agibilità</h3>
                     <p>Modifica o gestisci agibilità esistenti</p>
                 </div>
-                <div class="type-card" onclick="showBozzeAgibilita()">
+                <div class="type-card" onclick="handleShowBozzeAgibilita()">
                     <div class="type-card-icon">📋</div>
                     <h3>Bozze Agibilità</h3>
                     <p>Riprendi le bozze salvate</p>
@@ -760,6 +760,61 @@
                 // AuthGuard will handle the redirect
             }
         });
+        
+        // ==================== HANDLER FUNCTIONS PER ONCLICK ====================
+        // Queste funzioni attendono che i moduli siano caricati
+        function handleStartNewAgibilita() {
+            console.log('🆕 Click su Nuova Agibilità');
+            if (window.startNewAgibilita && typeof window.startNewAgibilita === 'function') {
+                window.startNewAgibilita();
+            } else {
+                console.warn('⚠️ startNewAgibilita non ancora disponibile, riprovo...');
+                setTimeout(() => {
+                    if (window.startNewAgibilita) {
+                        window.startNewAgibilita();
+                    } else {
+                        alert('Errore: Sistema non ancora inizializzato. Ricarica la pagina.');
+                    }
+                }, 500);
+            }
+        }
+        
+        function handleShowEditAgibilita() {
+            console.log('📝 Click su Modifica Agibilità');
+            if (window.showEditAgibilita && typeof window.showEditAgibilita === 'function') {
+                window.showEditAgibilita();
+            } else {
+                console.warn('⚠️ showEditAgibilita non ancora disponibile, riprovo...');
+                setTimeout(() => {
+                    if (window.showEditAgibilita) {
+                        window.showEditAgibilita();
+                    } else {
+                        alert('Errore: Sistema non ancora inizializzato. Ricarica la pagina.');
+                    }
+                }, 500);
+            }
+        }
+        
+        function handleShowBozzeAgibilita() {
+            console.log('📋 Click su Bozze Agibilità');
+            if (window.showBozzeAgibilita && typeof window.showBozzeAgibilita === 'function') {
+                window.showBozzeAgibilita();
+            } else {
+                console.warn('⚠️ showBozzeAgibilita non ancora disponibile, riprovo...');
+                setTimeout(() => {
+                    if (window.showBozzeAgibilita) {
+                        window.showBozzeAgibilita();
+                    } else {
+                        alert('Errore: Sistema non ancora inizializzato. Ricarica la pagina.');
+                    }
+                }, 500);
+            }
+        }
+        
+        // Rendi le funzioni handler disponibili globalmente
+        window.handleStartNewAgibilita = handleStartNewAgibilita;
+        window.handleShowEditAgibilita = handleShowEditAgibilita;
+        window.handleShowBozzeAgibilita = handleShowBozzeAgibilita;
     </script>
 </body>
 </html>
