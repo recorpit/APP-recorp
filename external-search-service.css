@@ -1,0 +1,382 @@
+/* external-search-styles.css - Stili per ricerche esterne */
+
+/* ==================== DROPDOWN VENUE ENHANCED ==================== */
+
+.enhanced-dropdown {
+    max-height: 400px;
+    overflow-y: auto;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    border-radius: 8px;
+    z-index: 1000;
+}
+
+.autocomplete-section-header {
+    background: #f8f9fa;
+    padding: 8px 12px;
+    font-weight: 600;
+    font-size: 12px;
+    color: #495057;
+    border-bottom: 1px solid #dee2e6;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.venue-result {
+    padding: 12px;
+    border-bottom: 1px solid #eee;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.venue-result:hover {
+    background-color: #f8f9fa;
+    transform: translateX(2px);
+}
+
+.venue-result.local {
+    border-left: 3px solid #28a745;
+}
+
+.venue-result.external {
+    border-left: 3px solid #007bff;
+}
+
+.venue-main {
+    display: flex;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.venue-icon {
+    margin-right: 8px;
+    font-size: 16px;
+}
+
+.venue-details {
+    color: #666;
+    line-height: 1.4;
+    margin-left: 24px;
+}
+
+.venue-source {
+    color: #007bff;
+    font-weight: 500;
+}
+
+.autocomplete-item.loading {
+    text-align: center;
+    padding: 16px;
+    color: #007bff;
+    font-style: italic;
+}
+
+.autocomplete-item.error {
+    text-align: center;
+    padding: 16px;
+    color: #dc3545;
+    background-color: #f8d7da;
+}
+
+.autocomplete-item.no-results {
+    text-align: center;
+    padding: 16px;
+    color: #6c757d;
+}
+
+.autocomplete-item.info {
+    text-align: center;
+    padding: 8px;
+    color: #6c757d;
+    font-style: italic;
+    font-size: 12px;
+}
+
+/* ==================== RICERCA P.IVA ==================== */
+
+#searchPIVABtn {
+    margin-top: 8px;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+}
+
+#searchPIVABtn:hover {
+    background-color: #0056b3;
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+#searchPIVABtn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Campi auto-compilati */
+.auto-filled {
+    background-color: #d4edda !important;
+    border-color: #28a745 !important;
+    animation: autoFillGlow 0.5s ease-in-out;
+}
+
+@keyframes autoFillGlow {
+    0% { 
+        background-color: #fff3cd;
+        border-color: #ffc107;
+    }
+    100% { 
+        background-color: #d4edda;
+        border-color: #28a745;
+    }
+}
+
+/* ==================== INDICATORI DI STATO ==================== */
+
+.search-status-indicator {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+}
+
+.search-status-indicator.searching {
+    color: #007bff;
+    animation: spin 1s linear infinite;
+}
+
+.search-status-indicator.found {
+    color: #28a745;
+}
+
+.search-status-indicator.error {
+    color: #dc3545;
+}
+
+@keyframes spin {
+    0% { transform: translateY(-50%) rotate(0deg); }
+    100% { transform: translateY(-50%) rotate(360deg); }
+}
+
+/* ==================== MIGLIORAMENTI RESPONSIVI ==================== */
+
+@media (max-width: 768px) {
+    .enhanced-dropdown {
+        max-height: 300px;
+    }
+    
+    .venue-result {
+        padding: 10px;
+    }
+    
+    .venue-main {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .venue-icon {
+        margin-bottom: 4px;
+    }
+    
+    .venue-details {
+        margin-left: 0;
+        font-size: 12px;
+    }
+}
+
+/* ==================== TOAST NOTIFICATIONS ENHANCED ==================== */
+
+.toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.toast {
+    min-width: 300px;
+    max-width: 500px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    transform: translateX(400px);
+    opacity: 0;
+    transition: all 0.3s ease-in-out;
+}
+
+.toast.show {
+    transform: translateX(0);
+    opacity: 1;
+}
+
+.toast-success {
+    background: linear-gradient(135deg, #28a745, #20c997);
+    color: white;
+}
+
+.toast-error {
+    background: linear-gradient(135deg, #dc3545, #e74c3c);
+    color: white;
+}
+
+.toast-warning {
+    background: linear-gradient(135deg, #ffc107, #fd7e14);
+    color: #212529;
+}
+
+.toast-info {
+    background: linear-gradient(135deg, #007bff, #6f42c1);
+    color: white;
+}
+
+.toast-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.toast-icon {
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.toast-message {
+    flex: 1;
+    line-height: 1.4;
+}
+
+/* ==================== FORM ENHANCEMENTS ==================== */
+
+.form-group {
+    position: relative;
+}
+
+.form-group.has-search-button {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-control:focus + .search-status-indicator {
+    display: block;
+}
+
+/* Miglioramenti per i campi di ricerca */
+.search-input-wrapper {
+    position: relative;
+}
+
+.search-input-wrapper .form-control {
+    padding-right: 40px;
+}
+
+.search-clear-button {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: #6c757d;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+}
+
+.search-clear-button:hover {
+    background-color: #f8f9fa;
+    color: #495057;
+}
+
+/* ==================== LOADING STATES ==================== */
+
+.btn-loading {
+    position: relative;
+    color: transparent !important;
+}
+
+.btn-loading::after {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    top: 50%;
+    left: 50%;
+    margin-left: -8px;
+    margin-top: -8px;
+    border: 2px solid transparent;
+    border-top-color: currentColor;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+/* ==================== ACCESSIBILITY IMPROVEMENTS ==================== */
+
+.venue-result:focus,
+.autocomplete-item:focus {
+    outline: 2px solid #007bff;
+    outline-offset: -2px;
+}
+
+.venue-result[aria-selected="true"] {
+    background-color: #007bff;
+    color: white;
+}
+
+.venue-result[aria-selected="true"] .venue-details {
+    color: rgba(255,255,255,0.8);
+}
+
+/* Screen reader only content */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0,0,0,0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ==================== DARK MODE SUPPORT ==================== */
+
+@media (prefers-color-scheme: dark) {
+    .enhanced-dropdown {
+        background-color: #2d3748;
+        border-color: #4a5568;
+    }
+    
+    .autocomplete-section-header {
+        background-color: #4a5568;
+        color: #e2e8f0;
+        border-color: #2d3748;
+    }
+    
+    .venue-result {
+        color: #e2e8f0;
+        border-color: #4a5568;
+    }
+    
+    .venue-result:hover {
+        background-color: #4a5568;
+    }
+    
+    .venue-details {
+        color: #a0aec0;
+    }
+    
+    .auto-filled {
+        background-color: #2d5a3d !important;
+        border-color: #38a169 !important;
+    }
+}
