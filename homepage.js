@@ -393,6 +393,40 @@ function openChatAI() {
     window.location.href = './chat-agibilita.html';
 }
 
+// ==================== FUNZIONI NAVIGAZIONE PAGAMENTI ====================
+function openPagamenti() {
+    console.log('🏦 Navigazione verso modulo Pagamenti');
+    try {
+        // Verifica autenticazione prima della navigazione
+        const isAuth = AuthGuard.isAuthenticated();
+        if (!isAuth) {
+            showToast('Sessione scaduta, effettuare nuovamente il login', 'error');
+            AuthGuard.logout();
+            return;
+        }
+
+        // Naviga verso la pagina pagamenti
+        window.location.href = './pagamenti/pagamenti.html';
+    } catch (error) {
+        console.error('❌ Errore navigazione pagamenti:', error);
+        showToast('Errore durante l\'accesso ai pagamenti: ' + error.message, 'error');
+    }
+}
+
+function showPagamentiStats() {
+    console.log('📊 Statistiche pagamenti');
+    try {
+        // Per ora mostra un messaggio, in futuro potresti implementare statistiche reali
+        showToast('Statistiche pagamenti: funzionalità in sviluppo', 'info');
+        
+        // Oppure naviga direttamente ai pagamenti
+        // openPagamenti();
+    } catch (error) {
+        console.error('❌ Errore statistiche pagamenti:', error);
+        showToast('Errore durante l\'accesso alle statistiche', 'error');
+    }
+}
+
 // ==================== RICERCA ARTISTI SICURA ====================
 async function searchArtist() {
     const searchTerm = document.getElementById('searchInput')?.value.trim();
@@ -917,6 +951,8 @@ function setupEventListeners() {
 window.startNewAgibilita = startNewAgibilita;
 window.showComingSoon = showComingSoon;
 window.openChatAI = openChatAI;
+window.openPagamenti = openPagamenti;
+window.showPagamentiStats = showPagamentiStats;
 window.searchArtist = searchArtist;
 window.showSuggestions = showSuggestions;
 window.hideSuggestions = hideSuggestions;
@@ -947,4 +983,4 @@ window.showComunicazioniModal = function() {
     showToast('Funzionalità comunicazioni in sviluppo', 'info');
 }
 
-console.log('🔒 Sistema RECORP Homepage SICURO caricato!');
+console.log('🔒 Sistema RECORP Homepage SICURO caricato con supporto navigazione PAGAMENTI! 💰');
