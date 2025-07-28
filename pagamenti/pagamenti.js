@@ -1,8 +1,8 @@
 // pagamenti.js - Sistema Gestione Pagamenti RECORP Avanzato
 
-// Import services
-import { DatabaseService } from './supabase-config.js';
-import { AuthGuard } from './auth-guard.js';
+// Import services - PERCORSI CORRETTI (file nel root)
+import { DatabaseService } from '../supabase-config.js';
+import { AuthGuard } from '../auth-guard.js';
 
 // ==================== VARIABILI GLOBALI ====================
 let pagamentiDB = [];
