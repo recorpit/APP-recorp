@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔧 Debug Pagamenti - RECORP</title>
+    
+    <!-- CSS semplificato -->
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .debug-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .status.loading { background: #fff3cd; color: #856404; }
+        .status.success { background: #d4edda; color: #155724; }
+        .status.error { background: #f8d7da; color: #721c24; }
+        .debug-log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .btn {
+            padding: 8px 16px;
+            margin: 5px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            background: #007bff;
+            color: white;
+        }
+        .btn:hover { background: #0056b3; }
+        .btn.danger { background: #dc3545; }
+        .btn.danger:hover { background: #c82333; }
+    </style>
+</head>
+<body>
+    <div class="debug-container">
+        <h1>🔧 Debug Pagamenti RECORP</h1>
+        <p>Questa pagina aiuta a identificare il problema del loop di redirect</p>
+        
+        <div id="status" class="status loading">
+            🔄 Inizializzazione debug in corso...
+        </div>
+        
+        <div class="debug-log" id="debugLog">
+            Avvio debug...<br>
+        </div>
+        
+        <div>
+            <button class="btn" onclick="testDatabaseConnection()">🔌 Test Database</button>
+            <button class="btn" onclick="testAuthentication()">🔐 Test Auth</button>
+            <button class="btn" onclick="clearAllCaches()">🗑️ Pulisci Cache</button>
+            <button class="btn danger" onclick="forceLogout()">🚪 Force Logout</button>
+            <button class="btn" onclick="goToPagamentiSafe()">💰 Vai a Pagamenti (Safe)</button>
+        </div>
+        
+        <hr>
+        
+        <h3>📊 Informazioni Sistema</h3>
+        <div id="systemInfo">
+            Caricamento info sistema...
+        </div>
+    </div>
+
+    <!-- 🔥 SCRIPT DEBUG MINIMALE - NO IMPORTS CHE CAUSANO PROBLEMI -->
+    <script>
+        // ==================== VARIABILI DEBUG ====================
+        let debugLog = [];
+        let authState = 'unknown';
+        let dbState = 'unknown';
+        
+        // ==================== FUNZIONI DEBUG ====================
+        function addDebugLog(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${type.toUpperCase()}: ${message}`;
+            debugLog.push(logEntry);
+            
+            const logContainer = document.getElementById('debugLog');
+            logContainer.innerHTML = debugLog.slice(-20).join('<br>') + '<br>';
+            logContainer.scrollTop = logContainer.scrollHeight;
+            
+            console.log(logEntry);
+        }
+        
+        function updateStatus(message, type = 'loading') {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+        }
+        
+        // ==================== TEST FUNZIONI ====================
+        async function testDatabaseConnection() {
+            addDebugLog('🔌 Avvio test connessione database...');
+            
+            try {
+                // Test con fetch diretto a Supabase
+                const response = await fetch('https://nommluymuwioddhaujxu.supabase.co/rest/v1/', {
+                    method: 'GET',
+                    headers: {
+                        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5vbW1sdXltdXdpb2RkaGF1anh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE5ODA5MjgsImV4cCI6MjA2NzU1NjkyOH0.oaF5uaNe21W8NU67n1HjngngMUClkss2achTQ7BZ5tE',
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    dbState = 'connected';
+                    addDebugLog('✅ Database connesso correttamente', 'success');
+                } else {
+                    dbState = 'error';
+                    addDebugLog(`❌ Errore database: ${response.status} ${response.statusText}`, 'error');
+                }
+            } catch (error) {
+                dbState = 'error';
+                addDebugLog(`❌ Errore rete database: ${error.message}`, 'error');
+            }
+            
+            updateSystemInfo();
+        }
+        
+        async function testAuthentication() {
+            addDebugLog('🔐 Avvio test autenticazione...');
+            
+            try {
+                // Controlla localStorage
+                const sessionData = localStorage.getItem('recorp_user_session');
+                if (sessionData) {
+                    const session = JSON.parse(sessionData);
+                    addDebugLog(`📱 Sessione localStorage trovata: ${session.email}`, 'info');
+                    
+                    // Controlla scadenza
+                    if (session.expires_at) {
+                        const expiresAt = new Date(session.expires_at * 1000);
+                        const now = new Date();
+                        if (expiresAt > now) {
+                            authState = 'valid';
+                            addDebugLog('✅ Sessione localStorage valida', 'success');
+                        } else {
+                            authState = 'expired';
+                            addDebugLog('⏰ Sessione localStorage scaduta', 'error');
+                        }
+                    } else {
+                        authState = 'no-expiry';
+                        addDebugLog('⚠️ Sessione senza scadenza', 'warning');
+                    }
+                } else {
+                    authState = 'no-session';
+                    addDebugLog('❌ Nessuna sessione localStorage trovata', 'error');
+                }
+                
+                // Test Supabase se disponibile
+                if (window.supabase) {
+                    addDebugLog('🔍 Controllo sessione Supabase...', 'info');
+                    // Test aggiuntivi Supabase
+                } else {
+                    addDebugLog('⚠️ Supabase client non caricato', 'warning');
+                }
+                
+            } catch (error) {
+                authState = 'error';
+                addDebugLog(`❌ Errore test auth: ${error.message}`, 'error');
+            }
+            
+            updateSystemInfo();
+        }
+        
+        function clearAllCaches() {
+            addDebugLog('🗑️ Pulizia cache in corso...');
+            
+            try {
+                // Pulisci localStorage
+                const keysToRemove = [];
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && (key.includes('recorp') || key.includes('supabase'))) {
+                        keysToRemove.push(key);
+                    }
+                }
+                
+                keysToRemove.forEach(key => {
+                    localStorage.removeItem(key);
+                    addDebugLog(`🗑️ Rimosso: ${key}`, 'info');
+                });
+                
+                // Pulisci sessionStorage
+                sessionStorage.clear();
+                
+                // Pulisci cookies se possibile
+                document.cookie.split(";").forEach(function(c) { 
+                    document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+                });
+                
+                addDebugLog('✅ Cache pulita con successo', 'success');
+                updateStatus('✅ Cache pulita - Puoi provare a ricaricare', 'success');
+                
+            } catch (error) {
+                addDebugLog(`❌ Errore pulizia cache: ${error.message}`, 'error');
+            }
+        }
+        
+        function forceLogout() {
+            addDebugLog('🚪 Force logout in corso...');
+            
+            clearAllCaches();
+            
+            // Reindirizza al login
+            setTimeout(() => {
+                addDebugLog('🔄 Reindirizzamento al login...', 'info');
+                window.location.href = '../login.html';
+            }, 1000);
+        }
+        
+        function goToPagamentiSafe() {
+            addDebugLog('💰 Tentativo accesso pagamenti in modalità sicura...');
+            
+            // Imposta flag per evitare loop
+            sessionStorage.setItem('debug_mode', 'true');
+            sessionStorage.setItem('skip_auto_init', 'true');
+            
+            addDebugLog('🔄 Reindirizzamento a pagamenti...', 'info');
+            window.location.href = './pagamenti.html';
+        }
+        
+        function updateSystemInfo() {
+            const info = document.getElementById('systemInfo');
+            info.innerHTML = `
+                <strong>🔐 Stato Autenticazione:</strong> ${authState}<br>
+                <strong>🔌 Stato Database:</strong> ${dbState}<br>
+                <strong>🌐 URL Corrente:</strong> ${window.location.href}<br>
+                <strong>📱 LocalStorage Keys:</strong> ${Object.keys(localStorage).filter(k => k.includes('recorp')).join(', ') || 'Nessuna'}<br>
+                <strong>🕒 Timestamp:</strong> ${new Date().toLocaleString()}<br>
+                <strong>👤 User Agent:</strong> ${navigator.userAgent.substring(0, 100)}...
+            `;
+        }
+        
+        // ==================== INIZIALIZZAZIONE DEBUG ====================
+        document.addEventListener('DOMContentLoaded', function() {
+            addDebugLog('🚀 Debug page caricata');
+            updateStatus('🔧 Debug ready - Premi i pulsanti per testare', 'success');
+            updateSystemInfo();
+            
+            // Test automatici
+            setTimeout(() => {
+                testDatabaseConnection();
+                setTimeout(() => {
+                    testAuthentication();
+                }, 1000);
+            }, 500);
+        });
+        
+        // ==================== INTERCETTA ERRORI ====================
+        window.addEventListener('error', function(event) {
+            addDebugLog(`❌ JavaScript Error: ${event.error.message}`, 'error');
+            addDebugLog(`📍 File: ${event.filename}:${event.lineno}`, 'error');
+        });
+        
+        window.addEventListener('unhandledrejection', function(event) {
+            addDebugLog(`❌ Promise Rejection: ${event.reason}`, 'error');
+        });
+        
+        // ==================== MONITORA NAVIGAZIONE ====================
+        let navigationCount = 0;
+        const originalPushState = history.pushState;
+        const originalReplaceState = history.replaceState;
+        
+        history.pushState = function() {
+            navigationCount++;
+            addDebugLog(`🔄 Navigation pushState #${navigationCount}: ${arguments[2]}`, 'warning');
+            return originalPushState.apply(history, arguments);
+        };
+        
+        history.replaceState = function() {
+            navigationCount++;
+            addDebugLog(`🔄 Navigation replaceState #${navigationCount}: ${arguments[2]}`, 'warning');
+            return originalReplaceState.apply(history, arguments);
+        };
+        
+        window.addEventListener('beforeunload', function(event) {
+            addDebugLog('🚨 Page sta per essere scaricata', 'warning');
+        });
+        
+        window.addEventListener('popstate', function(event) {
+            addDebugLog('🔄 Popstate event rilevato', 'warning');
+        });
+        
+        addDebugLog('✅ Debug listeners attivati');
+    </script>
+</body>
+</html>
