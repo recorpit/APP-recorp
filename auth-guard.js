@@ -83,55 +83,61 @@ export class AuthGuard {
       const currentSearch = window.location.search;
       const currentHash = window.location.hash;
       
-      // ✅ CORRETTO: Costruisci URL redirect RELATIVO per GitHub Pages
+      // ✅ SEMPLICE: Costruisci redirect relativo
       let redirectUrl = '';
-      
-      // Determina il percorso relativo basato sulla posizione corrente
       if (currentPath.includes('/pagamenti/')) {
-        // Da pagamenti/ → usa solo il nome file
         redirectUrl = 'pagamenti/pagamenti.html' + currentSearch + currentHash;
       } else if (currentPath.includes('/agibilita/')) {
-        // Da agibilita/ → usa solo il nome file
         redirectUrl = 'agibilita/agibilita.html' + currentSearch + currentHash;
       } else {
-        // Da root → usa solo il nome file
         const fileName = currentPath.split('/').pop() || 'index.html';
         redirectUrl = fileName + currentSearch + currentHash;
       }
       
-      // ✅ CORRETTO: Determina il path per login.html nel root
-      let loginPath;
+      // ✅ SOLUZIONE ROBUSTA: Costruisci path login partendo da origin
+      const currentUrl = window.location.href;
+      let loginUrl;
       
       if (currentPath.includes('/pagamenti/')) {
-        loginPath = '../login.html';
+        // Da https://recorpit.github.io/APP-recorp/pagamenti/pagamenti.html
+        // a   https://recorpit.github.io/APP-recorp/login.html
+        loginUrl = currentUrl.replace('/pagamenti/pagamenti.html', '/login.html');
       } else if (currentPath.includes('/agibilita/')) {
-        loginPath = '../login.html';
+        // Da https://recorpit.github.io/APP-recorp/agibilita/agibilita.html  
+        // a   https://recorpit.github.io/APP-recorp/login.html
+        loginUrl = currentUrl.replace('/agibilita/agibilita.html', '/login.html');
       } else {
-        loginPath = './login.html';
+        // Da root
+        const basePath = currentUrl.substring(0, currentUrl.lastIndexOf('/') + 1);
+        loginUrl = basePath + 'login.html';
       }
       
-      // ✅ CORRETTO: Aggiungi parametro redirect RELATIVO se non siamo già nel login
+      // Rimuovi query params e hash dall'URL login
+      loginUrl = loginUrl.split('?')[0].split('#')[0];
+      
+      // ✅ Aggiungi parametro redirect se non siamo già nel login
       if (!currentPath.includes('login.html')) {
         const redirectParam = encodeURIComponent(redirectUrl);
-        loginPath += `?redirect=${redirectParam}`;
+        loginUrl += `?redirect=${redirectParam}`;
       }
       
-      console.log('🔄 Redirect a login:', loginPath);
-      console.log('📍 Current path:', currentPath);
-      console.log('🔗 Redirect URL (relativo):', redirectUrl);
+      console.log('🔄 Redirect a login:', loginUrl);
+      console.log('📍 Current URL:', currentUrl);
+      console.log('🔗 Redirect param:', redirectUrl);
       
-      window.location.href = loginPath;
+      window.location.href = loginUrl;
       
     } catch (error) {
       console.error('❌ Errore costruzione redirect:', error);
       
-      // ✅ CORRETTO: Fallback sicuro verso login
-      if (window.location.pathname.includes('/pagamenti/') || 
-          window.location.pathname.includes('/agibilita/')) {
-        window.location.href = '../login.html';
-      } else {
-        window.location.href = './login.html';
+      // ✅ FALLBACK SICURO: Costruisci URL assoluto
+      const parts = window.location.pathname.split('/');
+      parts.pop(); // Rimuovi il file corrente
+      if (parts[parts.length - 1] === 'pagamenti' || parts[parts.length - 1] === 'agibilita') {
+        parts.pop(); // Rimuovi la cartella se siamo in una sottocartella
       }
+      const basePath = window.location.origin + parts.join('/');
+      window.location.href = basePath + '/login.html';
     }
   }
 
