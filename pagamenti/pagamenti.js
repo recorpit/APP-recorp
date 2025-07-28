@@ -132,50 +132,133 @@ async function loadPaymentSettings() {
 async function autoCalculatePaymentsFromAgibilita(forceRecalculate = false) {
     try {
         console.log('🧮 Calcolo automatico pagamenti da agibilità...');
+        console.log('📊 Dati disponibili:', {
+            agibilita: agibilitaDB.length,
+            artisti: artistiDB.length,
+            pagamenti_esistenti: pagamentiDB.length
+        });
+        
+        // ✅ DEBUG: Mostra struttura delle prime agibilità
+        if (agibilitaDB.length > 0) {
+            console.log('🔍 STRUTTURA AGIBILITÀ (prima 2):');
+            agibilitaDB.slice(0, 2).forEach(function(ag, index) {
+                console.log('Agibilità ' + (index + 1) + ':', {
+                    id: ag.id,
+                    codice: ag.codice,
+                    payment_processed: ag.payment_processed,
+                    artisti_count: ag.artisti ? ag.artisti.length : 0,
+                    artisti_structure: ag.artisti ? ag.artisti[0] : null,
+                    locale_structure: ag.locale ? Object.keys(ag.locale) : null
+                });
+            });
+        }
+        
+        // ✅ DEBUG: Mostra struttura artisti
+        if (artistiDB.length > 0) {
+            console.log('🔍 STRUTTURA ARTISTI (primo):');
+            console.log('Artista 1:', {
+                id: artistiDB[0].id,
+                nome: artistiDB[0].nome,
+                cognome: artistiDB[0].cognome,
+                codice_fiscale: artistiDB[0].codice_fiscale,
+                codice_fiscale_temp: artistiDB[0].codice_fiscale_temp,
+                has_partita_iva: artistiDB[0].has_partita_iva,
+                iban: artistiDB[0].iban ? 'PRESENTE' : 'MANCANTE'
+            });
+        }
         
         let nuoviPagamenti = 0;
         let agibilitaProcessate = 0;
+        let erroriDettaglio = [];
         
         for (const agibilita of agibilitaDB) {
+            console.log('\n🔄 === PROCESSANDO AGIBILITÀ ===');
+            console.log('ID:', agibilita.id, 'Codice:', agibilita.codice);
+            console.log('Payment processed:', agibilita.payment_processed);
+            console.log('Artisti raw:', agibilita.artisti);
+            
             // ✅ MODIFICATO: Se forzato, ricalcola anche agibilità già processate
             if (!forceRecalculate && agibilita.payment_processed) {
                 console.log('⏭️ Agibilità ' + agibilita.codice + ' già processata, skip');
                 continue;
             }
             
-            // Skip se non ha artisti
-            if (!agibilita.artisti || agibilita.artisti.length === 0) {
+            // ✅ DEBUG: Verifica struttura artisti
+            if (!agibilita.artisti) {
+                console.warn('❌ agibilita.artisti è null/undefined');
+                erroriDettaglio.push('Agibilità ' + agibilita.codice + ': campo artisti null');
+                continue;
+            }
+            
+            if (!Array.isArray(agibilita.artisti)) {
+                console.warn('❌ agibilita.artisti non è un array:', typeof agibilita.artisti);
+                erroriDettaglio.push('Agibilità ' + agibilita.codice + ': artisti non è array');
+                continue;
+            }
+            
+            if (agibilita.artisti.length === 0) {
                 console.log('⚠️ Agibilità ' + agibilita.codice + ' senza artisti, skip');
                 continue;
             }
             
-            console.log('🔄 Processando agibilità: ' + agibilita.codice + ' con ' + agibilita.artisti.length + ' artisti');
+            console.log('✅ Agibilità ha ' + agibilita.artisti.length + ' artisti');
             
-            for (const artistaAgibilita of agibilita.artisti) {
+            for (let i = 0; i < agibilita.artisti.length; i++) {
+                const artistaAgibilita = agibilita.artisti[i];
+                console.log('\n  👤 === ARTISTA ' + (i + 1) + ' ===');
+                console.log('  Dati artista agibilità:', artistaAgibilita);
+                
+                // ✅ DEBUG: Verifica campi artista
+                if (!artistaAgibilita.artist_id) {
+                    console.warn('  ❌ Artista senza artist_id:', artistaAgibilita);
+                    erroriDettaglio.push('Agibilità ' + agibilita.codice + ': artista senza artist_id');
+                    continue;
+                }
+                
+                const artistId = artistaAgibilita.artist_id;
+                console.log('  Artist ID da cercare:', artistId);
+                
                 // ✅ MODIFICATO: Se forzato, controlla anche esistenza per evitare duplicati
                 let esistePagamento = pagamentiDB.find(function(p) {
                     return p.agibilita_id === agibilita.id && 
-                           p.artista_data && 
-                           p.artista_data.codice_fiscale === artistaAgibilita.cf;
+                           p.artista_id === artistId;
                 });
                 
                 if (!forceRecalculate && esistePagamento) {
-                    console.log('⏭️ Pagamento già esistente per ' + artistaAgibilita.cf + ', skip');
+                    console.log('  ⏭️ Pagamento già esistente per artist_id ' + artistId + ', skip');
                     continue;
                 }
                 
-                // Trova dati completi artista
+                // ✅ DEBUG: Ricerca artista nel database
+                console.log('  🔍 Cercando artista nel database...');
                 const artista = artistiDB.find(function(a) {
-                    return a.codice_fiscale === artistaAgibilita.cf ||
-                           a.codice_fiscale_temp === artistaAgibilita.cf;
+                    const match = a.id === parseInt(artistId);
+                    if (match) {
+                        console.log('  ✅ TROVATO:', a.nome, a.cognome, '(ID:', a.id, ')');
+                    }
+                    return match;
                 });
                 
                 if (!artista) {
-                    console.warn('⚠️ Artista non trovato per CF: ' + artistaAgibilita.cf);
+                    console.warn('  ❌ Artista NON TROVATO per ID: ' + artistId);
+                    console.log('  🔍 ID disponibili nel database:');
+                    artistiDB.slice(0, 5).forEach(function(a) {
+                        console.log('    -', a.id, '(' + a.nome + ' ' + a.cognome + ')');
+                    });
+                    erroriDettaglio.push('Artist ID ' + artistId + ' non trovato in database artisti');
                     continue;
                 }
                 
-                console.log('💰 Calcolando pagamento per: ' + artista.nome + ' ' + artista.cognome + ' (€' + artistaAgibilita.compenso + ')');
+                // ✅ DEBUG: Verifica compenso
+                const compenso = parseFloat(artistaAgibilita.compenso) || 0;
+                console.log('  💰 Compenso:', compenso);
+                
+                if (compenso === 0) {
+                    console.log('  ⚠️ Compenso zero, skip pagamento');
+                    continue;
+                }
+                
+                console.log('  🧮 Calcolando pagamento per: ' + artista.nome + ' ' + artista.cognome + ' (€' + compenso + ')');
                 
                 // Calcola pagamento
                 const payment = await calculatePaymentForArtist(
@@ -184,34 +267,64 @@ async function autoCalculatePaymentsFromAgibilita(forceRecalculate = false) {
                     artista
                 );
                 
+                console.log('  📋 Pagamento calcolato:', payment);
+                
                 if (payment) {
-                    // ✅ MODIFICATO: Se esiste già, aggiorna invece di creare
-                    let savedPayment;
-                    if (esistePagamento && forceRecalculate) {
-                        console.log('🔄 Aggiornando pagamento esistente per ' + artista.nome);
-                        savedPayment = await DatabaseService.updatePayment(esistePagamento.id, payment);
-                    } else {
-                        console.log('✨ Creando nuovo pagamento per ' + artista.nome);
-                        savedPayment = await DatabaseService.createPayment(payment);
-                        pagamentiDB.push(savedPayment);
+                    try {
+                        // ✅ MODIFICATO: Se esiste già, aggiorna invece di creare
+                        let savedPayment;
+                        if (esistePagamento && forceRecalculate) {
+                            console.log('  🔄 Aggiornando pagamento esistente per ' + artista.nome);
+                            savedPayment = await DatabaseService.updatePayment(esistePagamento.id, payment);
+                        } else {
+                            console.log('  ✨ Creando nuovo pagamento per ' + artista.nome);
+                            savedPayment = await DatabaseService.createPayment(payment);
+                            pagamentiDB.push(savedPayment);
+                        }
+                        
+                        console.log('  ✅ Pagamento salvato:', savedPayment.id);
+                        nuoviPagamenti++;
+                        
+                        logAuditEvent('payment_calculated', 
+                            'Pagamento calcolato per ' + artista.nome + ' ' + artista.cognome, 
+                            savedPayment.id
+                        );
+                    } catch (saveError) {
+                        console.error('  ❌ Errore salvataggio pagamento:', saveError);
+                        erroriDettaglio.push('Errore salvataggio pagamento per ' + artista.nome + ': ' + saveError.message);
                     }
-                    
-                    nuoviPagamenti++;
-                    
-                    logAuditEvent('payment_calculated', 
-                        'Pagamento calcolato per ' + artista.nome + ' ' + artista.cognome, 
-                        savedPayment.id
-                    );
+                } else {
+                    console.log('  ❌ Pagamento non calcolato (payment = null)');
+                    erroriDettaglio.push('Calcolo pagamento fallito per ' + artista.nome);
                 }
             }
             
             // ✅ MODIFICATO: Marca agibilità come processata solo se non forzato
             if (!agibilita.payment_processed) {
-                await DatabaseService.updateAgibilita(agibilita.id, {
-                    payment_processed: true
-                });
-                agibilitaProcessate++;
+                try {
+                    await DatabaseService.updateAgibilita(agibilita.id, {
+                        payment_processed: true
+                    });
+                    agibilitaProcessate++;
+                    console.log('✅ Agibilità marcata come processata');
+                } catch (updateError) {
+                    console.error('❌ Errore aggiornamento agibilità:', updateError);
+                    erroriDettaglio.push('Errore aggiornamento agibilità ' + agibilita.codice + ': ' + updateError.message);
+                }
             }
+        }
+        
+        // ✅ REPORT FINALE
+        console.log('\n📊 === REPORT FINALE ===');
+        console.log('Nuovi pagamenti:', nuoviPagamenti);
+        console.log('Agibilità processate:', agibilitaProcessate);
+        console.log('Errori riscontrati:', erroriDettaglio.length);
+        
+        if (erroriDettaglio.length > 0) {
+            console.log('❌ ERRORI DETTAGLIO:');
+            erroriDettaglio.forEach(function(errore, index) {
+                console.log((index + 1) + '.', errore);
+            });
         }
         
         if (nuoviPagamenti > 0) {
@@ -220,6 +333,8 @@ async function autoCalculatePaymentsFromAgibilita(forceRecalculate = false) {
             console.log('ℹ️ Nessun nuovo pagamento da calcolare');
             if (agibilitaDB.length === 0) {
                 showToast('ℹ️ Nessuna agibilità trovata per il calcolo pagamenti', 'info');
+            } else if (erroriDettaglio.length > 0) {
+                showToast('⚠️ Calcolo completato con ' + erroriDettaglio.length + ' errori (vedi console)', 'warning');
             } else {
                 showToast('ℹ️ Tutti i pagamenti sono già aggiornati', 'info');
             }
@@ -311,171 +426,10 @@ async function calculatePaymentForArtist(agibilita, artistaAgibilita, artista) {
             fattura_ricevuta: false,
             
             // Metadati evento
-            causale_pagamento: `Prestazione artistica ${artistaAgibilita.ruolo} - ${agibilita.codice}`,
+            causale_pagamento: 'Prestazione artistica ' + (artistaAgibilita.ruolo || 'Artista') + ' - ' + agibilita.codice,
             
             // Audit
             created_by: currentUser.id
-        };
-        
-        return payment;
-        
-    } catch (error) {
-        console.error('❌ Errore calcolo pagamento artista:', error);
-        return null;
-    }
-}
-
-function determineTipoContratto(artista, artistaAgibilita) {
-    // Priorità a tipo_rapporto dell'agibilità
-    if (artistaAgibilita.tipo_rapporto) {
-        switch (artistaAgibilita.tipo_rapporto) {
-            case 'partitaiva':
-            case 'partita_iva':
-                return 'partitaiva';
-            case 'chiamata':
-                return 'chiamata';
-            case 'fulltime':
-            case 'dipendente':
-                return 'dipendente';
-            default:
-                return 'occasionale';
-        }
-    }
-    
-    // Fallback su dati artista
-    if (artista.has_partita_iva || artista.partita_iva) {
-        return 'partitaiva';
-    }
-    
-    // Default occasionale
-    return 'occasionale';
-} agibilità...');
-        
-        let nuoviPagamenti = 0;
-        
-        for (const agibilita of agibilitaDB) {
-            // Skip se agibilità già processata
-            if (agibilita.payment_processed) continue;
-            
-            // Skip se non ha artisti
-            if (!agibilita.artisti || agibilita.artisti.length === 0) continue;
-            
-            for (const artistaAgibilita of agibilita.artisti) {
-                // Cerca se pagamento già esiste
-                const esistePagamento = pagamentiDB.find(p => 
-                    p.agibilita_id === agibilita.id && 
-                    p.artista_cf === artistaAgibilita.cf
-                );
-                
-                if (esistePagamento) continue;
-                
-                // Trova dati completi artista
-                const artista = artistiDB.find(a => 
-                    a.codice_fiscale === artistaAgibilita.cf ||
-                    a.codice_fiscale_temp === artistaAgibilita.cf
-                );
-                
-                if (!artista) {
-                    console.warn(`⚠️ Artista non trovato per CF: ${artistaAgibilita.cf}`);
-                    continue;
-                }
-                
-                // Calcola pagamento
-                const payment = await calculatePaymentForArtist(
-                    agibilita, 
-                    artistaAgibilita, 
-                    artista
-                );
-                
-                if (payment) {
-                    // Salva pagamento
-                    const savedPayment = await DatabaseService.createPayment(payment);
-                    pagamentiDB.push(savedPayment);
-                    nuoviPagamenti++;
-                    
-                    logAuditEvent('payment_calculated', 
-                        `Pagamento calcolato per ${artista.nome} ${artista.cognome}`, 
-                        savedPayment.id
-                    );
-                }
-            }
-            
-            // Marca agibilità come processata
-            await DatabaseService.updateAgibilita(agibilita.id, {
-                payment_processed: true
-            });
-        }
-        
-        if (nuoviPagamenti > 0) {
-            showToast(`✅ ${nuoviPagamenti} nuovi pagamenti calcolati automaticamente`, 'success');
-        }
-        
-        console.log(`✅ Calcolo automatico completato: ${nuoviPagamenti} nuovi pagamenti`);
-        
-    } catch (error) {
-        console.error('❌ Errore calcolo automatico pagamenti:', error);
-        showToast('Errore nel calcolo automatico dei pagamenti', 'error');
-    }
-}
-
-async function calculatePaymentForArtist(agibilita, artistaAgibilita, artista) {
-    try {
-        const importoLordo = parseFloat(artistaAgibilita.compenso) || 0;
-        
-        // Skip se importo è 0
-        if (importoLordo === 0) return null;
-        
-        const tipoContratto = determineTipoContratto(artista, artistaAgibilita);
-        let ritenuta = 0;
-        let importoNetto = importoLordo;
-        let statoIniziale = 'pending';
-        
-        // Calcola ritenute in base al tipo contratto
-        switch (tipoContratto) {
-            case 'occasionale':
-                if (importoLordo > paymentSettings.soglia_ritenuta) {
-                    ritenuta = importoLordo * paymentSettings.ritenuta_occasionale;
-                    importoNetto = importoLordo - ritenuta;
-                }
-                break;
-                
-            case 'partitaiva':
-                // Nessuna ritenuta per P.IVA
-                ritenuta = 0;
-                break;
-                
-            case 'chiamata':
-            case 'dipendente':
-                // Elaborazione via cedolino
-                statoIniziale = 'payroll_pending';
-                break;
-        }
-        
-        // Auto-approvazione per importi bassi
-        if (importoLordo < paymentSettings.approvazione_automatica_sotto) {
-            statoIniziale = 'approved';
-        }
-        
-        const payment = {
-            agibilita_id: agibilita.id,
-            artista_id: artista.id,
-            artista_cf: artista.codice_fiscale || artista.codice_fiscale_temp,
-            tipo_contratto: tipoContratto,
-            importo_lordo: importoLordo,
-            ritenuta: ritenuta,
-            importo_netto: importoNetto,
-            stato: statoIniziale,
-            ruolo: artistaAgibilita.ruolo,
-            data_evento: agibilita.data_inizio,
-            locale_nome: agibilita.locale?.descrizione,
-            causale: `Prestazione artistica ${artistaAgibilita.ruolo} - ${agibilita.codice}`,
-            created_by: currentUser.id,
-            metadata: {
-                agibilita_codice: agibilita.codice,
-                artista_nome: `${artista.nome} ${artista.cognome}`,
-                calcolo_automatico: true,
-                ritenuta_percentuale: tipoContratto === 'occasionale' ? paymentSettings.ritenuta_occasionale : 0
-            }
         };
         
         return payment;
@@ -1290,7 +1244,7 @@ function checkPaymentNotifications() {
         
         // Controlla pagamenti in scadenza
         const pagamentiInScadenza = pagamentiDB.filter(p => {
-            if (p.stato !== 'pending') return false;
+            if (p.stato !== 'da_pagare') return false;
             
             const createdDate = new Date(p.created_at);
             const daysSinceCreated = Math.floor((today - createdDate) / (1000 * 60 * 60 * 24));
@@ -1304,8 +1258,8 @@ function checkPaymentNotifications() {
         
         // Controlla fatture mancanti
         const fattureMancantiPIva = pagamentiDB.filter(p => 
-            p.tipo_contratto === 'partitaiva' && 
-            p.stato === 'pending' && 
+            p.artista_data?.has_partita_iva && 
+            p.stato === 'da_pagare' && 
             !p.fattura_ricevuta
         );
         

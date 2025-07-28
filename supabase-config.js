@@ -1,5 +1,5 @@
 // supabase-config.js - Configurazione Database RECORP
-// Versione integrata con numerazione thread-safe e supporto login + PAGAMENTI
+// Versione integrata con numerazione thread-safe e supporto login + PAGAMENTI COMPLETI
 
 // ==================== CONFIGURAZIONE SUPABASE ====================
 const SUPABASE_CONFIG = {
@@ -92,7 +92,7 @@ function showConfigurationError(message) {
     document.body.prepend(errorDiv);
 }
 
-// ==================== DATABASE SERVICE ====================
+// ==================== DATABASE SERVICE COMPLETO ====================
 export const DatabaseService = {
     // ==================== INIZIALIZZAZIONE ====================
     async init() {
@@ -146,6 +146,61 @@ export const DatabaseService = {
                 error: error.message,
                 database_accessible: false
             };
+        }
+    },
+
+    // ==================== GESTIONE UTENTI E AUTENTICAZIONE ====================
+    
+    // ✅ AGGIUNTO: Ottieni utente corrente (MANCAVA nel tuo file)
+    async getCurrentUser() {
+        try {
+            await this.init();
+            const { data: { user }, error } = await supabase.auth.getUser();
+            
+            if (error) {
+                console.error('❌ Errore recupero utente:', error);
+                return null;
+            }
+            
+            return user;
+        } catch (error) {
+            console.error('❌ Errore getCurrentUser:', error);
+            return null;
+        }
+    },
+
+    // ✅ AGGIUNTO: Login (MANCAVA nel tuo file)
+    async signIn(email, password) {
+        try {
+            await this.init();
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email,
+                password
+            });
+            
+            if (error) {
+                throw new Error(error.message);
+            }
+            
+            return data;
+        } catch (error) {
+            throw new Error(`Errore login: ${error.message}`);
+        }
+    },
+
+    // ✅ AGGIUNTO: Logout (MANCAVA nel tuo file)
+    async signOut() {
+        try {
+            await this.init();
+            const { error } = await supabase.auth.signOut();
+            
+            if (error) {
+                throw new Error(error.message);
+            }
+            
+            return true;
+        } catch (error) {
+            throw new Error(`Errore logout: ${error.message}`);
         }
     },
 
@@ -318,18 +373,14 @@ export const DatabaseService = {
         return data;
     },
 
-    // ==================== PAGAMENTI - FUNZIONI PRINCIPALI ====================
+    // ==================== PAGAMENTI - FUNZIONI COMPLETE ====================
     
-    // ✅ NUOVO: Ottieni pagamenti con filtri
+    // ✅ NUOVO: Ottieni pagamenti con filtri avanzati
     async getPagamenti(filtri = {}) {
         await this.init();
         let query = supabase
             .from('pagamenti')
-            .select(`
-                *,
-                artisti:artista_id(nome, cognome, codice_fiscale, iban, has_partita_iva, partita_iva),
-                agibilita:agibilita_id(codice, data_inizio, data_fine, locale)
-            `);
+            .select('*'); // Usa solo * perché i dati sono denormalizzati
         
         // Applica filtri
         if (filtri.stato) {
@@ -359,7 +410,7 @@ export const DatabaseService = {
         return data || [];
     },
 
-    // ✅ NUOVO: Crea nuovo pagamento
+    // ✅ NUOVO: Crea nuovo pagamento con validazione
     async createPayment(paymentData) {
         await this.init();
         
@@ -370,28 +421,43 @@ export const DatabaseService = {
             paymentData.numero_pagamento = `PAG-${year}-${String(count + 1).padStart(4, '0')}`;
         }
 
+        // Validation: assicurati che i campi richiesti siano presenti
+        const requiredFields = ['agibilita_id', 'artista_id', 'importo_lordo'];
+        for (const field of requiredFields) {
+            if (paymentData[field] === undefined || paymentData[field] === null) {
+                throw new Error(`Campo richiesto mancante: ${field}`);
+            }
+        }
+
         const dataToSave = {
             ...paymentData,
-            created_at: new Date().toISOString()
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
         };
         
         const { data, error } = await supabase
             .from('pagamenti')
             .insert([dataToSave])
-            .select(`
-                *,
-                artisti:artista_id(nome, cognome, codice_fiscale, iban),
-                agibilita:agibilita_id(codice, data_inizio, locale)
-            `)
+            .select()
             .single();
         
-        if (error) throw error;
+        if (error) {
+            console.error('❌ Errore creazione pagamento:', error);
+            throw new Error(`Errore database: ${error.message}`);
+        }
+        
+        console.log('✅ Pagamento creato con successo:', data.id);
         return data;
     },
 
-    // ✅ NUOVO: Aggiorna pagamento
+    // ✅ NUOVO: Aggiorna pagamento con validazione
     async updatePayment(id, paymentData) {
         await this.init();
+        
+        if (!id) {
+            throw new Error('ID pagamento richiesto per aggiornamento');
+        }
+
         const dataToUpdate = {
             ...paymentData,
             updated_at: new Date().toISOString()
@@ -401,14 +467,39 @@ export const DatabaseService = {
             .from('pagamenti')
             .update(dataToUpdate)
             .eq('id', id)
-            .select(`
-                *,
-                artisti:artista_id(nome, cognome, codice_fiscale, iban),
-                agibilita:agibilita_id(codice, data_inizio, locale)
-            `)
+            .select()
             .single();
         
-        if (error) throw error;
+        if (error) {
+            console.error('❌ Errore aggiornamento pagamento:', error);
+            throw new Error(`Errore database: ${error.message}`);
+        }
+        
+        console.log('✅ Pagamento aggiornato con successo:', data.id);
+        return data;
+    },
+
+    // ✅ NUOVO: Elimina pagamento
+    async deletePayment(id) {
+        await this.init();
+        
+        if (!id) {
+            throw new Error('ID pagamento richiesto per eliminazione');
+        }
+        
+        const { data, error } = await supabase
+            .from('pagamenti')
+            .delete()
+            .eq('id', id)
+            .select()
+            .single();
+        
+        if (error) {
+            console.error('❌ Errore eliminazione pagamento:', error);
+            throw new Error(`Errore database: ${error.message}`);
+        }
+        
+        console.log('✅ Pagamento eliminato con successo:', id);
         return data;
     },
 
@@ -424,21 +515,38 @@ export const DatabaseService = {
         const startYear = new Date(year, 0, 1).toISOString();
         const endYear = new Date(year + 1, 0, 1).toISOString();
         
-        const { count, error } = await supabase
-            .from('pagamenti')
-            .select('*', { count: 'exact', head: true })
-            .gte('created_at', startYear)
-            .lt('created_at', endYear);
-        
-        if (error) throw error;
-        return count || 0;
+        try {
+            const { count, error } = await supabase
+                .from('pagamenti')
+                .select('*', { count: 'exact', head: true })
+                .gte('created_at', startYear)
+                .lt('created_at', endYear);
+            
+            if (error) throw error;
+            return count || 0;
+        } catch (error) {
+            console.warn('⚠️ Errore conteggio pagamenti:', error);
+            return 0;
+        }
     },
 
-    // ✅ NUOVO: Ottieni impostazioni pagamenti
+    // ✅ NUOVO: Ottieni impostazioni pagamenti avanzate
     async getPaymentSettings() {
-        // Per ora restituisce impostazioni di default
-        // In futuro potresti creare una tabella 'settings' dedicata
+        await this.init();
+        
         try {
+            // Cerca prima in tabella configurazioni se esiste
+            const { data, error } = await supabase
+                .from('configurazioni')
+                .select('impostazioni')
+                .eq('categoria', 'pagamenti')
+                .single();
+            
+            if (data && data.impostazioni) {
+                return data.impostazioni;
+            }
+            
+            // Se non trovate, restituisce defaults
             return {
                 ritenuta_occasionale: 0.20, // 20%
                 soglia_ritenuta: 25.82,
@@ -449,21 +557,113 @@ export const DatabaseService = {
                 contributi_inps_percentuale: 0.10,
                 contributi_enpals_percentuale: 0.0334,
                 iban_azienda: 'IT60X0542811101000000123456',
-                ragione_sociale: 'RECORP SRL',
+                ragione_sociale: 'OKL SRL - RECORP',
                 codice_fiscale_azienda: '04433920248',
-                email_notifiche: 'amministrazione@recorp.it'
+                email_notifiche: 'amministrazione@recorp.it',
+                giorni_scadenza_fatture: 30,
+                sconto_pagamento_anticipato: 0.02,
+                valuta_default: 'EUR'
             };
         } catch (error) {
             console.warn('⚠️ Impossibile caricare impostazioni pagamenti:', error);
-            return null;
+            // Restituisce sempre defaults in caso di errore
+            return {
+                ritenuta_occasionale: 0.20,
+                soglia_ritenuta: 25.82,
+                soglia_annua_occasionale: 5000,
+                approvazione_automatica_sotto: 100,
+                approvazione_dirigenziale_sopra: 500
+            };
         }
     },
 
     // ✅ NUOVO: Salva impostazioni pagamenti
     async savePaymentSettings(settings) {
-        // Implementazione futura con tabella settings dedicata
-        console.log('💾 Salvataggio impostazioni pagamenti:', settings);
-        return settings;
+        await this.init();
+        
+        try {
+            const configData = {
+                categoria: 'pagamenti',
+                impostazioni: settings,
+                updated_at: new Date().toISOString()
+            };
+            
+            const { data, error } = await supabase
+                .from('configurazioni')
+                .upsert([configData], { onConflict: 'categoria' })
+                .select()
+                .single();
+            
+            if (error) throw error;
+            
+            console.log('✅ Impostazioni pagamenti salvate con successo');
+            return data;
+        } catch (error) {
+            console.error('❌ Errore salvataggio impostazioni:', error);
+            throw new Error(`Errore database: ${error.message}`);
+        }
+    },
+
+    // ✅ NUOVO: Ottieni statistiche pagamenti
+    async getPaymentStatistics(anno = null) {
+        await this.init();
+        
+        try {
+            const targetYear = anno || new Date().getFullYear();
+            const startYear = new Date(targetYear, 0, 1).toISOString();
+            const endYear = new Date(targetYear + 1, 0, 1).toISOString();
+            
+            const { data: pagamenti, error } = await supabase
+                .from('pagamenti')
+                .select('stato, importo_lordo, importo_netto, ritenuta_irpef, ritenuta_inps, created_at')
+                .gte('created_at', startYear)
+                .lt('created_at', endYear);
+            
+            if (error) throw error;
+            
+            const stats = {
+                totale_pagamenti: pagamenti.length,
+                totale_importo_lordo: 0,
+                totale_importo_netto: 0,
+                totale_ritenute: 0,
+                per_stato: {
+                    da_pagare: 0,
+                    autorizzato: 0,
+                    pagato: 0,
+                    annullato: 0
+                },
+                per_mese: {}
+            };
+            
+            pagamenti.forEach(p => {
+                stats.totale_importo_lordo += p.importo_lordo || 0;
+                stats.totale_importo_netto += p.importo_netto || 0;
+                stats.totale_ritenute += (p.ritenuta_irpef || 0) + (p.ritenuta_inps || 0);
+                
+                if (stats.per_stato[p.stato] !== undefined) {
+                    stats.per_stato[p.stato]++;
+                }
+                
+                const month = new Date(p.created_at).getMonth() + 1;
+                if (!stats.per_mese[month]) {
+                    stats.per_mese[month] = { count: 0, importo: 0 };
+                }
+                stats.per_mese[month].count++;
+                stats.per_mese[month].importo += p.importo_netto || 0;
+            });
+            
+            return stats;
+        } catch (error) {
+            console.warn('⚠️ Errore calcolo statistiche pagamenti:', error);
+            return {
+                totale_pagamenti: 0,
+                totale_importo_lordo: 0,
+                totale_importo_netto: 0,
+                totale_ritenute: 0,
+                per_stato: { da_pagare: 0, autorizzato: 0, pagato: 0, annullato: 0 },
+                per_mese: {}
+            };
+        }
     },
 
     // ==================== NUMERAZIONE THREAD-SAFE ====================
