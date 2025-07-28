@@ -454,6 +454,7 @@ export class AuthGuard {
   }
 
   /**
+   * 🔥 INIZIALIZZAZIONE MANUALE - NON PIÙ AUTOMATICA
    * Inizializza protezione pagina completa
    */
   static async initPageProtection() {
@@ -526,11 +527,7 @@ export class AuthGuard {
 // Esporta per uso globale
 window.AuthGuard = AuthGuard;
 
-// Auto-inizializza protezione se non sulla pagina login
-if (!window.location.pathname.includes('login.html')) {
-  document.addEventListener('DOMContentLoaded', () => {
-    AuthGuard.initPageProtection();
-  });
-}
+// 🔥 RIMOSSA AUTO-INIZIALIZZAZIONE - CAUSA DEL LOOP
+// Le pagine che vogliono la protezione devono chiamare esplicitamente AuthGuard.initPageProtection()
 
-console.log('🛡️ AuthGuard Supabase caricato e pronto con supporto completo cartelle: /agibilita/, /pagamenti/, /fatturazione/, /inps/, /extra/');
+console.log('🛡️ AuthGuard Supabase caricato (modalità manuale) con supporto completo cartelle: /agibilita/, /pagamenti/, /fatturazione/, /inps/, /extra/');

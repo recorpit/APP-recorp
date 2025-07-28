@@ -16,60 +16,10 @@
     <!-- Preload Critical Resources -->
     <link rel="preload" href="../assets/style.css" as="style">
     <link rel="preload" href="../supabase-config.js" as="script">
-    <link rel="preload" href="../auth-guard.js" as="script">
 </head>
 <body>
-    <!-- Auth Guard Protection - VERSIONE SEMPLIFICATA -->
-    <script type="module">
-        import { AuthGuard } from '../auth-guard.js';
-
-        // Richiedi autenticazione prima di caricare la pagina
-        document.addEventListener('DOMContentLoaded', async () => {
-            try {
-                console.log('🔐 Verifica autenticazione pagina pagamenti...');
-                await AuthGuard.requireAuth();
-                console.log('✅ Accesso autorizzato alla pagina pagamenti');
-                document.body.classList.add('authenticated');
-                
-                // Inizializza user info bar se presente
-                await initUserInfoBar();
-            } catch (error) {
-                console.log('❌ Accesso negato, redirect in corso...');
-            }
-        });
-
-        // Inizializza la user info bar
-        async function initUserInfoBar() {
-            try {
-                const userSession = localStorage.getItem('recorp_user_session');
-                if (userSession) {
-                    const userData = JSON.parse(userSession);
-                    const emailElement = document.getElementById('current-user-email');
-                    if (emailElement) {
-                        emailElement.textContent = userData.email;
-                    }
-                    
-                    const loginTime = new Date(userData.login_time);
-                    const now = new Date();
-                    const duration = Math.floor((now - loginTime) / 1000 / 60);
-                    const sessionElement = document.getElementById('session-info');
-                    if (sessionElement) {
-                        sessionElement.textContent = `Sessione: ${duration}m`;
-                    }
-                }
-            } catch (error) {
-                console.error('Errore caricamento info utente:', error);
-            }
-        }
-
-        // Gestisci logout usando AuthGuard
-        window.handleLogout = () => {
-            if (confirm('Sei sicuro di voler uscire dal sistema RECORP?')) {
-                AuthGuard.logout();
-            }
-        };
-    </script>
-
+    <!-- 🔥 RIMOSSO IL DOPPIO CONTROLLO AUTH - CAUSA DEL LOOP -->
+    
     <!-- Toast Container -->
     <div id="toast-container" class="toast-container"></div>
 
@@ -565,20 +515,33 @@
         </div>
     </footer>
 
-    <!-- Scripts -->
+    <!-- 🔥 SCRIPT CORRETTO - SOLO CARICAMENTO MODULI, NESSUN DOPPIO AUTH -->
     <script type="module" src="../supabase-config.js"></script>
     <script type="module" src="../auth-guard.js"></script>
     <script type="module" src="./pagamenti.js"></script>
     
-    <!-- Funzioni globali -->
+    <!-- Funzioni globali semplici -->
     <script>
         function goBackToDashboard() {
             console.log('🏠 Ritorno alla dashboard...');
             window.location.href = '../index.html';
         }
         
-        // Esporta funzione globalmente
+        // 🔥 NUOVO: Gestione logout tramite AuthGuard globale
+        function handleLogout() {
+            if (confirm('Sei sicuro di voler uscire dal sistema RECORP?')) {
+                if (window.AuthGuard) {
+                    window.AuthGuard.logout();
+                } else {
+                    // Fallback se AuthGuard non disponibile
+                    window.location.href = '../login.html';
+                }
+            }
+        }
+        
+        // Esporta funzioni globalmente
         window.goBackToDashboard = goBackToDashboard;
+        window.handleLogout = handleLogout;
     </script>
 </body>
 </html>
