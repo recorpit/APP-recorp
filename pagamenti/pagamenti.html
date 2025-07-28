@@ -19,49 +19,55 @@
     <link rel="preload" href="../auth-guard.js" as="script">
 </head>
 <body>
-    <!-- Auth Guard Protection -->
+    <!-- Auth Guard Protection - VERSIONE SEMPLIFICATA -->
     <script type="module">
         import { AuthGuard } from '../auth-guard.js';
 
-        // 🔒 VERIFICA AUTENTICAZIONE PRIMA DI CARICARE LA PAGINA
+        // Richiedi autenticazione prima di caricare la pagina
         document.addEventListener('DOMContentLoaded', async () => {
             try {
                 console.log('🔐 Verifica autenticazione pagina pagamenti...');
-                console.log('📍 Current path:', window.location.pathname);
-                
-                // Override temporaneo del redirect per pagamenti
-                const originalRedirect = AuthGuard.redirectToLogin;
-                AuthGuard.redirectToLogin = function() {
-                    console.log('🔄 Redirect pagamenti a login...');
-                    window.location.href = '../login.html';
-                };
-                
-                const session = await AuthGuard.requireAuth();
-                
-                // Ripristina funzione originale
-                AuthGuard.redirectToLogin = originalRedirect;
-                
-                if (!session) {
-                    console.log('❌ Nessuna sessione trovata, redirect al login...');
-                    return;
-                }
-                
+                await AuthGuard.requireAuth();
                 console.log('✅ Accesso autorizzato alla pagina pagamenti');
-                console.log('👤 Utente:', session.user.email);
-                
-                // Mostra il body solo dopo autenticazione riuscita
                 document.body.classList.add('authenticated');
-                document.body.style.display = 'block';
                 
+                // Inizializza user info bar se presente
+                await initUserInfoBar();
             } catch (error) {
-                console.error('❌ Errore autenticazione pagamenti:', error);
-                console.log('🔄 Redirect manuale al login...');
-                window.location.href = '../login.html';
+                console.log('❌ Accesso negato, redirect in corso...');
             }
         });
 
-        // Nascondi il body inizialmente
-        document.body.style.display = 'none';
+        // Inizializza la user info bar
+        async function initUserInfoBar() {
+            try {
+                const userSession = localStorage.getItem('recorp_user_session');
+                if (userSession) {
+                    const userData = JSON.parse(userSession);
+                    const emailElement = document.getElementById('current-user-email');
+                    if (emailElement) {
+                        emailElement.textContent = userData.email;
+                    }
+                    
+                    const loginTime = new Date(userData.login_time);
+                    const now = new Date();
+                    const duration = Math.floor((now - loginTime) / 1000 / 60);
+                    const sessionElement = document.getElementById('session-info');
+                    if (sessionElement) {
+                        sessionElement.textContent = `Sessione: ${duration}m`;
+                    }
+                }
+            } catch (error) {
+                console.error('Errore caricamento info utente:', error);
+            }
+        }
+
+        // Gestisci logout usando AuthGuard
+        window.handleLogout = () => {
+            if (confirm('Sei sicuro di voler uscire dal sistema RECORP?')) {
+                AuthGuard.logout();
+            }
+        };
     </script>
 
     <!-- Toast Container -->
@@ -87,6 +93,9 @@
                 </button>
                 <button class="btn btn-warning" onclick="goBackToDashboard()">
                     ← Torna alla Dashboard
+                </button>
+                <button class="btn btn-danger" onclick="handleLogout()">
+                    🚪 Logout
                 </button>
             </div>
         </div>
@@ -561,7 +570,7 @@
     <script type="module" src="../auth-guard.js"></script>
     <script type="module" src="./pagamenti.js"></script>
     
-    <!-- Funzione globale per tornare alla dashboard -->
+    <!-- Funzioni globali -->
     <script>
         function goBackToDashboard() {
             console.log('🏠 Ritorno alla dashboard...');

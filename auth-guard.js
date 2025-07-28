@@ -75,7 +75,7 @@ export class AuthGuard {
   }
 
   /**
-   * Reindirizza alla pagina di login - VERSIONE CORRETTA PER GITHUB PAGES
+   * Reindirizza alla pagina di login - VERSIONE AGGIORNATA CON SUPPORTO COMPLETO CARTELLE
    */
   static redirectToLogin() {
     try {
@@ -91,6 +91,18 @@ export class AuthGuard {
       
       if (currentPath.includes('/agibilita/')) {
         // Siamo nella cartella agibilita
+        loginPath = '../login.html';
+      } else if (currentPath.includes('/pagamenti/')) {
+        // ✅ AGGIUNTO: Siamo nella cartella pagamenti
+        loginPath = '../login.html';
+      } else if (currentPath.includes('/fatturazione/')) {
+        // ✅ AGGIUNTO: Siamo nella cartella fatturazione
+        loginPath = '../login.html';
+      } else if (currentPath.includes('/inps/')) {
+        // ✅ AGGIUNTO: Siamo nella cartella inps
+        loginPath = '../login.html';
+      } else if (currentPath.includes('/extra/')) {
+        // ✅ AGGIUNTO: Siamo nella cartella extra
         loginPath = '../login.html';
       } else if (currentPath.includes('/APP-recorp/')) {
         // Siamo nella root del progetto
@@ -118,6 +130,18 @@ export class AuthGuard {
       // Fallback sicuro basato su path detection
       if (window.location.pathname.includes('/agibilita/')) {
         window.location.href = '../login.html';
+      } else if (window.location.pathname.includes('/pagamenti/')) {
+        // ✅ AGGIUNTO: Fallback per pagamenti
+        window.location.href = '../login.html';
+      } else if (window.location.pathname.includes('/fatturazione/')) {
+        // ✅ AGGIUNTO: Fallback per fatturazione
+        window.location.href = '../login.html';
+      } else if (window.location.pathname.includes('/inps/')) {
+        // ✅ AGGIUNTO: Fallback per inps
+        window.location.href = '../login.html';
+      } else if (window.location.pathname.includes('/extra/')) {
+        // ✅ AGGIUNTO: Fallback per extra
+        window.location.href = '../login.html';
       } else {
         window.location.href = './login.html';
       }
@@ -125,7 +149,7 @@ export class AuthGuard {
   }
 
   /**
-   * Effettua logout completo
+   * Effettua logout completo - AGGIORNATO CON SUPPORTO COMPLETO CARTELLE
    */
   static async logout() {
     try {
@@ -149,6 +173,18 @@ export class AuthGuard {
       // Reindirizza al login con path corretto
       if (window.location.pathname.includes('/agibilita/')) {
         window.location.href = '../login.html';
+      } else if (window.location.pathname.includes('/pagamenti/')) {
+        // ✅ AGGIUNTO: Logout da pagamenti
+        window.location.href = '../login.html';
+      } else if (window.location.pathname.includes('/fatturazione/')) {
+        // ✅ AGGIUNTO: Logout da fatturazione
+        window.location.href = '../login.html';
+      } else if (window.location.pathname.includes('/inps/')) {
+        // ✅ AGGIUNTO: Logout da inps
+        window.location.href = '../login.html';
+      } else if (window.location.pathname.includes('/extra/')) {
+        // ✅ AGGIUNTO: Logout da extra
+        window.location.href = '../login.html';
       } else {
         window.location.href = './login.html';
       }
@@ -160,6 +196,18 @@ export class AuthGuard {
       
       // Fallback logout redirect
       if (window.location.pathname.includes('/agibilita/')) {
+        window.location.href = '../login.html';
+      } else if (window.location.pathname.includes('/pagamenti/')) {
+        // ✅ AGGIUNTO: Fallback logout pagamenti
+        window.location.href = '../login.html';
+      } else if (window.location.pathname.includes('/fatturazione/')) {
+        // ✅ AGGIUNTO: Fallback logout fatturazione
+        window.location.href = '../login.html';
+      } else if (window.location.pathname.includes('/inps/')) {
+        // ✅ AGGIUNTO: Fallback logout inps
+        window.location.href = '../login.html';
+      } else if (window.location.pathname.includes('/extra/')) {
+        // ✅ AGGIUNTO: Fallback logout extra
         window.location.href = '../login.html';
       } else {
         window.location.href = './login.html';
@@ -485,4 +533,4 @@ if (!window.location.pathname.includes('login.html')) {
   });
 }
 
-console.log('🛡️ AuthGuard Supabase caricato e pronto');
+console.log('🛡️ AuthGuard Supabase caricato e pronto con supporto completo cartelle: /agibilita/, /pagamenti/, /fatturazione/, /inps/, /extra/');
