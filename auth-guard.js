@@ -83,61 +83,44 @@ export class AuthGuard {
       const currentSearch = window.location.search;
       const currentHash = window.location.hash;
       
-      // ✅ SEMPLICE: Costruisci redirect relativo
-      let redirectUrl = '';
-      if (currentPath.includes('/pagamenti/')) {
-        redirectUrl = 'pagamenti/pagamenti.html' + currentSearch + currentHash;
-      } else if (currentPath.includes('/agibilita/')) {
-        redirectUrl = 'agibilita/agibilita.html' + currentSearch + currentHash;
+      // Costruisci l'URL di redirect completo
+      const fullCurrentUrl = currentPath + currentSearch + currentHash;
+      
+      // Determina il path corretto per login.html basato sulla posizione attuale
+      let loginPath;
+      
+      if (currentPath.includes('/agibilita/')) {
+        // Siamo nella cartella agibilita
+        loginPath = '../login.html';
+      } else if (currentPath.includes('/APP-recorp/')) {
+        // Siamo nella root del progetto
+        loginPath = './login.html';
       } else {
-        const fileName = currentPath.split('/').pop() || 'index.html';
-        redirectUrl = fileName + currentSearch + currentHash;
+        // Fallback: prova path relativo
+        loginPath = './login.html';
       }
       
-      // ✅ SOLUZIONE ROBUSTA: Costruisci path login partendo da origin
-      const currentUrl = window.location.href;
-      let loginUrl;
-      
-      if (currentPath.includes('/pagamenti/')) {
-        // Da https://recorpit.github.io/APP-recorp/pagamenti/pagamenti.html
-        // a   https://recorpit.github.io/APP-recorp/login.html
-        loginUrl = currentUrl.replace('/pagamenti/pagamenti.html', '/login.html');
-      } else if (currentPath.includes('/agibilita/')) {
-        // Da https://recorpit.github.io/APP-recorp/agibilita/agibilita.html  
-        // a   https://recorpit.github.io/APP-recorp/login.html
-        loginUrl = currentUrl.replace('/agibilita/agibilita.html', '/login.html');
-      } else {
-        // Da root
-        const basePath = currentUrl.substring(0, currentUrl.lastIndexOf('/') + 1);
-        loginUrl = basePath + 'login.html';
-      }
-      
-      // Rimuovi query params e hash dall'URL login
-      loginUrl = loginUrl.split('?')[0].split('#')[0];
-      
-      // ✅ Aggiungi parametro redirect se non siamo già nel login
+      // Aggiungi parametro redirect se non siamo già nella pagina login
       if (!currentPath.includes('login.html')) {
-        const redirectParam = encodeURIComponent(redirectUrl);
-        loginUrl += `?redirect=${redirectParam}`;
+        const redirectParam = encodeURIComponent(fullCurrentUrl);
+        loginPath += `?redirect=${redirectParam}`;
       }
       
-      console.log('🔄 Redirect a login:', loginUrl);
-      console.log('📍 Current URL:', currentUrl);
-      console.log('🔗 Redirect param:', redirectUrl);
+      console.log('🔄 Redirect a login:', loginPath);
+      console.log('📍 Current path:', currentPath);
+      console.log('🔗 Redirect URL:', fullCurrentUrl);
       
-      window.location.href = loginUrl;
+      window.location.href = loginPath;
       
     } catch (error) {
       console.error('❌ Errore costruzione redirect:', error);
       
-      // ✅ FALLBACK SICURO: Costruisci URL assoluto
-      const parts = window.location.pathname.split('/');
-      parts.pop(); // Rimuovi il file corrente
-      if (parts[parts.length - 1] === 'pagamenti' || parts[parts.length - 1] === 'agibilita') {
-        parts.pop(); // Rimuovi la cartella se siamo in una sottocartella
+      // Fallback sicuro basato su path detection
+      if (window.location.pathname.includes('/agibilita/')) {
+        window.location.href = '../login.html';
+      } else {
+        window.location.href = './login.html';
       }
-      const basePath = window.location.origin + parts.join('/');
-      window.location.href = basePath + '/login.html';
     }
   }
 
@@ -163,9 +146,8 @@ export class AuthGuard {
       // Rimuovi dati locali
       localStorage.removeItem('recorp_user_session');
       
-      // ✅ CORRETTO: Reindirizza al login con path corretto
-      if (window.location.pathname.includes('/pagamenti/') || 
-          window.location.pathname.includes('/agibilita/')) {
+      // Reindirizza al login con path corretto
+      if (window.location.pathname.includes('/agibilita/')) {
         window.location.href = '../login.html';
       } else {
         window.location.href = './login.html';
@@ -176,9 +158,8 @@ export class AuthGuard {
       // Forza cleanup anche in caso di errore
       localStorage.removeItem('recorp_user_session');
       
-      // ✅ CORRETTO: Fallback logout redirect al login
-      if (window.location.pathname.includes('/pagamenti/') || 
-          window.location.pathname.includes('/agibilita/')) {
+      // Fallback logout redirect
+      if (window.location.pathname.includes('/agibilita/')) {
         window.location.href = '../login.html';
       } else {
         window.location.href = './login.html';
@@ -208,43 +189,6 @@ export class AuthGuard {
     } catch (error) {
       console.error('❌ Errore verifica autenticazione:', error);
       return false;
-    }
-  }
-
-  /**
-   * Gestisce il redirect dopo login basato su parametro URL
-   */
-  static handlePostLoginRedirect() {
-    try {
-      const urlParams = new URLSearchParams(window.location.search);
-      const redirectParam = urlParams.get('redirect');
-      
-      if (redirectParam) {
-        console.log('🔄 Redirect post-login a:', redirectParam);
-        
-        // Decodifica il parametro redirect
-        const decodedRedirect = decodeURIComponent(redirectParam);
-        
-        // ✅ CORRETTO: Gestisci redirect relativo
-        if (decodedRedirect.startsWith('pagamenti/')) {
-          window.location.href = `./${decodedRedirect}`;
-        } else if (decodedRedirect.startsWith('agibilita/')) {
-          window.location.href = `./${decodedRedirect}`;
-        } else if (decodedRedirect.includes('.html')) {
-          // File nella root
-          window.location.href = `./${decodedRedirect}`;
-        } else {
-          // Fallback alla dashboard
-          window.location.href = './index.html';
-        }
-      } else {
-        // Nessun redirect, va alla dashboard
-        window.location.href = './index.html';
-      }
-    } catch (error) {
-      console.error('❌ Errore gestione redirect post-login:', error);
-      // Fallback sicuro
-      window.location.href = './index.html';
     }
   }
 
@@ -426,11 +370,6 @@ export class AuthGuard {
       z-index: 1001;
     `;
 
-    // ✅ CORRETTO: Link al login e alla homepage
-    const homePath = window.location.pathname.includes('/pagamenti/') || 
-                    window.location.pathname.includes('/agibilita/') ? 
-                    '../index.html' : './index.html';
-
     header.innerHTML = `
       <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
         <span style="color: #10b981;">●</span>
@@ -438,37 +377,22 @@ export class AuthGuard {
         <strong style="color: #1e293b;">${user.email}</strong>
         ${user.isFallback ? '<span style="background: #fef3c7; color: #92400e; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">CACHE</span>' : ''}
       </div>
-      <div style="display: flex; gap: 8px; align-items: center;">
-        <a href="${homePath}" style="
-          background: #6366f1;
-          color: white;
-          text-decoration: none;
-          padding: 6px 12px;
-          border-radius: 6px;
-          font-size: 0.8rem;
-          transition: all 0.2s ease;
-        ">
-          🏠 Dashboard
-        </a>
-        <button onclick="AuthGuard.logout()" style="
-          background: #ef4444;
-          color: white;
-          border: none;
-          padding: 6px 12px;
-          border-radius: 6px;
-          font-size: 0.8rem;
-          cursor: pointer;
-          transition: all 0.2s ease;
-        ">
-          Logout
-        </button>
-      </div>
+      <button onclick="AuthGuard.logout()" style="
+        background: #ef4444;
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      ">
+        Logout Sicuro
+      </button>
     `;
 
-    // Aggiungi hover effect ai pulsanti
+    // Aggiungi hover effect al logout button
     const logoutBtn = header.querySelector('button');
-    const dashboardBtn = header.querySelector('a');
-    
     logoutBtn.addEventListener('mouseover', () => {
       logoutBtn.style.background = '#dc2626';
       logoutBtn.style.transform = 'translateY(-1px)';
@@ -476,15 +400,6 @@ export class AuthGuard {
     logoutBtn.addEventListener('mouseout', () => {
       logoutBtn.style.background = '#ef4444';
       logoutBtn.style.transform = 'translateY(0)';
-    });
-
-    dashboardBtn.addEventListener('mouseover', () => {
-      dashboardBtn.style.background = '#4f46e5';
-      dashboardBtn.style.transform = 'translateY(-1px)';
-    });
-    dashboardBtn.addEventListener('mouseout', () => {
-      dashboardBtn.style.background = '#6366f1';
-      dashboardBtn.style.transform = 'translateY(0)';
     });
 
     return header;
@@ -534,7 +449,6 @@ export class AuthGuard {
           case 'SIGNED_OUT':
             console.log('👋 Utente disconnesso');
             localStorage.removeItem('recorp_user_session');
-            // ✅ CORRETTO: Controlla se non siamo già sulla pagina login
             if (!window.location.pathname.includes('login.html')) {
               this.redirectToLogin();
             }
@@ -564,7 +478,7 @@ export class AuthGuard {
 // Esporta per uso globale
 window.AuthGuard = AuthGuard;
 
-// ✅ CORRETTO: Auto-inizializza protezione se non sulla pagina login
+// Auto-inizializza protezione se non sulla pagina login
 if (!window.location.pathname.includes('login.html')) {
   document.addEventListener('DOMContentLoaded', () => {
     AuthGuard.initPageProtection();
