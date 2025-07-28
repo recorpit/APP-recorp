@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RECORP ALL-IN-ONE - Sistema Gestionale</title>
+    <title>RECORP ALL-IN-ONE - Dashboard</title>
     <link rel="stylesheet" href="assets/style.css">
     
     <!-- Security Headers -->
@@ -21,30 +21,26 @@
             try {
                 await AuthGuard.requireAuth();
                 console.log('✅ Accesso autorizzato alla pagina');
-                // La pagina continua a caricare normalmente
                 document.body.classList.add('authenticated');
                 
                 // Inizializza user info bar
                 await initUserInfoBar();
             } catch (error) {
                 console.log('❌ Accesso negato, redirect in corso...');
-                // AuthGuard ha già fatto il redirect a login
             }
         });
 
         // Inizializza la user info bar
         async function initUserInfoBar() {
             try {
-                // Ottieni info utente da localStorage o Supabase
                 const userSession = localStorage.getItem('recorp_user_session');
                 if (userSession) {
                     const userData = JSON.parse(userSession);
                     document.getElementById('current-user-email').textContent = userData.email;
                     
-                    // Calcola durata sessione
                     const loginTime = new Date(userData.login_time);
                     const now = new Date();
-                    const duration = Math.floor((now - loginTime) / 1000 / 60); // minuti
+                    const duration = Math.floor((now - loginTime) / 1000 / 60);
                     document.getElementById('session-info').textContent = `Sessione: ${duration}m`;
                 }
             } catch (error) {
@@ -57,13 +53,11 @@
         window.handleLogout = () => {
             if (confirm('Sei sicuro di voler uscire?')) {
                 try {
-                    // Importa AuthGuard e chiama logout
                     import('./auth-guard.js').then(module => {
                         module.AuthGuard.logout();
                     });
                 } catch (error) {
                     console.error('Errore logout:', error);
-                    // Fallback: pulisci localStorage e redirect
                     localStorage.removeItem('recorp_user_session');
                     window.location.href = './login.html';
                 }
@@ -74,19 +68,14 @@
     <!-- User Info Bar -->
     <div class="user-info-bar">
         <div class="container">
-            <!-- Info utente -->
             <div class="user-info">
                 <span>Connesso come:</span>
                 <span id="current-user-email">Caricamento...</span>
                 <span class="status-online">🟢 Online</span>
             </div>
             
-            <!-- Pulsanti azione -->
             <div class="user-actions">
-                <!-- Informazioni sessione -->
                 <span id="session-info"></span>
-                
-                <!-- Pulsante logout -->
                 <button id="logout-btn" onclick="handleLogout()">
                     🚪 Logout Sicuro
                 </button>
@@ -94,128 +83,184 @@
         </div>
     </div>
 
-    <div class="main-container">
-        <!-- Navbar -->
-        <nav class="navbar">
-            <div class="navbar-content">
-                <a href="./index.html" class="logo">
-                    <img src="./assets/logo.png" alt="RECORP Logo">
-                    <span class="logo-text">RECORP ALL-IN-ONE</span>
-                </a>
-                <div class="nav-links">
-                    <a href="./index.html" class="active">Dashboard</a>
-                    <a href="./registrazione-artista.html">Nuova Registrazione</a>
-                    <a href="./agibilita/index.html">Agibilità</a>
+    <!-- Main Dashboard Container -->
+    <div class="dashboard-container">
+        <!-- Header -->
+        <header class="dashboard-header">
+            <h1>RECORP</h1>
+            <p>Dashboard Gestionale All-in-One</p>
+        </header>
+
+        <!-- Statistics -->
+        <section class="dashboard-stats-grid">
+            <div class="dashboard-stat-card">
+                <div class="stat-number" id="agibilita-count">42</div>
+                <div class="stat-label">Agibilità Totali</div>
+            </div>
+            <div class="dashboard-stat-card">
+                <div class="stat-number" id="month-agibilita">7</div>
+                <div class="stat-label">Agibilità Mese</div>
+            </div>
+            <div class="dashboard-stat-card">
+                <div class="stat-number" id="artists-count">18</div>
+                <div class="stat-label">Artisti Registrati</div>
+            </div>
+            <div class="dashboard-stat-card">
+                <div class="stat-number">€15.2k</div>
+                <div class="stat-label">Fatturato Anno</div>
+            </div>
+        </section>
+
+        <!-- Main Modules -->
+        <section class="dashboard-modules-grid">
+            <!-- Agibilità Module (Primary) -->
+            <div class="dashboard-module-card primary">
+                <div class="module-icon">🎭</div>
+                <h3 class="module-title">Agibilità</h3>
+                <p class="module-description">Gestisci richieste e documenti di agibilità per spettacoli</p>
+                <div class="module-buttons">
+                    <button class="btn btn-primary" onclick="startNewAgibilita()">Nuova Agibilità</button>
+                    <button class="btn btn-secondary" onclick="showEditAgibilita()">Modifica</button>
+                    <button class="btn btn-secondary" onclick="showBozzeAgibilita()">Bozze</button>
                 </div>
             </div>
-        </nav>
 
-        <!-- Page Container -->
-        <div class="page-container">
-            <!-- Dashboard Stats -->
-            <div class="stats-section">
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-value" id="artists-count">-</div>
-                        <div class="stat-label">Artisti Registrati</div>
-                        <div class="stat-trend">
-                            <span class="trend-text" id="artists-trend">Caricamento...</span>
+            <!-- Comunicazioni Module -->
+            <div class="dashboard-module-card">
+                <div class="coming-soon">Coming Soon</div>
+                <div class="module-icon">📧</div>
+                <h3 class="module-title">Comunicazioni</h3>
+                <p class="module-description">Gestisci comunicazioni ufficiali e notifiche</p>
+                <div class="module-buttons">
+                    <button class="btn btn-disabled" onclick="showComingSoon('Comunicazioni')">Accedi</button>
+                </div>
+            </div>
+
+            <!-- Pagamenti Module -->
+            <div class="dashboard-module-card">
+                <div class="coming-soon">Coming Soon</div>
+                <div class="module-icon">💰</div>
+                <h3 class="module-title">Pagamenti</h3>
+                <p class="module-description">Gestisci pagamenti e transazioni</p>
+                <div class="module-buttons">
+                    <button class="btn btn-disabled" onclick="showComingSoon('Pagamenti')">Accedi</button>
+                </div>
+            </div>
+
+            <!-- Fatturazione Module -->
+            <div class="dashboard-module-card">
+                <div class="coming-soon">Coming Soon</div>
+                <div class="module-icon">🧾</div>
+                <h3 class="module-title">Fatturazione</h3>
+                <p class="module-description">Emetti e gestisci fatture elettroniche</p>
+                <div class="module-buttons">
+                    <button class="btn btn-disabled" onclick="showComingSoon('Fatturazione')">Accedi</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Drafts Section -->
+        <section class="dashboard-drafts-section">
+            <h2 class="section-title">🗂️ Bozze Salvate</h2>
+            <div class="drafts-grid" id="dashboard-drafts-container">
+                <div class="draft-card">
+                    <div class="draft-header">
+                        <div class="draft-info">
+                            <h4>AG-2025-014</h4>
+                            <p>Scadenza: 29 Luglio 2025</p>
                         </div>
+                        <div class="progress-circle progress-30">30%</div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="agibilita-count">-</div>
-                        <div class="stat-label">Agibilità Totali</div>
-                        <div class="stat-trend">
-                            <span class="trend-text" id="agibilita-trend">Caricamento...</span>
-                        </div>
+                    <div class="draft-actions">
+                        <button class="btn btn-primary btn-small" onclick="loadBozza('draft_1')">Continua</button>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="month-agibilita">-</div>
-                        <div class="stat-label">Agibilità questo mese</div>
-                        <div class="stat-trend">
-                            <span class="trend-text" id="month-trend">Caricamento...</span>
+                </div>
+
+                <div class="draft-card">
+                    <div class="draft-header">
+                        <div class="draft-info">
+                            <h4>AG-2025-013</h4>
+                            <p>Scadenza: 30 Luglio 2025</p>
                         </div>
+                        <div class="progress-circle progress-65">65%</div>
                     </div>
-                    <div class="stat-card highlight">
-                        <div class="stat-value" id="pending-drafts">-</div>
-                        <div class="stat-label">Bozze in sospeso</div>
-                        <div class="stat-trend">
-                            <span class="trend-text">Da completare</span>
+                    <div class="draft-actions">
+                        <button class="btn btn-primary btn-small" onclick="loadBozza('draft_2')">Continua</button>
+                    </div>
+                </div>
+
+                <div class="draft-card">
+                    <div class="draft-header">
+                        <div class="draft-info">
+                            <h4>AG-2025-012</h4>
+                            <p>Scadenza: 31 Luglio 2025</p>
                         </div>
+                        <div class="progress-circle progress-90">90%</div>
+                    </div>
+                    <div class="draft-actions">
+                        <button class="btn btn-primary btn-small" onclick="loadBozza('draft_3')">Continua</button>
                     </div>
                 </div>
             </div>
 
             <!-- Quick Actions -->
-            <div class="dashboard-section">
-                <h2>Azioni Rapide</h2>
-                <div class="action-cards">
-                    <div class="action-card" onclick="window.location.href='./registrazione-artista.html'">
-                        <div class="action-card-icon">👤</div>
-                        <h3>Registra Artista</h3>
-                        <p>Registra un nuovo artista nel sistema</p>
-                    </div>
-                    <div class="action-card" onclick="window.location.href='./agibilita/index.html'">
-                        <div class="action-card-icon">📄</div>
-                        <h3>Nuova Agibilità</h3>
-                        <p>Crea una nuova pratica di agibilità</p>
-                    </div>
-                    <div class="action-card" onclick="showComunicazioniModal()">
-                        <div class="action-card-icon">📡</div>
-                        <h3>Comunicazioni</h3>
-                        <p>Gestione comunicazioni intermittenti</p>
-                    </div>
-                    <div class="action-card" onclick="window.location.href='./pagamenti.html'">
-                        <div class="action-card-icon">💰</div>
-                        <h3>Pagamenti</h3>
-                        <p>Gestisci pagamenti e liquidazioni</p>
-                    </div>
+            <div class="dashboard-quick-actions">
+                <a href="#" class="quick-action" onclick="addNewArtist()">
+                    <span class="quick-action-icon">📝</span>
+                    <div class="quick-action-title">Registra Nuovo Artista</div>
+                </a>
+                <a href="#" class="quick-action" onclick="searchArtist()">
+                    <span class="quick-action-icon">🔍</span>
+                    <div class="quick-action-title">Cerca Artista</div>
+                </a>
+                <a href="#" class="quick-action" onclick="toggleDatabaseManager()">
+                    <span class="quick-action-icon">📊</span>
+                    <div class="quick-action-title">Database Manager</div>
+                </a>
+                <a href="#" class="quick-action" onclick="showCalendarView()">
+                    <span class="quick-action-icon">📅</span>
+                    <div class="quick-action-title">Vista Calendario</div>
+                </a>
+            </div>
+        </section>
+    </div>
+
+    <!-- Chat AI Floating Button -->
+    <button class="chat-floating-btn" onclick="toggleChat()">
+        🤖
+    </button>
+
+    <!-- Chat Modal -->
+    <div class="chat-modal" id="chatModal">
+        <div class="chat-container">
+            <div class="chat-header">
+                <h3>🤖 Chat AI</h3>
+                <button class="chat-close" onclick="closeChat()">✕</button>
+            </div>
+            <div class="chat-messages" id="chatMessages">
+                <div class="chat-message ai">
+                    Ciao! Sono l'assistente AI di RECORP. Come posso aiutarti oggi?
+                </div>
+                <div class="chat-message ai">
+                    Posso aiutarti con:
+                    • Domande sulle agibilità
+                    • Procedure amministrative
+                    • Ricerca artisti
+                    • Supporto generale
                 </div>
             </div>
-
-            <!-- Recent Activity -->
-            <div class="dashboard-section">
-                <h2>Attività Recente</h2>
-                <div class="activity-section">
-                    <!-- Agibilità Recenti -->
-                    <div class="activity-card">
-                        <h3>🎭 Agibilità Recenti</h3>
-                        <div id="recent-agibilita" class="activity-list">
-                            <div class="loading-placeholder">Caricamento...</div>
-                        </div>
-                        <a href="./agibilita/index.html" class="view-all-link">Vedi tutte →</a>
-                    </div>
-
-                    <!-- Artisti Recenti -->
-                    <div class="activity-card">
-                        <h3>👥 Ultimi Artisti Registrati</h3>
-                        <div id="recent-artists" class="activity-list">
-                            <div class="loading-placeholder">Caricamento...</div>
-                        </div>
-                        <a href="./registrazione-artista.html" class="view-all-link">Registra nuovo →</a>
-                    </div>
-                </div>
-            </div>
-
-            <!-- System Status -->
-            <div class="dashboard-section">
-                <h2>Stato Sistema</h2>
-                <div class="system-status">
-                    <div class="status-item">
-                        <span class="status-indicator" id="db-status">🔴</span>
-                        <span>Connessione Database</span>
-                        <span class="status-text" id="db-status-text">Verificando...</span>
-                    </div>
-                    <div class="status-item">
-                        <span class="status-indicator" id="auth-status">🔴</span>
-                        <span>Sistema Autenticazione</span>
-                        <span class="status-text" id="auth-status-text">Verificando...</span>
-                    </div>
-                    <div class="status-item">
-                        <span class="status-indicator" id="security-status">🔴</span>
-                        <span>Sicurezza Database</span>
-                        <span class="status-text" id="security-status-text">Verificando...</span>
-                    </div>
+            <div class="chat-input-container">
+                <div class="chat-input-wrapper">
+                    <textarea 
+                        class="chat-input" 
+                        id="chatInput" 
+                        placeholder="Scrivi il tuo messaggio..."
+                        rows="1"
+                        onkeypress="handleChatKeypress(event)"
+                    ></textarea>
+                    <button class="chat-send" onclick="sendMessage()">
+                        ➤
+                    </button>
                 </div>
             </div>
         </div>
@@ -351,6 +396,20 @@
         </div>
     </div>
 
+    <!-- Footer -->
+    <footer class="dashboard-footer">
+        <div class="footer-content">
+            <h3>OKL SRL - RECORP</h3>
+            <p>Via Monte Pasubio 222/1 - 36010 Zanè (VI)<br>P.IVA: 04433920248</p>
+            <div class="footer-links">
+                <a href="#">Privacy Policy</a>
+                <a href="#">Termini di Servizio</a>
+                <a href="#">Cookie Policy</a>
+            </div>
+            <p class="footer-copyright">Copyright © 2025 OKL SRL. Tutti i diritti riservati.</p>
+        </div>
+    </footer>
+
     <!-- Toast Container -->
     <div id="toast-container"></div>
 
@@ -360,24 +419,175 @@
         <div>Caricamento dati sicuri...</div>
     </div>
 
-    <!-- Database Manager Button -->
-    <div class="db-manager-button">
-        <button class="btn btn-secondary" onclick="toggleDatabaseManager()" title="Gestione Database">
-            🗄️ Database
-        </button>
-    </div>
-
-    <!-- Chat AI Button -->
-    <div class="chat-ai-button">
-        <button class="btn btn-chat-ai" onclick="openChatAI()" title="Chat AI per Agibilità">
-            <span class="chat-ai-icon">🤖</span>
-            <span>Chat AI</span>
-        </button>
-    </div>
-
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script type="module" src="./supabase-config.js"></script>
     <script type="module" src="./homepage.js"></script>
+    <script type="module" src="./chat-ai.js"></script>
+
+    <script type="module">
+        // Import agibilita functions for dashboard integration
+        window.startNewAgibilita = function() {
+            window.location.href = './agibilita/index.html';
+        };
+
+        window.showEditAgibilita = async function() {
+            try {
+                // Dinamicamente importa e chiama la funzione da agibilita.js
+                const agibilitaModule = await import('./agibilita/agibilita.js');
+                if (agibilitaModule.showEditAgibilita) {
+                    agibilitaModule.showEditAgibilita();
+                } else {
+                    // Fallback: redirect diretto
+                    window.location.href = './agibilita/index.html?action=edit';
+                }
+            } catch (error) {
+                console.error('Errore caricamento modulo agibilità:', error);
+                window.location.href = './agibilita/index.html?action=edit';
+            }
+        };
+
+        window.showBozzeAgibilita = async function() {
+            try {
+                // Dinamicamente importa e chiama la funzione da agibilita.js
+                const agibilitaModule = await import('./agibilita/agibilita.js');
+                if (agibilitaModule.showBozzeAgibilita) {
+                    agibilitaModule.showBozzeAgibilita();
+                } else {
+                    // Fallback: redirect diretto
+                    window.location.href = './agibilita/index.html?action=bozze';
+                }
+            } catch (error) {
+                console.error('Errore caricamento modulo agibilità:', error);
+                window.location.href = './agibilita/index.html?action=bozze';
+            }
+        };
+
+        window.loadBozza = async function(bozzaId) {
+            try {
+                // Salva ID bozza per agibilità page
+                sessionStorage.setItem('loadBozzaId', bozzaId);
+                window.location.href = './agibilita/index.html?action=load-bozza&id=' + bozzaId;
+            } catch (error) {
+                console.error('Errore caricamento bozza:', error);
+                showToast('Errore nel caricamento della bozza', 'error');
+            }
+        };
+
+        window.showComingSoon = function(moduleName) {
+            showToast(`Il modulo "${moduleName}" è in fase di sviluppo e sarà disponibile presto!`, 'info');
+        };
+
+        window.showCalendarView = async function() {
+            try {
+                const agibilitaModule = await import('./agibilita/agibilita.js');
+                if (agibilitaModule.showCalendarView) {
+                    agibilitaModule.showCalendarView();
+                } else {
+                    showToast('Vista calendario in sviluppo', 'info');
+                }
+            } catch (error) {
+                showToast('Vista calendario in sviluppo', 'info');
+            }
+        };
+
+        // Chat functions placeholder (will be implemented in chat-ai.js)
+        window.toggleChat = function() {
+            const modal = document.getElementById('chatModal');
+            modal.classList.add('open');
+            document.getElementById('chatInput').focus();
+        };
+
+        window.closeChat = function() {
+            const modal = document.getElementById('chatModal');
+            modal.classList.remove('open');
+        };
+
+        window.sendMessage = function() {
+            const input = document.getElementById('chatInput');
+            const messages = document.getElementById('chatMessages');
+            const message = input.value.trim();
+            
+            if (!message) return;
+
+            // Add user message
+            const userMsg = document.createElement('div');
+            userMsg.className = 'chat-message user';
+            userMsg.textContent = message;
+            messages.appendChild(userMsg);
+
+            // Clear input
+            input.value = '';
+            
+            // Scroll to bottom
+            messages.scrollTop = messages.scrollHeight;
+
+            // Simulate AI response
+            setTimeout(() => {
+                const aiMsg = document.createElement('div');
+                aiMsg.className = 'chat-message ai';
+                aiMsg.textContent = 'Grazie per il tuo messaggio! Sto elaborando la tua richiesta...';
+                messages.appendChild(aiMsg);
+                messages.scrollTop = messages.scrollHeight;
+            }, 1000);
+        };
+
+        window.handleChatKeypress = function(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        };
+
+        // Close chat when clicking outside
+        document.addEventListener('click', function(event) {
+            const modal = document.getElementById('chatModal');
+            const chatContainer = document.querySelector('.chat-container');
+            const chatBtn = document.querySelector('.chat-floating-btn');
+            
+            if (modal.classList.contains('open') && 
+                !chatContainer.contains(event.target) && 
+                !chatBtn.contains(event.target)) {
+                closeChat();
+            }
+        });
+
+        // Toast notification function
+        window.showToast = function(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: ${type === 'error' ? '#dc2626' : type === 'success' ? '#10b981' : type === 'warning' ? '#f59e0b' : '#2563eb'};
+                color: white;
+                padding: 12px 20px;
+                border-radius: 8px;
+                z-index: 1000;
+                opacity: 0;
+                transform: translateX(100%);
+                transition: all 0.3s ease;
+            `;
+            toast.textContent = message;
+            
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.opacity = '1';
+                toast.style.transform = 'translateX(0)';
+            }, 100);
+            
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    if (document.body.contains(toast)) {
+                        document.body.removeChild(toast);
+                    }
+                }, 300);
+            }, 5000);
+        };
+    </script>
 </body>
 </html>

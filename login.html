@@ -118,14 +118,12 @@
                     console.log('🔌 Test connessione Supabase...');
                     statusDiv.style.display = 'block';
                     
-                    // CORREZIONE: Attendere che DatabaseService sia inizializzato
                     let supabaseClient = null;
                     let attempt = 0;
                     const maxAttempts = 3;
                     
                     while (!supabaseClient && attempt < maxAttempts) {
                         try {
-                            // Prova a inizializzare DatabaseService
                             await DatabaseService.init();
                             supabaseClient = DatabaseService.getSupabaseClient();
                             
@@ -147,10 +145,8 @@
                         throw new Error('Impossibile inizializzare client Supabase. Verificare configurazione.');
                     }
 
-                    // Test connessione: prova a ottenere la sessione corrente
                     const { data, error } = await supabaseClient.auth.getSession();
                     
-                    // Se non c'è errore nella chiamata API, la connessione funziona
                     if (error && error.message.includes('Invalid API key')) {
                         throw new Error('Chiave API Supabase non valida');
                     }
@@ -159,7 +155,6 @@
                     statusDiv.className = 'connection-status connected';
                     statusText.textContent = '✅ Database connesso - Pronto per il login';
                     
-                    // Nascondi dopo 3 secondi
                     setTimeout(() => {
                         statusDiv.style.display = 'none';
                     }, 3000);
@@ -180,7 +175,6 @@
                         statusText.textContent = '❌ Errore: ' + error.message;
                     }
                     
-                    // Mostra suggerimento di configurazione
                     setTimeout(() => {
                         if (statusDiv.className.includes('error')) {
                             statusText.innerHTML = '💡 Verificare supabase-config.js<br><small>Assicurati che URL e chiave siano corretti</small>';
@@ -191,7 +185,6 @@
 
             async checkExistingSession() {
                 try {
-                    // CORREZIONE: Assicurati che DatabaseService sia inizializzato
                     await DatabaseService.init();
                     const supabaseClient = DatabaseService.getSupabaseClient();
                     
@@ -219,7 +212,6 @@
                 const email = document.getElementById('email').value.trim();
                 const password = document.getElementById('password').value;
 
-                // Validazione base
                 if (!email || !password) {
                     this.showError('Inserisci email e password');
                     return;
@@ -230,14 +222,12 @@
                     return;
                 }
 
-                // Mostra loading
                 this.setLoading(true);
                 this.clearMessages();
 
                 try {
                     console.log('🔐 Tentativo login Supabase per:', email);
 
-                    // CORREZIONE: Assicurati che DatabaseService sia inizializzato
                     await DatabaseService.init();
                     const supabaseClient = DatabaseService.getSupabaseClient();
                     
@@ -245,7 +235,6 @@
                         throw new Error('Client Supabase non configurato. Verificare supabase-config.js');
                     }
 
-                    // Tentativo login con Supabase Auth
                     const { data, error } = await supabaseClient.auth.signInWithPassword({
                         email: email,
                         password: password
@@ -261,10 +250,8 @@
                         console.log('✅ Login Supabase riuscito per:', data.user.email);
                         this.showSuccess('Autenticazione completata con successo!');
                         
-                        // Salva info sessione
                         this.saveUserSession(data.user, data.session);
                         
-                        // Redirect dopo breve pausa
                         setTimeout(() => {
                             this.redirectToDashboard();
                         }, 1500);
@@ -288,7 +275,6 @@
             }
 
             saveUserSession(user, session) {
-                // Salva dati essenziali in localStorage come backup
                 const sessionData = {
                     user_id: user.id,
                     email: user.email,
@@ -301,7 +287,6 @@
             }
 
             redirectToDashboard() {
-                // Ottieni redirect URL o default
                 const urlParams = new URLSearchParams(window.location.search);
                 const redirectUrl = urlParams.get('redirect') || './index.html';
                 
@@ -344,7 +329,6 @@
                 errorDiv.textContent = message;
                 errorDiv.classList.add('show');
                 
-                // Auto-hide dopo 7 secondi
                 setTimeout(() => {
                     errorDiv.classList.remove('show');
                 }, 7000);
@@ -362,7 +346,6 @@
             }
         }
 
-        // Inizializza quando DOM è pronto
         document.addEventListener('DOMContentLoaded', () => {
             new LoginManager();
         });
