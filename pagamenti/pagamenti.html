@@ -19,6 +19,51 @@
     <link rel="preload" href="../auth-guard.js" as="script">
 </head>
 <body>
+    <!-- Auth Guard Protection -->
+    <script type="module">
+        import { AuthGuard } from '../auth-guard.js';
+
+        // 🔒 VERIFICA AUTENTICAZIONE PRIMA DI CARICARE LA PAGINA
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                console.log('🔐 Verifica autenticazione pagina pagamenti...');
+                console.log('📍 Current path:', window.location.pathname);
+                
+                // Override temporaneo del redirect per pagamenti
+                const originalRedirect = AuthGuard.redirectToLogin;
+                AuthGuard.redirectToLogin = function() {
+                    console.log('🔄 Redirect pagamenti a login...');
+                    window.location.href = '../login.html';
+                };
+                
+                const session = await AuthGuard.requireAuth();
+                
+                // Ripristina funzione originale
+                AuthGuard.redirectToLogin = originalRedirect;
+                
+                if (!session) {
+                    console.log('❌ Nessuna sessione trovata, redirect al login...');
+                    return;
+                }
+                
+                console.log('✅ Accesso autorizzato alla pagina pagamenti');
+                console.log('👤 Utente:', session.user.email);
+                
+                // Mostra il body solo dopo autenticazione riuscita
+                document.body.classList.add('authenticated');
+                document.body.style.display = 'block';
+                
+            } catch (error) {
+                console.error('❌ Errore autenticazione pagamenti:', error);
+                console.log('🔄 Redirect manuale al login...');
+                window.location.href = '../login.html';
+            }
+        });
+
+        // Nascondi il body inizialmente
+        document.body.style.display = 'none';
+    </script>
+
     <!-- Toast Container -->
     <div id="toast-container" class="toast-container"></div>
 
@@ -40,9 +85,18 @@
                 <button class="btn btn-secondary" onclick="showPaymentSettings()">
                     ⚙️ Impostazioni
                 </button>
+                <button class="btn btn-warning" onclick="goBackToDashboard()">
+                    ← Torna alla Dashboard
+                </button>
             </div>
         </div>
     </header>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" style="display: none;">
+        <div class="loading-spinner"></div>
+        <div>Caricamento sistema pagamenti sicuro...</div>
+    </div>
 
     <!-- Executive Dashboard -->
     <section class="executive-dashboard">
@@ -233,7 +287,10 @@
             </div>
             
             <div class="payment-list" id="listOccasionale">
-                <!-- Populated by JavaScript -->
+                <div class="loading-placeholder">
+                    <div class="spinner"></div>
+                    <p>Caricamento pagamenti occasionali...</p>
+                </div>
             </div>
         </div>
 
@@ -263,7 +320,10 @@
             </div>
             
             <div class="payment-list" id="listPartitaIva">
-                <!-- Populated by JavaScript -->
+                <div class="loading-placeholder">
+                    <div class="spinner"></div>
+                    <p>Caricamento pagamenti partite IVA...</p>
+                </div>
             </div>
         </div>
 
@@ -290,7 +350,10 @@
             </div>
             
             <div class="payment-list" id="listDipendenti">
-                <!-- Populated by JavaScript -->
+                <div class="loading-placeholder">
+                    <div class="spinner"></div>
+                    <p>Caricamento pagamenti dipendenti...</p>
+                </div>
             </div>
         </div>
 
@@ -335,7 +398,7 @@
                 </div>
                 
                 <div class="civ-preview-list" id="civPreviewList">
-                    <!-- Populated by JavaScript -->
+                    <p class="no-data">Nessun pagamento selezionato per CIV</p>
                 </div>
             </div>
         </div>
@@ -361,7 +424,7 @@
                 <div class="recent-activity">
                     <h4>🕒 Attività Recenti</h4>
                     <div id="recentActivityList" class="activity-list">
-                        <!-- Populated by JavaScript -->
+                        <p class="no-data">Nessuna attività recente</p>
                     </div>
                 </div>
             </div>
@@ -497,5 +560,16 @@
     <script type="module" src="../supabase-config.js"></script>
     <script type="module" src="../auth-guard.js"></script>
     <script type="module" src="./pagamenti.js"></script>
+    
+    <!-- Funzione globale per tornare alla dashboard -->
+    <script>
+        function goBackToDashboard() {
+            console.log('🏠 Ritorno alla dashboard...');
+            window.location.href = '../index.html';
+        }
+        
+        // Esporta funzione globalmente
+        window.goBackToDashboard = goBackToDashboard;
+    </script>
 </body>
 </html>
