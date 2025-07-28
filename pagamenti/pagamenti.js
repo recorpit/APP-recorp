@@ -20,7 +20,7 @@ let paymentSettings = {
 
 // Filtri correnti
 let currentFilters = {
-    stato: 'pending',
+    stato: 'da_pagare', // ✅ CORRETTO: stato del database
     dateFrom: null,
     dateTo: null,
     tipoContratto: '',
@@ -47,7 +47,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         
         // === TEST CONNESSIONE DATABASE ===
         const connected = await DatabaseService.testConnection();
-        if (!connected) {
+        if (!connected.connected) {
             throw new Error('Connessione database fallita');
         }
         
@@ -84,7 +84,7 @@ async function loadInitialData() {
     try {
         console.log('📥 Caricamento dati iniziali...');
         
-        // Carica artisti con dati finanziari
+        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
         artistiDB = await DatabaseService.getArtistsWithFinancialData();
         console.log(`✅ ${artistiDB.length} artisti caricati`);
         
@@ -96,7 +96,7 @@ async function loadInitialData() {
         });
         console.log(`✅ ${agibilitaDB.length} agibilità caricate`);
         
-        // Carica pagamenti esistenti
+        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
         pagamentiDB = await DatabaseService.getPagamenti();
         console.log(`✅ ${pagamentiDB.length} pagamenti caricati`);
         
@@ -112,6 +112,7 @@ async function loadInitialData() {
 
 async function loadPaymentSettings() {
     try {
+        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
         const settings = await DatabaseService.getPaymentSettings();
         if (settings) {
             paymentSettings = { ...paymentSettings, ...settings };
@@ -125,6 +126,191 @@ async function loadPaymentSettings() {
 async function autoCalculatePaymentsFromAgibilita() {
     try {
         console.log('🧮 Calcolo automatico pagamenti da agibilità...');
+        
+        let nuoviPagamenti = 0;
+        
+        for (const agibilita of agibilitaDB) {
+            // Skip se agibilità già processata
+            if (agibilita.payment_processed) continue;
+            
+            // Skip se non ha artisti
+            if (!agibilita.artisti || agibilita.artisti.length === 0) continue;
+            
+            for (const artistaAgibilita of agibilita.artisti) {
+                // Cerca se pagamento già esiste
+                const esistePagamento = pagamentiDB.find(p => 
+                    p.agibilita_id === agibilita.id && 
+                    p.artista_data?.codice_fiscale === artistaAgibilita.cf
+                );
+                
+                if (esistePagamento) continue;
+                
+                // Trova dati completi artista
+                const artista = artistiDB.find(a => 
+                    a.codice_fiscale === artistaAgibilita.cf ||
+                    a.codice_fiscale_temp === artistaAgibilita.cf
+                );
+                
+                if (!artista) {
+                    console.warn(`⚠️ Artista non trovato per CF: ${artistaAgibilita.cf}`);
+                    continue;
+                }
+                
+                // Calcola pagamento
+                const payment = await calculatePaymentForArtist(
+                    agibilita, 
+                    artistaAgibilita, 
+                    artista
+                );
+                
+                if (payment) {
+                    // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
+                    const savedPayment = await DatabaseService.createPayment(payment);
+                    pagamentiDB.push(savedPayment);
+                    nuoviPagamenti++;
+                    
+                    logAuditEvent('payment_calculated', 
+                        `Pagamento calcolato per ${artista.nome} ${artista.cognome}`, 
+                        savedPayment.id
+                    );
+                }
+            }
+            
+            // ✅ CORRETTO: Marca agibilità come processata
+            await DatabaseService.updateAgibilita(agibilita.id, {
+                payment_processed: true
+            });
+        }
+        
+        if (nuoviPagamenti > 0) {
+            showToast(`✅ ${nuoviPagamenti} nuovi pagamenti calcolati automaticamente`, 'success');
+        }
+        
+        console.log(`✅ Calcolo automatico completato: ${nuoviPagamenti} nuovi pagamenti`);
+        
+    } catch (error) {
+        console.error('❌ Errore calcolo automatico pagamenti:', error);
+        showToast('Errore nel calcolo automatico dei pagamenti', 'error');
+    }
+}
+
+async function calculatePaymentForArtist(agibilita, artistaAgibilita, artista) {
+    try {
+        const importoLordo = parseFloat(artistaAgibilita.compenso) || 0;
+        
+        // Skip se importo è 0
+        if (importoLordo === 0) return null;
+        
+        const tipoContratto = determineTipoContratto(artista, artistaAgibilita);
+        let ritenuteIrpef = 0;
+        let ritenuteInps = 0;
+        let importoNetto = importoLordo;
+        let statoIniziale = 'da_pagare'; // ✅ CORRETTO: stato del database
+        
+        // Calcola ritenute in base al tipo contratto
+        switch (tipoContratto) {
+            case 'occasionale':
+                if (importoLordo > paymentSettings.soglia_ritenuta) {
+                    ritenuteIrpef = importoLordo * paymentSettings.ritenuta_occasionale;
+                    importoNetto = importoLordo - ritenuteIrpef;
+                }
+                break;
+                
+            case 'partitaiva':
+                // Nessuna ritenuta per P.IVA (fattura necessaria)
+                ritenuteIrpef = 0;
+                break;
+                
+            case 'chiamata':
+            case 'dipendente':
+                // Calcola IRPEF e contributi
+                ritenuteIrpef = importoLordo * 0.23; // 23% IRPEF base
+                ritenuteInps = importoLordo * 0.10; // 10% contributi INPS
+                importoNetto = importoLordo - ritenuteIrpef - ritenuteInps;
+                break;
+        }
+        
+        // Auto-approvazione per importi bassi
+        if (importoLordo < paymentSettings.approvazione_automatica_sotto) {
+            statoIniziale = 'autorizzato'; // ✅ CORRETTO: stato approvato
+        }
+        
+        // ✅ CORRETTO: Campi conformi al database schema
+        const payment = {
+            agibilita_id: agibilita.id,
+            artista_id: artista.id,
+            
+            // ✅ NUOVO: Salva dati completi per evitare JOIN pesanti
+            agibilita_data: {
+                codice: agibilita.codice,
+                data_inizio: agibilita.data_inizio,
+                data_fine: agibilita.data_fine,
+                locale: agibilita.locale
+            },
+            artista_data: {
+                nome: artista.nome,
+                cognome: artista.cognome,
+                codice_fiscale: artista.codice_fiscale || artista.codice_fiscale_temp,
+                iban: artista.iban,
+                has_partita_iva: artista.has_partita_iva,
+                partita_iva: artista.partita_iva
+            },
+            
+            // ✅ CORRETTO: Campi monetari database
+            importo_lordo: importoLordo,
+            ritenuta_irpef: ritenuteIrpef,
+            ritenuta_inps: ritenuteInps,
+            importo_netto: importoNetto,
+            
+            // ✅ CORRETTO: Stato e configurazione
+            stato: statoIniziale,
+            iban_destinatario: artista.iban,
+            intestatario_conto: artista.nome + ' ' + artista.cognome,
+            
+            // ✅ CORRETTO: Gestione fatture per P.IVA
+            fattura_necessaria: tipoContratto === 'partitaiva',
+            fattura_ricevuta: false,
+            
+            // Metadati evento
+            causale_pagamento: `Prestazione artistica ${artistaAgibilita.ruolo} - ${agibilita.codice}`,
+            
+            // Audit
+            created_by: currentUser.id
+        };
+        
+        return payment;
+        
+    } catch (error) {
+        console.error('❌ Errore calcolo pagamento artista:', error);
+        return null;
+    }
+}
+
+function determineTipoContratto(artista, artistaAgibilita) {
+    // Priorità a tipo_rapporto dell'agibilità
+    if (artistaAgibilita.tipo_rapporto) {
+        switch (artistaAgibilita.tipo_rapporto) {
+            case 'partitaiva':
+            case 'partita_iva':
+                return 'partitaiva';
+            case 'chiamata':
+                return 'chiamata';
+            case 'fulltime':
+            case 'dipendente':
+                return 'dipendente';
+            default:
+                return 'occasionale';
+        }
+    }
+    
+    // Fallback su dati artista
+    if (artista.has_partita_iva || artista.partita_iva) {
+        return 'partitaiva';
+    }
+    
+    // Default occasionale
+    return 'occasionale';
+} agibilità...');
         
         let nuoviPagamenti = 0;
         
@@ -325,16 +511,16 @@ function calculateExecutiveStats() {
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
     
-    // Filtra pagamenti in stato attivo
+    // ✅ CORRETTO: Filtra pagamenti con stati del database
     const pagamentiAttivi = pagamentiDB.filter(p => 
-        ['pending', 'approved', 'processing'].includes(p.stato)
+        ['da_pagare', 'autorizzato'].includes(p.stato)
     );
     
     // Totale da pagare
     const totaleDaPagare = pagamentiAttivi.reduce((sum, p) => sum + p.importo_netto, 0);
     
-    // Numero artisti unici da pagare
-    const artistiUniciSet = new Set(pagamentiAttivi.map(p => p.artista_cf));
+    // Numero artisti unici da pagare - ✅ CORRETTO: usa artista_data
+    const artistiUniciSet = new Set(pagamentiAttivi.map(p => p.artista_data?.codice_fiscale));
     const numeroArtisti = artistiUniciSet.size;
     
     // Pagamenti del mese corrente
@@ -342,22 +528,30 @@ function calculateExecutiveStats() {
         const paymentDate = new Date(p.created_at);
         return paymentDate.getMonth() === currentMonth && 
                paymentDate.getFullYear() === currentYear &&
-               p.stato === 'paid';
+               p.stato === 'pagato'; // ✅ CORRETTO: stato database
     });
     const pagamentiMese = pagamentiMeseCorrente.reduce((sum, p) => sum + p.importo_netto, 0);
     
-    // Ritenute totali dell'anno
+    // Ritenute totali dell'anno - ✅ CORRETTO: usa campi database
     const pagamentiAnno = pagamentiDB.filter(p => {
         const paymentDate = new Date(p.created_at);
         return paymentDate.getFullYear() === currentYear;
     });
-    const ritenuteApplicate = pagamentiAnno.reduce((sum, p) => sum + (p.ritenuta || 0), 0);
+    const ritenuteApplicate = pagamentiAnno.reduce((sum, p) => 
+        sum + (p.ritenuta_irpef || 0) + (p.ritenuta_inps || 0), 0
+    );
     
-    // Conta per tipologia
-    const occasionali = pagamentiAttivi.filter(p => p.tipo_contratto === 'occasionale').length;
-    const partiteIva = pagamentiAttivi.filter(p => p.tipo_contratto === 'partitaiva').length;
+    // ✅ CORRETTO: Determina tipo contratto dai dati artista
+    const occasionali = pagamentiAttivi.filter(p => 
+        !p.artista_data?.has_partita_iva && p.ritenuta_irpef > 0
+    ).length;
+    
+    const partiteIva = pagamentiAttivi.filter(p => 
+        p.artista_data?.has_partita_iva || p.fattura_necessaria
+    ).length;
+    
     const dipendenti = pagamentiAttivi.filter(p => 
-        ['chiamata', 'dipendente'].includes(p.tipo_contratto)
+        p.ritenuta_inps > 0 // Ha contributi INPS = dipendente/chiamata
     ).length;
     
     return {
@@ -428,7 +622,7 @@ function setupDefaultFilters() {
     
     document.getElementById('filterDateFrom').value = lastMonth.toISOString().split('T')[0];
     document.getElementById('filterDateTo').value = today.toISOString().split('T')[0];
-    document.getElementById('filterStato').value = 'pending';
+    document.getElementById('filterStato').value = 'da_pagare'; // ✅ CORRETTO: stato database
 }
 
 async function applyAdvancedFilters() {
@@ -510,11 +704,15 @@ function resetAdvancedFilters() {
 
 // ==================== DISPLAY PAGAMENTI PER TIPOLOGIA ====================
 function displayFilteredPayments(pagamentiFiltrati) {
-    // Raggruppa per tipologia
-    const occasionali = pagamentiFiltrati.filter(p => p.tipo_contratto === 'occasionale');
-    const partiteIva = pagamentiFiltrati.filter(p => p.tipo_contratto === 'partitaiva');
+    // ✅ CORRETTO: Raggruppa usando dati database
+    const occasionali = pagamentiFiltrati.filter(p => 
+        !p.artista_data?.has_partita_iva && !p.ritenuta_inps
+    );
+    const partiteIva = pagamentiFiltrati.filter(p => 
+        p.artista_data?.has_partita_iva || p.fattura_necessaria
+    );
     const dipendenti = pagamentiFiltrati.filter(p => 
-        ['chiamata', 'dipendente'].includes(p.tipo_contratto)
+        p.ritenuta_inps > 0 // Ha contributi INPS
     );
     
     // Aggiorna ciascuna tab
@@ -536,7 +734,7 @@ function displayOccasionaliAvanzato(pagamenti) {
     
     container.innerHTML = pagamenti.map(p => {
         const isSelected = selectedPayments.has(p.id);
-        const artista = getArtistaData(p.artista_cf);
+        const artistaData = p.artista_data || {};
         
         return `
             <div class="payment-item ${isSelected ? 'selected' : ''} ${p.stato}">
@@ -544,58 +742,55 @@ function displayOccasionaliAvanzato(pagamenti) {
                     <input type="checkbox" 
                            id="pay_${p.id}" 
                            ${isSelected ? 'checked' : ''}
-                           ${!['pending', 'approved'].includes(p.stato) ? 'disabled' : ''}
+                           ${!['da_pagare', 'autorizzato'].includes(p.stato) ? 'disabled' : ''}
                            onchange="togglePaymentSelection('${p.id}')">
                 </div>
                 <div class="payment-info">
                     <div class="payment-header">
                         <div class="artist-name">
-                            <strong>${p.metadata?.artista_nome || 'Nome non disponibile'}</strong>
-                            <span class="cf-badge">${p.artista_cf}</span>
-                            ${artista?.nazionalita !== 'IT' ? '<span class="foreign-badge">🌍</span>' : ''}
+                            <strong>${artistaData.nome || 'Nome'} ${artistaData.cognome || 'Cognome'}</strong>
+                            <span class="cf-badge">${artistaData.codice_fiscale || 'CF N/D'}</span>
+                            ${artistaData.nazionalita !== 'IT' ? '<span class="foreign-badge">🌍</span>' : ''}
                         </div>
                         <div class="payment-status">
                             <span class="status-badge status-${p.stato}">${getStatoLabel(p.stato)}</span>
-                            ${p.requires_approval ? '<span class="approval-badge">✋ Richiede Approvazione</span>' : ''}
+                            ${p.importo_lordo > paymentSettings.approvazione_dirigenziale_sopra ? '<span class="approval-badge">✋ Richiede Approvazione</span>' : ''}
                         </div>
                     </div>
                     <div class="payment-details">
                         <div class="event-info">
-                            <span class="agibilita-ref">📄 ${p.metadata?.agibilita_codice || 'N/D'}</span>
-                            <span class="event-date">${formatDate(p.data_evento)}</span>
-                            <span class="venue">${p.locale_nome || 'Locale N/D'}</span>
-                        </div>
-                        <div class="role-info">
-                            <span class="role-badge">${p.ruolo || 'Ruolo N/D'}</span>
+                            <span class="agibilita-ref">📄 ${p.agibilita_data?.codice || 'N/D'}</span>
+                            <span class="event-date">${formatDate(p.agibilita_data?.data_inizio)}</span>
+                            <span class="venue">${p.agibilita_data?.locale?.descrizione || 'Locale N/D'}</span>
                         </div>
                     </div>
                     <div class="payment-amounts">
                         <div class="amount-breakdown">
                             <span class="amount-lordo">Lordo: €${p.importo_lordo.toFixed(2)}</span>
-                            ${p.ritenuta > 0 ? `<span class="amount-ritenuta">Ritenuta (20%): €${p.ritenuta.toFixed(2)}</span>` : ''}
+                            ${p.ritenuta_irpef > 0 ? `<span class="amount-ritenuta">Ritenuta IRPEF (20%): €${p.ritenuta_irpef.toFixed(2)}</span>` : ''}
                             <span class="amount-netto"><strong>Netto: €${p.importo_netto.toFixed(2)}</strong></span>
                         </div>
-                        ${artista?.iban ? 
-                            `<div class="iban-info">🏦 IBAN: ${maskIBAN(artista.iban)}</div>` : 
+                        ${artistaData.iban ? 
+                            `<div class="iban-info">🏦 IBAN: ${maskIBAN(artistaData.iban)}</div>` : 
                             `<div class="iban-missing">⚠️ IBAN Mancante</div>`
                         }
                     </div>
                     ${p.note ? `<div class="payment-notes">📝 ${p.note}</div>` : ''}
                 </div>
                 <div class="payment-actions">
-                    ${p.stato === 'pending' ? `
+                    ${p.stato === 'da_pagare' ? `
                         <button class="btn btn-sm btn-primary" onclick="showAdvancedPaymentDetail('${p.id}')">
                             👁️ Dettagli
                         </button>
                         <button class="btn btn-sm btn-success" onclick="approvePayment('${p.id}')">
                             ✅ Approva
                         </button>
-                        ${!artista?.iban ? `
+                        ${!artistaData.iban ? `
                             <button class="btn btn-sm btn-warning" onclick="configureIBAN('${p.artista_id}', '${p.id}')">
                                 🏦 Config IBAN
                             </button>
                         ` : ''}
-                    ` : p.stato === 'approved' ? `
+                    ` : p.stato === 'autorizzato' ? `
                         <button class="btn btn-sm btn-primary" onclick="processPayment('${p.id}')">
                             💳 Elabora
                         </button>
@@ -632,16 +827,14 @@ function maskIBAN(iban) {
     return iban.slice(0, 4) + '*'.repeat(iban.length - 8) + iban.slice(-4);
 }
 
+// ✅ CORRETTO: Stati conformi al database
 function getStatoLabel(stato) {
     const labels = {
-        'pending': 'In Attesa',
-        'approved': 'Approvato', 
-        'processing': 'In Elaborazione',
-        'paid': 'Pagato',
-        'failed': 'Fallito',
-        'cancelled': 'Annullato',
-        'rejected': 'Rifiutato',
-        'payroll_pending': 'Gestione Paghe'
+        'da_pagare': 'Da Pagare',
+        'autorizzato': 'Autorizzato', 
+        'pagato': 'Pagato',
+        'annullato': 'Annullato',
+        'failed': 'Fallito' // Per retrocompatibilità
     };
     return labels[stato] || stato;
 }
@@ -785,9 +978,11 @@ function configureIBAN(artistaId, paymentId) {
 }
 
 function selectAllOccasionali() {
+    // ✅ CORRETTO: Filtra usando struttura database
     const occasionali = pagamentiDB.filter(p => 
-        p.tipo_contratto === 'occasionale' && 
-        ['pending', 'approved'].includes(p.stato)
+        !p.artista_data?.has_partita_iva && 
+        !p.ritenuta_inps &&
+        ['da_pagare', 'autorizzato'].includes(p.stato)
     );
     
     occasionali.forEach(p => {
@@ -825,7 +1020,7 @@ function displayPartiteIvaAvanzato(pagamenti) {
     }
     
     container.innerHTML = pagamenti.map(p => {
-        const artista = getArtistaData(p.artista_cf);
+        const artistaData = p.artista_data || {};
         const hasFattura = p.fattura_ricevuta || false;
         
         return `
@@ -833,8 +1028,8 @@ function displayPartiteIvaAvanzato(pagamenti) {
                 <div class="payment-info">
                     <div class="payment-header">
                         <div class="artist-name">
-                            <strong>${p.metadata?.artista_nome || 'Nome non disponibile'}</strong>
-                            <span class="piva-badge">P.IVA: ${artista?.partita_iva || 'N/D'}</span>
+                            <strong>${artistaData.nome || 'Nome'} ${artistaData.cognome || 'Cognome'}</strong>
+                            <span class="piva-badge">P.IVA: ${artistaData.partita_iva || 'N/D'}</span>
                         </div>
                         <div class="payment-status">
                             <span class="status-badge status-${p.stato}">${getStatoLabel(p.stato)}</span>
@@ -842,9 +1037,9 @@ function displayPartiteIvaAvanzato(pagamenti) {
                     </div>
                     <div class="payment-details">
                         <div class="event-info">
-                            <span class="agibilita-ref">📄 ${p.metadata?.agibilita_codice || 'N/D'}</span>
-                            <span class="event-date">${formatDate(p.data_evento)}</span>
-                            <span class="venue">${p.locale_nome || 'Locale N/D'}</span>
+                            <span class="agibilita-ref">📄 ${p.agibilita_data?.codice || 'N/D'}</span>
+                            <span class="event-date">${formatDate(p.agibilita_data?.data_inizio)}</span>
+                            <span class="venue">${p.agibilita_data?.locale?.descrizione || 'Locale N/D'}</span>
                         </div>
                     </div>
                     <div class="invoice-management">
@@ -852,7 +1047,7 @@ function displayPartiteIvaAvanzato(pagamenti) {
                             <label class="checkbox-label">
                                 <input type="checkbox" 
                                        ${hasFattura ? 'checked' : ''}
-                                       ${p.stato !== 'pending' ? 'disabled' : ''}
+                                       ${p.stato !== 'da_pagare' ? 'disabled' : ''}
                                        onchange="toggleFatturaRicevuta('${p.id}', this.checked)">
                                 <span>📧 Fattura ricevuta</span>
                             </label>
@@ -873,8 +1068,8 @@ function displayPartiteIvaAvanzato(pagamenti) {
                     </div>
                     <div class="payment-amounts">
                         <span class="amount-total"><strong>Importo: €${p.importo_lordo.toFixed(2)}</strong></span>
-                        ${artista?.iban ? 
-                            `<div class="iban-info">🏦 IBAN: ${maskIBAN(artista.iban)}</div>` : 
+                        ${artistaData.iban ? 
+                            `<div class="iban-info">🏦 IBAN: ${maskIBAN(artistaData.iban)}</div>` : 
                             `<div class="iban-missing">⚠️ IBAN Mancante</div>`
                         }
                     </div>
@@ -883,9 +1078,9 @@ function displayPartiteIvaAvanzato(pagamenti) {
                     <button class="btn btn-sm btn-secondary" onclick="showAdvancedPaymentDetail('${p.id}')">
                         👁️ Dettagli
                     </button>
-                    ${p.stato === 'pending' ? `
+                    ${p.stato === 'da_pagare' ? `
                         <button class="btn btn-sm btn-success" 
-                                ${!hasFattura || !artista?.iban ? 'disabled' : ''}
+                                ${!hasFattura || !artistaData.iban ? 'disabled' : ''}
                                 onclick="approvePayment('${p.id}')">
                             ✅ Approva
                         </button>
@@ -907,7 +1102,7 @@ function displayDipendentiAvanzato(pagamenti) {
     // Raggruppa per mese
     const pagamentiPerMese = {};
     pagamenti.forEach(p => {
-        const date = new Date(p.data_evento);
+        const date = new Date(p.agibilita_data?.data_inizio || p.created_at);
         const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
         const monthLabel = date.toLocaleDateString('it-IT', { year: 'numeric', month: 'long' });
         
@@ -922,7 +1117,7 @@ function displayDipendentiAvanzato(pagamenti) {
     
     container.innerHTML = Object.entries(pagamentiPerMese).map(([monthKey, monthData]) => {
         const totaleMese = monthData.pagamenti.reduce((sum, p) => sum + p.importo_lordo, 0);
-        const numeroArtisti = new Set(monthData.pagamenti.map(p => p.artista_cf)).size;
+        const numeroArtisti = new Set(monthData.pagamenti.map(p => p.artista_data?.codice_fiscale)).size;
         
         return `
             <div class="month-group">
@@ -938,24 +1133,25 @@ function displayDipendentiAvanzato(pagamenti) {
                 </div>
                 <div class="month-payments">
                     ${monthData.pagamenti.map(p => {
-                        const artista = getArtistaData(p.artista_cf);
-                        const tipoContratto = p.tipo_contratto === 'chiamata' ? 'Contratto a Chiamata' : 'Dipendente Full Time';
+                        const artistaData = p.artista_data || {};
+                        const tipoContratto = p.ritenuta_inps > 0 ? 'Contratto a Chiamata' : 'Dipendente Full Time';
                         
                         return `
                             <div class="payment-item ${p.stato}">
                                 <div class="payment-info">
                                     <div class="artist-name">
-                                        <strong>${p.metadata?.artista_nome || 'Nome non disponibile'}</strong>
+                                        <strong>${artistaData.nome || 'Nome'} ${artistaData.cognome || 'Cognome'}</strong>
                                         <span class="contract-badge">${tipoContratto}</span>
                                     </div>
                                     <div class="payment-details">
-                                        <span class="agibilita-ref">📄 ${p.metadata?.agibilita_codice || 'N/D'}</span>
-                                        <span class="event-date">${formatDate(p.data_evento)}</span>
-                                        <span class="venue">${p.locale_nome || 'Locale N/D'}</span>
-                                        <span class="role-badge">${p.ruolo || 'Ruolo N/D'}</span>
+                                        <span class="agibilita-ref">📄 ${p.agibilita_data?.codice || 'N/D'}</span>
+                                        <span class="event-date">${formatDate(p.agibilita_data?.data_inizio)}</span>
+                                        <span class="venue">${p.agibilita_data?.locale?.descrizione || 'Locale N/D'}</span>
                                     </div>
                                     <div class="payment-amounts">
                                         <span class="amount-total"><strong>Lordo: €${p.importo_lordo.toFixed(2)}</strong></span>
+                                        ${p.ritenuta_irpef > 0 ? `<span class="tax-info">IRPEF: €${p.ritenuta_irpef.toFixed(2)}</span>` : ''}
+                                        ${p.ritenuta_inps > 0 ? `<span class="contrib-info">INPS: €${p.ritenuta_inps.toFixed(2)}</span>` : ''}
                                         <span class="payroll-note">📋 Da elaborare in cedolino</span>
                                     </div>
                                 </div>

@@ -1,5 +1,5 @@
 // supabase-config.js - Configurazione Database RECORP
-// Versione integrata con numerazione thread-safe e supporto login
+// Versione integrata con numerazione thread-safe e supporto login + PAGAMENTI
 
 // ==================== CONFIGURAZIONE SUPABASE ====================
 const SUPABASE_CONFIG = {
@@ -162,6 +162,27 @@ export const DatabaseService = {
         return data || [];
     },
 
+    // ✅ NUOVO: Artisti con dati finanziari per pagamenti
+    async getArtistsWithFinancialData() {
+        await this.init();
+        const { data, error } = await supabase
+            .from('artisti')
+            .select(`
+                id, nome, cognome, nome_arte, codice_fiscale, codice_fiscale_temp,
+                mansione, nazionalita, telefono, email,
+                has_partita_iva, partita_iva, tipo_rapporto,
+                iban, iban_validato, intestatario_conto, banca_nome,
+                tariffa_oraria, tariffa_giornaliera, tariffa_evento,
+                regime_fiscale, codice_ateco, aliquota_irpef_personalizzata,
+                created_at, updated_at, attivo
+            `)
+            .eq('attivo', true)
+            .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        return data || [];
+    },
+
     async getAllArtisti() {
         return await this.getArtists(); // Alias per compatibilità
     },
@@ -181,6 +202,11 @@ export const DatabaseService = {
         
         if (error) throw error;
         return data || [];
+    },
+
+    // Alias per compatibilità con agibilità
+    async searchArtistsForAgibilita(searchTerm) {
+        return await this.searchArtisti(searchTerm);
     },
 
     async saveArtist(artistData) {
@@ -220,13 +246,42 @@ export const DatabaseService = {
         return data;
     },
 
-    // ==================== AGIBILITÀ ====================
-    async getAgibilita() {
+    async deleteArtist(id) {
         await this.init();
+        // Soft delete: marca come non attivo
         const { data, error } = await supabase
+            .from('artisti')
+            .update({ 
+                attivo: false, 
+                updated_at: new Date().toISOString() 
+            })
+            .eq('id', id)
+            .select()
+            .single();
+        
+        if (error) throw error;
+        return data;
+    },
+
+    // ==================== AGIBILITÀ ====================
+    async getAgibilita(filtri = {}) {
+        await this.init();
+        let query = supabase
             .from('agibilita')
-            .select('*')
-            .order('created_at', { ascending: false });
+            .select('*');
+
+        // Applica filtri se presenti
+        if (filtri.fromDate) {
+            query = query.gte('created_at', filtri.fromDate);
+        }
+        if (filtri.toDate) {
+            query = query.lte('created_at', filtri.toDate);
+        }
+        if (filtri.stato) {
+            query = query.eq('stato_invio', filtri.stato);
+        }
+
+        const { data, error } = await query.order('created_at', { ascending: false });
         
         if (error) throw error;
         return data || [];
@@ -242,6 +297,173 @@ export const DatabaseService = {
         
         if (error) throw error;
         return data;
+    },
+
+    // ✅ NUOVO: Update agibilità (per marcare come processata)
+    async updateAgibilita(id, agibilitaData) {
+        await this.init();
+        const dataToUpdate = {
+            ...agibilitaData,
+            updated_at: new Date().toISOString()
+        };
+        
+        const { data, error } = await supabase
+            .from('agibilita')
+            .update(dataToUpdate)
+            .eq('id', id)
+            .select()
+            .single();
+        
+        if (error) throw error;
+        return data;
+    },
+
+    // ==================== PAGAMENTI - FUNZIONI PRINCIPALI ====================
+    
+    // ✅ NUOVO: Ottieni pagamenti con filtri
+    async getPagamenti(filtri = {}) {
+        await this.init();
+        let query = supabase
+            .from('pagamenti')
+            .select(`
+                *,
+                artisti:artista_id(nome, cognome, codice_fiscale, iban, has_partita_iva, partita_iva),
+                agibilita:agibilita_id(codice, data_inizio, data_fine, locale)
+            `);
+        
+        // Applica filtri
+        if (filtri.stato) {
+            query = query.eq('stato', filtri.stato);
+        }
+        if (filtri.artista_id) {
+            query = query.eq('artista_id', filtri.artista_id);
+        }
+        if (filtri.agibilita_id) {
+            query = query.eq('agibilita_id', filtri.agibilita_id);
+        }
+        if (filtri.anno) {
+            const startYear = new Date(filtri.anno, 0, 1).toISOString();
+            const endYear = new Date(filtri.anno + 1, 0, 1).toISOString();
+            query = query.gte('created_at', startYear).lt('created_at', endYear);
+        }
+        if (filtri.fromDate) {
+            query = query.gte('created_at', filtri.fromDate);
+        }
+        if (filtri.toDate) {
+            query = query.lte('created_at', filtri.toDate);
+        }
+        
+        const { data, error } = await query.order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        return data || [];
+    },
+
+    // ✅ NUOVO: Crea nuovo pagamento
+    async createPayment(paymentData) {
+        await this.init();
+        
+        // Genera numero pagamento se non presente
+        if (!paymentData.numero_pagamento) {
+            const year = new Date().getFullYear();
+            const count = await this.countPaymentsThisYear();
+            paymentData.numero_pagamento = `PAG-${year}-${String(count + 1).padStart(4, '0')}`;
+        }
+
+        const dataToSave = {
+            ...paymentData,
+            created_at: new Date().toISOString()
+        };
+        
+        const { data, error } = await supabase
+            .from('pagamenti')
+            .insert([dataToSave])
+            .select(`
+                *,
+                artisti:artista_id(nome, cognome, codice_fiscale, iban),
+                agibilita:agibilita_id(codice, data_inizio, locale)
+            `)
+            .single();
+        
+        if (error) throw error;
+        return data;
+    },
+
+    // ✅ NUOVO: Aggiorna pagamento
+    async updatePayment(id, paymentData) {
+        await this.init();
+        const dataToUpdate = {
+            ...paymentData,
+            updated_at: new Date().toISOString()
+        };
+        
+        const { data, error } = await supabase
+            .from('pagamenti')
+            .update(dataToUpdate)
+            .eq('id', id)
+            .select(`
+                *,
+                artisti:artista_id(nome, cognome, codice_fiscale, iban),
+                agibilita:agibilita_id(codice, data_inizio, locale)
+            `)
+            .single();
+        
+        if (error) throw error;
+        return data;
+    },
+
+    // ✅ NUOVO: Salva pagamento (alias per compatibilità)
+    async savePagamento(pagamentoData) {
+        return await this.createPayment(pagamentoData);
+    },
+
+    // ✅ NUOVO: Conta pagamenti dell'anno corrente
+    async countPaymentsThisYear() {
+        await this.init();
+        const year = new Date().getFullYear();
+        const startYear = new Date(year, 0, 1).toISOString();
+        const endYear = new Date(year + 1, 0, 1).toISOString();
+        
+        const { count, error } = await supabase
+            .from('pagamenti')
+            .select('*', { count: 'exact', head: true })
+            .gte('created_at', startYear)
+            .lt('created_at', endYear);
+        
+        if (error) throw error;
+        return count || 0;
+    },
+
+    // ✅ NUOVO: Ottieni impostazioni pagamenti
+    async getPaymentSettings() {
+        // Per ora restituisce impostazioni di default
+        // In futuro potresti creare una tabella 'settings' dedicata
+        try {
+            return {
+                ritenuta_occasionale: 0.20, // 20%
+                soglia_ritenuta: 25.82,
+                soglia_annua_occasionale: 5000,
+                approvazione_automatica_sotto: 100,
+                approvazione_dirigenziale_sopra: 500,
+                ritenuta_irpef_dipendenti: 0.23,
+                contributi_inps_percentuale: 0.10,
+                contributi_enpals_percentuale: 0.0334,
+                iban_azienda: 'IT60X0542811101000000123456',
+                ragione_sociale: 'RECORP SRL',
+                codice_fiscale_azienda: '04433920248',
+                email_notifiche: 'amministrazione@recorp.it'
+            };
+        } catch (error) {
+            console.warn('⚠️ Impossibile caricare impostazioni pagamenti:', error);
+            return null;
+        }
+    },
+
+    // ✅ NUOVO: Salva impostazioni pagamenti
+    async savePaymentSettings(settings) {
+        // Implementazione futura con tabella settings dedicata
+        console.log('💾 Salvataggio impostazioni pagamenti:', settings);
+        return settings;
     },
 
     // ==================== NUMERAZIONE THREAD-SAFE ====================
@@ -433,6 +655,20 @@ export const DatabaseService = {
         const { data, error } = await supabase
             .from('venues')
             .insert([venueData])
+            .select()
+            .single();
+        
+        if (error) throw error;
+        return data;
+    },
+
+    async deleteVenue(id) {
+        await this.init();
+        // Hard delete per venues (se necessario implementare soft delete)
+        const { data, error } = await supabase
+            .from('venues')
+            .delete()
+            .eq('id', id)
             .select()
             .single();
         
@@ -798,41 +1034,6 @@ export const DatabaseService = {
             .from('contratti')
             .insert([{
                 ...contrattoData,
-                created_at: new Date().toISOString()
-            }])
-            .select()
-            .single();
-        if (error) throw error;
-        return data;
-    },
-
-    // PAGAMENTI
-    async getPagamenti(filtri = {}) {
-        await this.init();
-        let query = supabase.from('pagamenti').select(`
-            *, 
-            artisti(nome, cognome, codice_fiscale),
-            agibilita(codice, data_inizio, data_fine)
-        `);
-        
-        if (filtri.stato) query = query.eq('stato', filtri.stato);
-        if (filtri.anno) {
-            const startYear = new Date(filtri.anno, 0, 1).toISOString();
-            const endYear = new Date(filtri.anno + 1, 0, 1).toISOString();
-            query = query.gte('created_at', startYear).lt('created_at', endYear);
-        }
-        
-        const { data, error } = await query.order('created_at', { ascending: false });
-        if (error) throw error;
-        return data || [];
-    },
-
-    async savePagamento(pagamentoData) {
-        await this.init();
-        const { data, error } = await supabase
-            .from('pagamenti')
-            .insert([{
-                ...pagamentoData,
                 created_at: new Date().toISOString()
             }])
             .select()
