@@ -115,7 +115,7 @@ async function loadPaymentSettings() {
         // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
         const settings = await DatabaseService.getPaymentSettings();
         if (settings) {
-            paymentSettings = { ...paymentSettings, ...settings };
+            paymentSettings = Object.assign({}, paymentSettings, settings); // ✅ CORRETTO: Object.assign invece di spread
         }
     } catch (error) {
         console.warn('⚠️ Impossibile caricare impostazioni, uso defaults:', error);
@@ -637,8 +637,8 @@ async function applyAdvancedFilters() {
             importoMin: parseFloat(document.getElementById('filterImportoMin').value) || null
         };
         
-        // Applica filtri
-        let pagamentiFiltrati = [...pagamentiDB];
+        // ✅ CORRETTO: Applica filtri
+        let pagamentiFiltrati = pagamentiDB.slice(); // Copia array
         
         if (currentFilters.stato) {
             pagamentiFiltrati = pagamentiFiltrati.filter(p => p.stato === currentFilters.stato);
@@ -1168,9 +1168,11 @@ function displayDipendentiAvanzato(pagamenti) {
 }
 
 function updateCIVPreview() {
-    const selected = Array.from(selectedPayments).map(id => 
-        pagamentiDB.find(p => p.id === id)
-    ).filter(p => p && ['approved', 'processing'].includes(p.stato));
+    const selected = Array.from(selectedPayments).map(function(id) {
+        return pagamentiDB.find(function(p) { return p.id === id; });
+    }).filter(function(p) { 
+        return p && ['autorizzato'].includes(p.stato); // ✅ CORRETTO: stato database
+    });
     
     const container = document.getElementById('civPreviewList');
     
@@ -1184,22 +1186,22 @@ function updateCIVPreview() {
     let totaleRitenute = 0;
     let totaleNetto = 0;
     
-    container.innerHTML = selected.map(p => {
-        const artista = getArtistaData(p.artista_cf);
+    container.innerHTML = selected.map(function(p) {
+        const artistaData = p.artista_data || {};
         totaleLordo += p.importo_lordo;
-        totaleRitenute += p.ritenuta || 0;
+        totaleRitenute += (p.ritenuta_irpef || 0) + (p.ritenuta_inps || 0);
         totaleNetto += p.importo_netto;
         
         return `
             <div class="civ-item">
                 <div class="civ-beneficiary">
-                    <strong>${p.metadata?.artista_nome || 'N/D'}</strong>
-                    <span class="iban">${artista?.iban ? maskIBAN(artista.iban) : 'IBAN MANCANTE'}</span>
-                    <span class="causale">${p.causale || 'Prestazione artistica'}</span>
+                    <strong>${artistaData.nome || 'N/D'} ${artistaData.cognome || ''}</strong>
+                    <span class="iban">${artistaData.iban ? maskIBAN(artistaData.iban) : 'IBAN MANCANTE'}</span>
+                    <span class="causale">${p.causale_pagamento || 'Prestazione artistica'}</span>
                 </div>
                 <div class="civ-amounts">
                     <span class="civ-lordo">€${p.importo_lordo.toFixed(2)}</span>
-                    ${p.ritenuta > 0 ? `<span class="civ-ritenuta">-€${p.ritenuta.toFixed(2)}</span>` : ''}
+                    ${totaleRitenute > 0 ? `<span class="civ-ritenuta">-€${((p.ritenuta_irpef || 0) + (p.ritenuta_inps || 0)).toFixed(2)}</span>` : ''}
                     <span class="civ-netto"><strong>€${p.importo_netto.toFixed(2)}</strong></span>
                 </div>
             </div>
@@ -1219,11 +1221,19 @@ function updateCIVTotals(numeroBeneficiari, lordo, ritenute, netto) {
 function updateDashboardWithFilteredData(pagamentiFiltrati) {
     // Aggiorna statistiche dashboard con dati filtrati
     const filteredStats = {
-        totaleDaPagare: pagamentiFiltrati.reduce((sum, p) => sum + p.importo_netto, 0),
-        numeroArtisti: new Set(pagamentiFiltrati.map(p => p.artista_cf)).size,
-        occasionali: pagamentiFiltrati.filter(p => p.tipo_contratto === 'occasionale').length,
-        partiteIva: pagamentiFiltrati.filter(p => p.tipo_contratto === 'partitaiva').length,
-        dipendenti: pagamentiFiltrati.filter(p => ['chiamata', 'dipendente'].includes(p.tipo_contratto)).length
+        totaleDaPagare: pagamentiFiltrati.reduce(function(sum, p) { return sum + p.importo_netto; }, 0),
+        numeroArtisti: new Set(pagamentiFiltrati.map(function(p) { 
+            return p.artista_data && p.artista_data.codice_fiscale; 
+        })).size,
+        occasionali: pagamentiFiltrati.filter(function(p) { 
+            return !p.artista_data || (!p.artista_data.has_partita_iva && !p.ritenuta_inps); 
+        }).length,
+        partiteIva: pagamentiFiltrati.filter(function(p) { 
+            return p.artista_data && (p.artista_data.has_partita_iva || p.fattura_necessaria); 
+        }).length,
+        dipendenti: pagamentiFiltrati.filter(function(p) { 
+            return p.ritenuta_inps && p.ritenuta_inps > 0; 
+        }).length
     };
     
     updateTabBadges(filteredStats);
@@ -1275,7 +1285,33 @@ function checkPaymentNotifications() {
 
 // ==================== FUNZIONI PLACEHOLDER COMPLETE ====================
 async function syncPaymentsFromAgibilita() {
-    showToast('Sincronizzazione da agibilità in sviluppo', 'info');
+    try {
+        showToast('🔄 Sincronizzazione in corso...', 'info');
+        
+        // Ricarica agibilità dal database
+        const lastYear = new Date();
+        lastYear.setFullYear(lastYear.getFullYear() - 1);
+        agibilitaDB = await DatabaseService.getAgibilita({
+            fromDate: lastYear.toISOString()
+        });
+        
+        // Ricalcola pagamenti automaticamente
+        await autoCalculatePaymentsFromAgibilita();
+        
+        // Ricarica pagamenti aggiornati
+        pagamentiDB = await DatabaseService.getPagamenti();
+        
+        // Aggiorna interfaccia
+        await applyAdvancedFilters();
+        await updateExecutiveDashboard();
+        
+        showToast('✅ Sincronizzazione completata!', 'success');
+        logAuditEvent('sync_agibilita', 'Sincronizzazione pagamenti da agibilità completata', null);
+        
+    } catch (error) {
+        console.error('❌ Errore sincronizzazione:', error);
+        showToast('❌ Errore durante la sincronizzazione: ' + error.message, 'error');
+    }
 }
 
 function showPaymentSettings() {
@@ -1349,15 +1385,15 @@ function autoCalculateAllPayments() {
 }
 
 function approveAllPending() {
-    const pendingPayments = pagamentiDB.filter(p => p.stato === 'pending');
+    const pendingPayments = pagamentiDB.filter(function(p) { return p.stato === 'da_pagare'; });
     
     if (pendingPayments.length === 0) {
         showToast('Nessun pagamento in attesa di approvazione', 'info');
         return;
     }
     
-    if (confirm(`Confermi l'approvazione di tutti i ${pendingPayments.length} pagamenti pendenti?`)) {
-        showToast(`Approvazione automatica di ${pendingPayments.length} pagamenti in sviluppo`, 'info');
+    if (confirm('Confermi l\'approvazione di tutti i ' + pendingPayments.length + ' pagamenti pendenti?')) {
+        showToast('Approvazione automatica di ' + pendingPayments.length + ' pagamenti in sviluppo', 'info');
     }
 }
 
@@ -1421,7 +1457,7 @@ window.calculateContributions = calculateContributions;
 window.exportMonthPayroll = exportMonthPayroll;
 window.generateAdvancedCIV = generateAdvancedCIV;
 window.calculateRetentions = calculateRetentions;
-window.syncPaymentsFromAgibilita = syncPaymentsFromAgibilita;
+window.syncPaymentsFromAgibilita = syncPaymentsFromAgibilita; // ✅ AGGIUNTO
 window.showPaymentSettings = showPaymentSettings;
 window.showSettingsTab = showSettingsTab;
 window.savePaymentSettings = savePaymentSettings;
