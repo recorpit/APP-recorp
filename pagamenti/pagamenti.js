@@ -58,8 +58,14 @@ document.addEventListener('DOMContentLoaded', async function() {
         setupDefaultFilters();
         setupEventListeners();
         
-        // === CALCOLA PAGAMENTI AUTOMATICAMENTE ===
-        await autoCalculatePaymentsFromAgibilita();
+        // === CALCOLA PAGAMENTI AUTOMATICAMENTE (FORZATO) ===
+        console.log('🧮 Avvio calcolo automatico pagamenti...');
+        await autoCalculatePaymentsFromAgibilita(true); // ✅ FORZATO
+        
+        // === RICARICA PAGAMENTI DOPO IL CALCOLO ===
+        console.log('📥 Ricaricamento pagamenti aggiornati...');
+        pagamentiDB = await DatabaseService.getPagamenti();
+        console.log('✅ ' + pagamentiDB.length + ' pagamenti totali caricati');
         
         // === APPLICA FILTRI E MOSTRA DATI ===
         await applyAdvancedFilters();
@@ -123,38 +129,53 @@ async function loadPaymentSettings() {
 }
 
 // ==================== CALCOLO AUTOMATICO PAGAMENTI ====================
-async function autoCalculatePaymentsFromAgibilita() {
+async function autoCalculatePaymentsFromAgibilita(forceRecalculate = false) {
     try {
         console.log('🧮 Calcolo automatico pagamenti da agibilità...');
         
         let nuoviPagamenti = 0;
+        let agibilitaProcessate = 0;
         
         for (const agibilita of agibilitaDB) {
-            // Skip se agibilità già processata
-            if (agibilita.payment_processed) continue;
+            // ✅ MODIFICATO: Se forzato, ricalcola anche agibilità già processate
+            if (!forceRecalculate && agibilita.payment_processed) {
+                console.log('⏭️ Agibilità ' + agibilita.codice + ' già processata, skip');
+                continue;
+            }
             
             // Skip se non ha artisti
-            if (!agibilita.artisti || agibilita.artisti.length === 0) continue;
+            if (!agibilita.artisti || agibilita.artisti.length === 0) {
+                console.log('⚠️ Agibilità ' + agibilita.codice + ' senza artisti, skip');
+                continue;
+            }
+            
+            console.log('🔄 Processando agibilità: ' + agibilita.codice + ' con ' + agibilita.artisti.length + ' artisti');
             
             for (const artistaAgibilita of agibilita.artisti) {
-                // Cerca se pagamento già esiste
-                const esistePagamento = pagamentiDB.find(p => 
-                    p.agibilita_id === agibilita.id && 
-                    p.artista_data?.codice_fiscale === artistaAgibilita.cf
-                );
+                // ✅ MODIFICATO: Se forzato, controlla anche esistenza per evitare duplicati
+                let esistePagamento = pagamentiDB.find(function(p) {
+                    return p.agibilita_id === agibilita.id && 
+                           p.artista_data && 
+                           p.artista_data.codice_fiscale === artistaAgibilita.cf;
+                });
                 
-                if (esistePagamento) continue;
-                
-                // Trova dati completi artista
-                const artista = artistiDB.find(a => 
-                    a.codice_fiscale === artistaAgibilita.cf ||
-                    a.codice_fiscale_temp === artistaAgibilita.cf
-                );
-                
-                if (!artista) {
-                    console.warn(`⚠️ Artista non trovato per CF: ${artistaAgibilita.cf}`);
+                if (!forceRecalculate && esistePagamento) {
+                    console.log('⏭️ Pagamento già esistente per ' + artistaAgibilita.cf + ', skip');
                     continue;
                 }
+                
+                // Trova dati completi artista
+                const artista = artistiDB.find(function(a) {
+                    return a.codice_fiscale === artistaAgibilita.cf ||
+                           a.codice_fiscale_temp === artistaAgibilita.cf;
+                });
+                
+                if (!artista) {
+                    console.warn('⚠️ Artista non trovato per CF: ' + artistaAgibilita.cf);
+                    continue;
+                }
+                
+                console.log('💰 Calcolando pagamento per: ' + artista.nome + ' ' + artista.cognome + ' (€' + artistaAgibilita.compenso + ')');
                 
                 // Calcola pagamento
                 const payment = await calculatePaymentForArtist(
@@ -164,33 +185,51 @@ async function autoCalculatePaymentsFromAgibilita() {
                 );
                 
                 if (payment) {
-                    // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-                    const savedPayment = await DatabaseService.createPayment(payment);
-                    pagamentiDB.push(savedPayment);
+                    // ✅ MODIFICATO: Se esiste già, aggiorna invece di creare
+                    let savedPayment;
+                    if (esistePagamento && forceRecalculate) {
+                        console.log('🔄 Aggiornando pagamento esistente per ' + artista.nome);
+                        savedPayment = await DatabaseService.updatePayment(esistePagamento.id, payment);
+                    } else {
+                        console.log('✨ Creando nuovo pagamento per ' + artista.nome);
+                        savedPayment = await DatabaseService.createPayment(payment);
+                        pagamentiDB.push(savedPayment);
+                    }
+                    
                     nuoviPagamenti++;
                     
                     logAuditEvent('payment_calculated', 
-                        `Pagamento calcolato per ${artista.nome} ${artista.cognome}`, 
+                        'Pagamento calcolato per ' + artista.nome + ' ' + artista.cognome, 
                         savedPayment.id
                     );
                 }
             }
             
-            // ✅ CORRETTO: Marca agibilità come processata
-            await DatabaseService.updateAgibilita(agibilita.id, {
-                payment_processed: true
-            });
+            // ✅ MODIFICATO: Marca agibilità come processata solo se non forzato
+            if (!agibilita.payment_processed) {
+                await DatabaseService.updateAgibilita(agibilita.id, {
+                    payment_processed: true
+                });
+                agibilitaProcessate++;
+            }
         }
         
         if (nuoviPagamenti > 0) {
-            showToast(`✅ ${nuoviPagamenti} nuovi pagamenti calcolati automaticamente`, 'success');
+            showToast('✅ ' + nuoviPagamenti + ' pagamenti calcolati automaticamente', 'success');
+        } else {
+            console.log('ℹ️ Nessun nuovo pagamento da calcolare');
+            if (agibilitaDB.length === 0) {
+                showToast('ℹ️ Nessuna agibilità trovata per il calcolo pagamenti', 'info');
+            } else {
+                showToast('ℹ️ Tutti i pagamenti sono già aggiornati', 'info');
+            }
         }
         
-        console.log(`✅ Calcolo automatico completato: ${nuoviPagamenti} nuovi pagamenti`);
+        console.log('✅ Calcolo automatico completato: ' + nuoviPagamenti + ' pagamenti, ' + agibilitaProcessate + ' agibilità processate');
         
     } catch (error) {
         console.error('❌ Errore calcolo automatico pagamenti:', error);
-        showToast('Errore nel calcolo automatico dei pagamenti', 'error');
+        showToast('Errore nel calcolo automatico dei pagamenti: ' + error.message, 'error');
     }
 }
 
@@ -1295,8 +1334,8 @@ async function syncPaymentsFromAgibilita() {
             fromDate: lastYear.toISOString()
         });
         
-        // Ricalcola pagamenti automaticamente
-        await autoCalculatePaymentsFromAgibilita();
+        // ✅ MODIFICATO: Forzato ricalcolo di tutte le agibilità
+        await autoCalculatePaymentsFromAgibilita(true);
         
         // Ricarica pagamenti aggiornati
         pagamentiDB = await DatabaseService.getPagamenti();
