@@ -83,36 +83,42 @@ export class AuthGuard {
       const currentSearch = window.location.search;
       const currentHash = window.location.hash;
       
-      // Costruisci l'URL di redirect completo
-      const fullCurrentUrl = currentPath + currentSearch + currentHash;
+      // ✅ CORRETTO: Costruisci URL redirect RELATIVO per GitHub Pages
+      let redirectUrl = '';
+      
+      // Determina il percorso relativo basato sulla posizione corrente
+      if (currentPath.includes('/pagamenti/')) {
+        // Da pagamenti/ → usa solo il nome file
+        redirectUrl = 'pagamenti/pagamenti.html' + currentSearch + currentHash;
+      } else if (currentPath.includes('/agibilita/')) {
+        // Da agibilita/ → usa solo il nome file
+        redirectUrl = 'agibilita/agibilita.html' + currentSearch + currentHash;
+      } else {
+        // Da root → usa solo il nome file
+        const fileName = currentPath.split('/').pop() || 'index.html';
+        redirectUrl = fileName + currentSearch + currentHash;
+      }
       
       // ✅ CORRETTO: Determina il path per login.html nel root
       let loginPath;
       
-      // Analizza la struttura del percorso
       if (currentPath.includes('/pagamenti/')) {
-        // Siamo nella cartella pagamenti → vai al login nel root
         loginPath = '../login.html';
       } else if (currentPath.includes('/agibilita/')) {
-        // Siamo nella cartella agibilità → vai al login nel root
         loginPath = '../login.html';
-      } else if (currentPath.includes('/APP-recorp/')) {
-        // Siamo già nella root del progetto
-        loginPath = './login.html';
       } else {
-        // Fallback: login nel root
         loginPath = './login.html';
       }
       
-      // ✅ CORRETTO: Aggiungi parametro redirect se non siamo già nella pagina login
+      // ✅ CORRETTO: Aggiungi parametro redirect RELATIVO se non siamo già nel login
       if (!currentPath.includes('login.html')) {
-        const redirectParam = encodeURIComponent(fullCurrentUrl);
+        const redirectParam = encodeURIComponent(redirectUrl);
         loginPath += `?redirect=${redirectParam}`;
       }
       
       console.log('🔄 Redirect a login:', loginPath);
       console.log('📍 Current path:', currentPath);
-      console.log('🔗 Redirect URL:', fullCurrentUrl);
+      console.log('🔗 Redirect URL (relativo):', redirectUrl);
       
       window.location.href = loginPath;
       
@@ -196,6 +202,43 @@ export class AuthGuard {
     } catch (error) {
       console.error('❌ Errore verifica autenticazione:', error);
       return false;
+    }
+  }
+
+  /**
+   * Gestisce il redirect dopo login basato su parametro URL
+   */
+  static handlePostLoginRedirect() {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const redirectParam = urlParams.get('redirect');
+      
+      if (redirectParam) {
+        console.log('🔄 Redirect post-login a:', redirectParam);
+        
+        // Decodifica il parametro redirect
+        const decodedRedirect = decodeURIComponent(redirectParam);
+        
+        // ✅ CORRETTO: Gestisci redirect relativo
+        if (decodedRedirect.startsWith('pagamenti/')) {
+          window.location.href = `./${decodedRedirect}`;
+        } else if (decodedRedirect.startsWith('agibilita/')) {
+          window.location.href = `./${decodedRedirect}`;
+        } else if (decodedRedirect.includes('.html')) {
+          // File nella root
+          window.location.href = `./${decodedRedirect}`;
+        } else {
+          // Fallback alla dashboard
+          window.location.href = './index.html';
+        }
+      } else {
+        // Nessun redirect, va alla dashboard
+        window.location.href = './index.html';
+      }
+    } catch (error) {
+      console.error('❌ Errore gestione redirect post-login:', error);
+      // Fallback sicuro
+      window.location.href = './index.html';
     }
   }
 
