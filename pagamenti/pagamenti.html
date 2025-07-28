@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestione Pagamenti - RECORP ALL-IN-ONE</title>
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="./assets/style.css">
+    
+    <!-- Security Headers -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https:; img-src 'self' data: https:; font-src 'self' https:;">
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+    
+    <!-- Preload important resources -->
+    <link rel="preload" href="./assets/style.css" as="style">
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" as="script">
+</head>
+<body>
+    <!-- 🛡️ USER INFO BAR: Creata automaticamente da AuthGuard -->
+    
+    <div class="main-container">
+        <!-- Header -->
+        <div class="header">
+            <h1>💰 Gestione Pagamenti</h1>
+            <p>Sistema integrato per gestione pagamenti artisti da agibilità</p>
+        </div>
+
+        <!-- Breadcrumb -->
+        <div class="breadcrumb-container">
+            <div class="breadcrumb">
+                <a href="./index.html" class="breadcrumb-item">Dashboard</a>
+                <span class="breadcrumb-separator">›</span>
+                <span class="breadcrumb-item active">Pagamenti</span>
+            </div>
+            <div class="breadcrumb-actions">
+                <button class="btn btn-primary btn-sm" onclick="syncPaymentsFromAgibilita()">
+                    🔄 Sincronizza da Agibilità
+                </button>
+                <button class="btn btn-secondary btn-sm" onclick="showPaymentSettings()">
+                    ⚙️ Impostazioni
+                </button>
+            </div>
+        </div>
+
+        <!-- Dashboard Executivo -->
+        <section class="dashboard-stats-grid">
+            <div class="dashboard-stat-card">
+                <div class="stat-number" id="totaleDaPagare">€0</div>
+                <div class="stat-label">Totale da Pagare</div>
+                <div class="stat-trend">
+                    <span class="trend-text" id="trendDaPagare">Questa settimana</span>
+                </div>
+            </div>
+            <div class="dashboard-stat-card">
+                <div class="stat-number" id="numeroArtisti">0</div>
+                <div class="stat-label">Artisti Pendenti</div>
+                <div class="stat-trend">
+                    <span class="trend-text" id="trendArtisti">In attesa approvazione</span>
+                </div>
+            </div>
+            <div class="dashboard-stat-card">
+                <div class="stat-number" id="pagamentiMese">€0</div>
+                <div class="stat-label">Pagato Questo Mese</div>
+                <div class="stat-trend">
+                    <span class="trend-text" id="trendMese">vs mese precedente</span>
+                </div>
+            </div>
+            <div class="dashboard-stat-card highlight">
+                <div class="stat-number" id="ritenuteApplicate">€0</div>
+                <div class="stat-label">Ritenute Totali</div>
+                <div class="stat-trend">
+                    <span class="trend-text" id="trendRitenute">Anno fiscale corrente</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Quick Actions -->
+        <section class="dashboard-quick-actions">
+            <div class="quick-action" onclick="showProcessPayments()">
+                <span class="quick-action-icon">⚡</span>
+                <div class="quick-action-title">Elabora Pagamenti</div>
+            </div>
+            <div class="quick-action" onclick="showPendingApprovals()">
+                <span class="quick-action-icon">✋</span>
+                <div class="quick-action-title">Approvazioni Pendenti</div>
+            </div>
+            <div class="quick-action" onclick="generatePayrollExport()">
+                <span class="quick-action-icon">📊</span>
+                <div class="quick-action-title">Export Buste Paga</div>
+            </div>
+            <div class="quick-action" onclick="showPaymentHistory()">
+                <span class="quick-action-icon">📈</span>
+                <div class="quick-action-title">Storico Pagamenti</div>
+            </div>
+        </section>
+
+        <!-- Filtri Avanzati -->
+        <div class="filters-section">
+            <div class="form-section">
+                <h3>🔍 Filtri Avanzati</h3>
+                <div class="filters-grid">
+                    <div class="filter-group">
+                        <label class="form-label">Periodo</label>
+                        <div class="date-range">
+                            <input type="date" id="filterDateFrom" class="form-control">
+                            <span class="date-separator">→</span>
+                            <input type="date" id="filterDateTo" class="form-control">
+                        </div>
+                    </div>
+                    <div class="filter-group">
+                        <label class="form-label">Stato Pagamento</label>
+                        <select id="filterStato" class="form-control">
+                            <option value="">Tutti gli stati</option>
+                            <option value="pending" selected>⏳ In attesa</option>
+                            <option value="approved">✅ Approvato</option>
+                            <option value="processing">🔄 In elaborazione</option>
+                            <option value="paid">💰 Pagato</option>
+                            <option value="failed">❌ Fallito</option>
+                            <option value="cancelled">🚫 Annullato</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label class="form-label">Tipo Contratto</label>
+                        <select id="filterTipoContratto" class="form-control">
+                            <option value="">Tutti i tipi</option>
+                            <option value="occasionale">📄 Prestazione Occasionale</option>
+                            <option value="partitaiva">🧾 Partita IVA</option>
+                            <option value="chiamata">📞 Contratto a Chiamata</option>
+                            <option value="dipendente">👥 Dipendente</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label class="form-label">Ricerca Artista</label>
+                        <input type="text" id="filterArtista" class="form-control" 
+                               placeholder="Nome, cognome o CF...">
+                    </div>
+                    <div class="filter-group">
+                        <label class="form-label">Importo Minimo</label>
+                        <input type="number" id="filterImportoMin" class="form-control" 
+                               placeholder="€0" step="0.01">
+                    </div>
+                    <div class="filter-actions">
+                        <button class="btn btn-primary" onclick="applyAdvancedFilters()">
+                            🔍 Applica Filtri
+                        </button>
+                        <button class="btn btn-secondary" onclick="resetAdvancedFilters()">
+                            ↻ Reset
+                        </button>
+                        <button class="btn btn-success" onclick="saveFilterPreset()">
+                            💾 Salva Preset
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Sistema Pagamenti -->
+        <div class="tabs">
+            <button class="tab active" onclick="showPaymentTab('dashboard')" id="tabDashboard">
+                <span class="tab-icon">📊</span>
+                Dashboard
+            </button>
+            <button class="tab" onclick="showPaymentTab('occasionali')" id="tabOccasionali">
+                <span class="tab-icon">📄</span>
+                Prestazioni Occasionali
+                <span class="tab-badge" id="badgeOccasionale">0</span>
+            </button>
+            <button class="tab" onclick="showPaymentTab('partiteiva')" id="tabPartiteIva">
+                <span class="tab-icon">🧾</span>
+                Partite IVA
+                <span class="tab-badge" id="badgePartitaIva">0</span>
+            </button>
+            <button class="tab" onclick="showPaymentTab('dipendenti')" id="tabDipendenti">
+                <span class="tab-icon">👥</span>
+                Dipendenti/Chiamata
+                <span class="tab-badge" id="badgeDipendenti">0</span>
+            </button>
+            <button class="tab" onclick="showPaymentTab('civ')" id="tabCiv">
+                <span class="tab-icon">🏦</span>
+                Generazione CIV
+            </button>
+            <button class="tab" onclick="showPaymentTab('audit')" id="tabAudit">
+                <span class="tab-icon">🔍</span>
+                Audit Trail
+            </button>
+        </div>
+
+        <!-- Dashboard Tab -->
+        <div id="tabContentDashboard" class="tab-content active">
+            <div class="dashboard-section">
+                <h2>📊 Dashboard Executiva Pagamenti</h2>
+                
+                <!-- Grafici e Analytics -->
+                <div class="analytics-grid">
+                    <div class="analytics-card">
+                        <h4>📈 Trend Pagamenti Mensili</h4>
+                        <div id="monthlyTrendChart" class="chart-container">
+                            <canvas id="monthlyChart" width="400" height="200"></canvas>
+                        </div>
+                    </div>
+                    <div class="analytics-card">
+                        <h4>🥧 Distribuzione per Tipo</h4>
+                        <div id="typeDistributionChart" class="chart-container">
+                            <canvas id="distributionChart" width="400" height="200"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Azioni Rapide Dashboard -->
+                <div class="dashboard-actions">
+                    <div class="action-group">
+                        <h4>⚡ Azioni Rapide</h4>
+                        <div class="action-buttons">
+                            <button class="btn btn-primary" onclick="autoCalculateAllPayments()">
+                                🧮 Calcola Tutti i Pagamenti
+                            </button>
+                            <button class="btn btn-success" onclick="approveAllPending()">
+                                ✅ Approva Tutti Pendenti
+                            </button>
+                            <button class="btn btn-warning" onclick="generateMonthlyReport()">
+                                📋 Report Mensile
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="action-group">
+                        <h4>🎯 Stato Sistema</h4>
+                        <div class="system-status">
+                            <div class="status-item">
+                                <span class="status-indicator" id="dbStatus">🟢</span>
+                                <span>Database</span>
+                                <span class="status-text" id="dbStatusText">Connesso</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-indicator" id="bankApiStatus">🟡</span>
+                                <span>API Bancarie</span>
+                                <span class="status-text" id="bankApiStatusText">Test Mode</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-indicator" id="taxApiStatus">🟢</span>
+                                <span>Calcolo Tasse</span>
+                                <span class="status-text" id="taxApiStatusText">Operativo</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Attività Recenti -->
+                <div class="recent-activity">
+                    <h4>📝 Attività Recenti</h4>
+                    <div id="recentActivityList" class="activity-list">
+                        <!-- Popolato dinamicamente -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Prestazioni Occasionali Tab -->
+        <div id="tabContentOccasionali" class="tab-content">
+            <div class="tab-header">
+                <h3>📄 Prestazioni Occasionali</h3>
+                <div class="tab-actions">
+                    <button class="btn btn-sm btn-primary" onclick="selectAllOccasionali()">
+                        ☑️ Seleziona Tutti
+                    </button>
+                    <button class="btn btn-sm btn-success" onclick="approveSelectedOccasionali()">
+                        ✅ Approva Selezionati
+                    </button>
+                    <button class="btn btn-sm btn-warning" onclick="calculateRetentions()">
+                        🧮 Ricalcola Ritenute
+                    </button>
+                </div>
+            </div>
+            
+            <div class="alert alert-info">
+                <div class="alert-content">
+                    <span class="alert-icon">ℹ️</span>
+                    <div class="alert-text">
+                        <strong>Prestazioni Occasionali</strong><br>
+                        Ritenuta d'acconto 20% automatica per importi superiori a €25,82. 
+                        Soglia annua €5.000 per singolo committente.
+                    </div>
+                </div>
+            </div>
+            
+            <div id="listOccasionale" class="payment-list">
+                <!-- Lista dinamica popolata da JavaScript -->
+            </div>
+        </div>
+
+        <!-- Partite IVA Tab -->
+        <div id="tabContentPartiteiva" class="tab-content">
+            <div class="tab-header">
+                <h3>🧾 Gestione Partite IVA</h3>
+                <div class="tab-actions">
+                    <button class="btn btn-sm btn-primary" onclick="checkAllInvoices()">
+                        📋 Verifica Fatture
+                    </button>
+                    <button class="btn btn-sm btn-success" onclick="markAllInvoicesReceived()">
+                        ✅ Conferma Tutte Ricevute
+                    </button>
+                    <button class="btn btn-sm btn-secondary" onclick="generateInvoiceReminders()">
+                        📧 Solleciti Fatture
+                    </button>
+                </div>
+            </div>
+            
+            <div class="alert alert-warning">
+                <div class="alert-content">
+                    <span class="alert-icon">⚠️</span>
+                    <div class="alert-text">
+                        <strong>Controllo Fatture</strong><br>
+                        Verificare sempre la ricezione della fattura prima di procedere al pagamento.
+                        Sistema bloccherà pagamenti senza fattura ricevuta.
+                    </div>
+                </div>
+            </div>
+            
+            <div id="listPartitaIva" class="payment-list">
+                <!-- Lista dinamica -->
+            </div>
+        </div>
+
+        <!-- Dipendenti Tab -->
+        <div id="tabContentDipendenti" class="tab-content">
+            <div class="tab-header">
+                <h3>👥 Dipendenti e Contratti a Chiamata</h3>
+                <div class="tab-actions">
+                    <button class="btn btn-sm btn-primary" onclick="generatePayrollExport()">
+                        📤 Export per Buste Paga
+                    </button>
+                    <button class="btn btn-sm btn-secondary" onclick="calculateContributions()">
+                        🧮 Calcola Contributi
+                    </button>
+                </div>
+            </div>
+            
+            <div class="alert alert-info">
+                <div class="alert-content">
+                    <span class="alert-icon">ℹ️</span>
+                    <div class="alert-text">
+                        <strong>Elaborazione Cedolini</strong><br>
+                        Questi pagamenti verranno elaborati nel cedolino mensile con calcolo automatico di contributi e tasse.
+                    </div>
+                </div>
+            </div>
+            
+            <div id="listDipendenti" class="payment-list">
+                <!-- Lista dinamica -->
+            </div>
+        </div>
+
+        <!-- CIV Generation Tab -->
+        <div id="tabContentCiv" class="tab-content">
+            <div class="tab-header">
+                <h3>🏦 Generazione File CIV</h3>
+                <div class="tab-actions">
+                    <select id="selectBanca" class="form-control">
+                        <option value="">Seleziona banca...</option>
+                        <option value="unicredit">Unicredit</option>
+                        <option value="intesa">Intesa Sanpaolo</option>
+                        <option value="bnl">BNL</option>
+                        <option value="mps">Monte dei Paschi</option>
+                        <option value="generic">Formato Generico CSV</option>
+                    </select>
+                    <button class="btn btn-primary" onclick="generateAdvancedCIV()">
+                        📄 Genera CIV Avanzato
+                    </button>
+                </div>
+            </div>
+            
+            <div class="civ-configuration">
+                <h4>⚙️ Configurazione CIV</h4>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Data Valuta</label>
+                        <input type="date" id="civDataValuta" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Causale Standard</label>
+                        <input type="text" id="civCausale" class="form-control" 
+                               value="PAGAMENTO PRESTAZIONE ARTISTICA" maxlength="140">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Riferimento Interno</label>
+                        <input type="text" id="civRiferimento" class="form-control" 
+                               placeholder="Es: BATCH-GENNAIO-2025">
+                    </div>
+                </div>
+            </div>
+
+            <div class="civ-preview">
+                <h4>📋 Anteprima Pagamenti CIV</h4>
+                <div id="civPreviewList" class="civ-list">
+                    <!-- Anteprima dinamica -->
+                </div>
+                
+                <div class="civ-summary">
+                    <div class="summary-row">
+                        <span>Numero Beneficiari:</span>
+                        <span id="civNumBeneficiari">0</span>
+                    </div>
+                    <div class="summary-row">
+                        <span>Totale Lordo:</span>
+                        <span id="civTotaleLordo">€0,00</span>
+                    </div>
+                    <div class="summary-row">
+                        <span>Totale Ritenute:</span>
+                        <span id="civTotaleRitenute">€0,00</span>
+                    </div>
+                    <div class="summary-row total-final">
+                        <span>Totale Netto da Trasferire:</span>
+                        <span id="civTotaleNetto">€0,00</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Audit Trail Tab -->
+        <div id="tabContentAudit" class="tab-content">
+            <div class="tab-header">
+                <h3>🔍 Audit Trail e Log Sistema</h3>
+                <div class="tab-actions">
+                    <button class="btn btn-sm btn-primary" onclick="exportAuditLog()">
+                        📤 Export Log
+                    </button>
+                    <button class="btn btn-sm btn-secondary" onclick="clearOldLogs()">
+                        🗑️ Pulisci Log Vecchi
+                    </button>
+                </div>
+            </div>
+            
+            <div class="audit-filters">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Tipo Evento</label>
+                        <select id="auditEventType" class="form-control">
+                            <option value="">Tutti gli eventi</option>
+                            <option value="payment_created">Pagamento Creato</option>
+                            <option value="payment_approved">Pagamento Approvato</option>
+                            <option value="payment_processed">Pagamento Processato</option>
+                            <option value="payment_failed">Pagamento Fallito</option>
+                            <option value="civ_generated">CIV Generato</option>
+                            <option value="user_action">Azione Utente</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Utente</label>
+                        <input type="text" id="auditUser" class="form-control" placeholder="Email utente">
+                    </div>
+                    <div class="form-group">
+                        <label>Data Da</label>
+                        <input type="datetime-local" id="auditDateFrom" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label>Data A</label>
+                        <input type="datetime-local" id="auditDateTo" class="form-control">
+                    </div>
+                </div>
+            </div>
+            
+            <div id="auditLogList" class="audit-log">
+                <!-- Log entries popolati dinamicamente -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modali e altri componenti -->
+    <!-- Modal Dettaglio Pagamento Avanzato -->
+    <div class="modal" id="advancedPaymentModal">
+        <div class="modal-content modal-content-wide">
+            <div class="modal-header">
+                <h2>💰 Dettaglio Pagamento Avanzato</h2>
+                <button class="close-modal" onclick="closeAdvancedPaymentModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="advancedPaymentBody">
+                <!-- Contenuto dinamico dettagliato -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeAdvancedPaymentModal()">Chiudi</button>
+                <button class="btn btn-warning" id="btnRejectPayment" onclick="rejectPayment()">
+                    ❌ Rifiuta
+                </button>
+                <button class="btn btn-success" id="btnApprovePayment" onclick="approvePayment()">
+                    ✅ Approva
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Configurazione IBAN -->
+    <div class="modal" id="ibanConfigModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🏦 Configurazione IBAN</h2>
+                <button class="close-modal" onclick="closeIbanConfigModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="ibanConfigBody">
+                    <!-- Form configurazione IBAN -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeIbanConfigModal()">Annulla</button>
+                <button class="btn btn-primary" onclick="saveIbanConfiguration()">
+                    💾 Salva Configurazione
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Impostazioni Sistema -->
+    <div class="modal" id="paymentSettingsModal">
+        <div class="modal-content modal-content-wide">
+            <div class="modal-header">
+                <h2>⚙️ Impostazioni Sistema Pagamenti</h2>
+                <button class="close-modal" onclick="closePaymentSettingsModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-tabs">
+                    <button class="settings-tab active" onclick="showSettingsTab('general')">Generale</button>
+                    <button class="settings-tab" onclick="showSettingsTab('taxes')">Tasse e Ritenute</button>
+                    <button class="settings-tab" onclick="showSettingsTab('banks')">Configurazione Banche</button>
+                    <button class="settings-tab" onclick="showSettingsTab('notifications')">Notifiche</button>
+                </div>
+                
+                <div id="settingsTabContent">
+                    <!-- Contenuto configurazioni -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closePaymentSettingsModal()">Annulla</button>
+                <button class="btn btn-primary" onclick="savePaymentSettings()">
+                    💾 Salva Impostazioni
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="paymentLoadingOverlay" class="loading-overlay" style="display: none;">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Elaborazione pagamenti in corso...</div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Scripts - ORDINE IMPORTANTE PER AUTH -->
+    
+    <!-- 1. Supabase Client CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- 2. Database Service -->
+    <script type="module" src="./supabase-config.js"></script>
+    
+    <!-- 3. Auth Guard -->
+    <script type="module" src="./auth-guard.js"></script>
+    
+    <!-- 4. Payment System Module -->
+    <script type="module" src="./pagamenti.js"></script>
+
+    <script>
+        // Gestione autenticazione come negli altri moduli
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('🎯 DOM Ready - Setup auth per pagamenti');
+            
+            function showAuthenticatedContent() {
+                document.body.classList.add('authenticated');
+                console.log('✅ Classe authenticated aggiunta - pagamenti ready');
+            }
+            
+            function hideUnauthenticatedContent() {
+                document.body.classList.remove('authenticated');
+                console.log('❌ Classe authenticated rimossa - access denied');
+            }
+            
+            window.showAuthenticatedContent = showAuthenticatedContent;
+            window.hideUnauthenticatedContent = hideUnauthenticatedContent;
+            
+            // Controllo auth con retry
+            let attempts = 0;
+            const checkAuth = setInterval(() => {
+                attempts++;
+                
+                if (window.AuthGuard && window.AuthGuard.getCurrentUser) {
+                    window.AuthGuard.getCurrentUser().then(user => {
+                        if (user) {
+                            showAuthenticatedContent();
+                            clearInterval(checkAuth);
+                        } else if (attempts >= 10) {
+                            console.warn('⚠️ Nessun utente autenticato dopo 10 secondi');
+                            clearInterval(checkAuth);
+                        }
+                    }).catch(error => {
+                        console.warn('⚠️ Errore controllo auth:', error);
+                        if (attempts >= 10) {
+                            clearInterval(checkAuth);
+                        }
+                    });
+                } else if (attempts >= 10) {
+                    console.warn('⚠️ AuthGuard non disponibile dopo 10 secondi');
+                    clearInterval(checkAuth);
+                }
+            }, 1000);
+        });
+        
+        // Global error handler
+        window.addEventListener('error', (e) => {
+            if (e.message && e.message.includes('auth')) {
+                console.error('Payment auth error:', e);
+            }
+        });
+    </script>
+</body>
+</html>
