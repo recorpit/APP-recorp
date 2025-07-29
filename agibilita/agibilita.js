@@ -2304,14 +2304,19 @@ function showSection(sectionId) {
 
 // ==================== FUNZIONE PRINCIPALE MODIFICATA: startNewAgibilita() ==================== 
 async function startNewAgibilita() {
-    console.log('🆕 Avvio nuova agibilità con numerazione thread-safe (SENZA TIMER)');
+    console.log('🆕 [DEBUG] Funzione startNewAgibilita chiamata');
     
     try {
+        console.log('🆕 [DEBUG] Avvio nuova agibilità con numerazione thread-safe (SENZA TIMER)');
+        
         // Mostra loader
         showToast('🔢 Riservazione numero agibilità...', 'info');
+        console.log('🆕 [DEBUG] Toast mostrato');
         
         // === RISERVAZIONE THREAD-SAFE (SENZA TIMER) ===
+        console.log('🆕 [DEBUG] Chiamata DatabaseService.reserveAgibilitaNumberSafe()');
         const reservation = await DatabaseService.reserveAgibilitaNumberSafe();
+        console.log('🆕 [DEBUG] Reservation ottenuta:', reservation);
         
         // Reset dati agibilità
         agibilitaData.isModifica = false;
@@ -2324,18 +2329,19 @@ async function startNewAgibilita() {
         
         // Reset selezioni
         selectedArtists = [];
-        compensiConfermati.clear();
+        compensiConfermati.clear(); // ✅ CORRETTO: era compensiConfirmati
         clearAllForms();
+        console.log('🆕 [DEBUG] Dati resettati');
         
         // === FEEDBACK UTENTE ===
         showToast(`✅ Numero riservato: ${reservation.codice}`, 'success', 4000);
         
-        // ✅ RIMOSSO: Timer di scadenza e visualizzazione scadenza
-        
         // === AUTOSALVATAGGIO (30 SECONDI) ===
         startAutosave();
+        console.log('🆕 [DEBUG] Autosave avviato');
         
         // === NAVIGAZIONE ===
+        console.log('🆕 [DEBUG] Chiamata showSection(step1)');
         showSection('step1');
         
         console.log('✅ Nuova agibilità avviata:', {
@@ -2344,35 +2350,52 @@ async function startNewAgibilita() {
         });
         
     } catch (error) {
-        console.error('❌ Errore avvio nuova agibilità:', error);
+        console.error('❌ [DEBUG] Errore in startNewAgibilita:', error);
+        console.error('❌ [DEBUG] Stack trace:', error.stack);
         showToast('Errore nella prenotazione del numero agibilità: ' + error.message, 'error');
         
         // Fallback: continua senza numero riservato
+        console.log('🆕 [DEBUG] Fallback mode attivato');
         agibilitaData.isModifica = false;
         agibilitaData.codiceAgibilita = null;
         agibilitaData.numeroRiservato = null;
         
         selectedArtists = [];
-        compensiConfermati.clear();
+        compensiConfirmati.clear();
         clearAllForms();
         showSection('step1');
     }
 }
 
 function showEditAgibilita() {
-    console.log('Showing edit agibilità');
+    console.log('📝 [DEBUG] Funzione showEditAgibilita chiamata');
     
-    // Nascondi altre sezioni
-    document.querySelectorAll('.step-section').forEach(section => {
-        section.style.display = 'none';
-        section.classList.remove('active');
-    });
-    
-    const editListSection = document.getElementById('editListSection');
-    if (editListSection) {
-        editListSection.style.display = 'block';
-        editListSection.classList.add('active');
-        showExistingAgibilita();
+    try {
+        console.log('📝 [DEBUG] Showing edit agibilità');
+        
+        // Nascondi altre sezioni
+        console.log('📝 [DEBUG] Nascondendo altre sezioni...');
+        document.querySelectorAll('.step-section').forEach(section => {
+            section.style.display = 'none';
+            section.classList.remove('active');
+        });
+        
+        console.log('📝 [DEBUG] Cercando editListSection...');
+        const editListSection = document.getElementById('editListSection');
+        if (editListSection) {
+            console.log('📝 [DEBUG] EditListSection trovato, mostrando...');
+            editListSection.style.display = 'block';
+            editListSection.classList.add('active');
+            
+            console.log('📝 [DEBUG] Chiamando showExistingAgibilita...');
+            showExistingAgibilita();
+            console.log('✅ [DEBUG] showEditAgibilita completata con successo');
+        } else {
+            console.error('❌ [DEBUG] EditListSection non trovato!');
+        }
+    } catch (error) {
+        console.error('❌ [DEBUG] Errore in showEditAgibilita:', error);
+        console.error('❌ [DEBUG] Stack trace:', error.stack);
     }
 }
 
