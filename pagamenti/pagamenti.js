@@ -1,4 +1,1293 @@
-// pagamenti.js - Sistema Gestione Pagamenti RECORP Avanzato
+authorizedPayments.forEach(payment => {
+        if (!payment.artista_data?.iban) {
+            errors.push(`${payment.artista_data?.nome} ${payment.artista_data?.cognome}: IBAN mancante`);
+        }
+        if (payment.artista_data?.has_partita_iva && !payment.fattura_ricevuta) {
+            errors.push(`${payment.artista_data?.nome} ${payment.artista_data?.cognome}: Fattura non ricevuta`);
+        }
+    });
+    
+    if (errors.length > 0) {
+        alert('Errori trovati:\n' + errors.join('\n'));
+        return;
+    }
+    
+    if (confirm(`🏦 GENERAZIONE CIV BANCARIO\n\nBanca: ${banca.toUpperCase()}\nPagamenti: ${authorizedPayments.length}\nTotale: €${authorizedPayments.reduce((sum, p) => sum + p.importo_netto, 0).toFixed(2)}\n\n⚠️ ATTENZIONE: I pagamenti passeranno in stato "IN ELABORAZIONE"\n\nProcedere?`)) {
+        
+        try {
+            showToast('🔄 Generazione CIV in corso...', 'info');
+            
+            // FASE 1: Genera CSV bancario
+            const csvContent = await generateBankingCSV(authorizedPayments, banca);
+            
+            // FASE 2: Aggiorna stati pagamenti a "in_elaborazione"
+            await updatePaymentsToProcessing(authorizedPayments);
+            
+            // FASE 3: Crea prestazioni occasionali provvisorie
+            await createProvisionalOccasionaliRecords(authorizedPayments);
+            
+            // FASE 4: Download del CSV
+            downloadCSVFile(csvContent, `CIV_${banca}_${new Date().toISOString().slice(0, 10)}.csv`);
+            
+            // Aggiorna interfaccia
+            selectedPayments.clear();
+            await applyAdvancedFilters();
+            await updateExecutiveDashboard();
+            
+            showToast(`✅ CIV generato con successo! ${authorizedPayments.length} pagamenti in elaborazione`, 'success');
+            logAuditEvent('civ_generated', `CIV ${banca} generato per ${authorizedPayments.length} pagamenti`, null);
+            
+        } catch (error) {
+            console.error('❌ Errore generazione CIV:', error);
+            showToast('❌ Errore durante la generazione del CIV: ' + error.message, 'error');
+        }
+    }
+}
+
+async function generateBankingCSV(payments, bankType) {
+    const bankFormats = {
+        'illimity': generateIllimityCSV,
+        'qonto': generateQontoCSV,
+        'massive_transfer': generateMassiveTransferCSV,
+        'generic': generateGenericCSV
+    };
+    
+    const formatter = bankFormats[bankType] || bankFormats.generic;
+    return formatter(payments);
+}
+
+// ✅ NUOVO: Implementa il formato del template massive_transfer_template.csv
+function generateMassiveTransferCSV(payments) {
+    // Header basato sul template fornito
+    const header = 'CODICE_CLIENTE;TIPO_OPERAZIONE;DIVISA;IMPORTO;IBAN_BENEFICIARIO;NOME_BENEFICIARIO;INDIRIZZO_BENEFICIARIO;CAUSALE;RIFERIMENTO_INTERNO;DATA_ESECUZIONE;URGENTE\n';
+    
+    let csvContent = header;
+    
+    payments.forEach(payment => {
+        const iban = payment.artista_data.iban.replace(/\s/g, '');
+        const importo = payment.importo_netto.toFixed(2).replace('.', ','); // Formato italiano
+        const nomeBeneficiario = `${payment.artista_data.nome} ${payment.artista_data.cognome}`.substring(0, 35);
+        const causale = payment.causale_pagamento.substring(0, 140).replace(/;/g, ' ');
+        const dataEsecuzione = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+        
+        csvContent += `RECORP001;BON;EUR;${importo};${iban};${nomeBeneficiario};;${causale};PAY${payment.id};${dataEsecuzione};N\n`;
+    });
+    
+    return csvContent;
+}
+
+// ✅ BANCHE SPECIFICHE: Illimity Bank
+function generateIllimityCSV(payments) {
+    // Formato CSV specifico per Illimity Bank
+    const header = 'Beneficiario;IBAN;Importo;Divisa;Causale;Data_Esecuzione;Riferimento;Codice_Cliente\n';
+    
+    let csvContent = header;
+    
+    payments.forEach(payment => {
+        const iban = payment.artista_data.iban.replace(/\s/g, '');
+        const importo = payment.importo_netto.toFixed(2).replace('.', ','); // Formato italiano
+        const beneficiario = `${payment.artista_data.nome} ${payment.artista_data.cognome}`.substring(0, 50);
+        const causale = payment.causale_pagamento.substring(0, 140).replace(/;/g, ' ');
+        const dataEsecuzione = new Date().toISOString().slice(0, 10);
+        
+        csvContent += `"${beneficiario}";${iban};${importo};EUR;"${causale}";${dataEsecuzione};PAY${payment.id};RECORP001\n`;
+    });
+    
+    return csvContent;
+}
+
+// ✅ BANCHE SPECIFICHE: Qonto
+function generateQontoCSV(payments) {
+    // Formato CSV specifico per Qonto
+    const header = 'recipient_name;recipient_iban;amount;currency;label;execution_date;reference;client_reference\n';
+    
+    let csvContent = header;
+    
+    payments.forEach(payment => {
+        const iban = payment.artista_data.iban.replace(/\s/g, '');
+        const importo = payment.importo_netto.toFixed(2); // Formato standard per Qonto
+        const recipientName = `${payment.artista_data.nome} ${payment.artista_data.cognome}`.substring(0, 35);
+        const label = payment.causale_pagamento.substring(0, 100).replace(/;/g, ' ');
+        const executionDate = new Date().toISOString().slice(0, 10);
+        
+        csvContent += `"${recipientName}";${iban};${importo};EUR;"${label}";${executionDate};TRN${payment.id};RECORP_${payment.id}\n`;
+    });
+    
+    return csvContent;
+}
+
+function generateGenericCSV(payments) {
+    // Formato generico compatibile con la maggior parte delle banche
+    const header = 'ID_Pagamento;Data;IBAN_Beneficiario;Nome_Beneficiario;Importo;Divisa;Causale;Codice_Fiscale;Tipo_Contratto;Riferimento_Agibilita\n';
+    
+    let csvContent = header;
+    
+    payments.forEach(payment => {
+        const iban = payment.artista_data.iban.replace(/\s/g, '');
+        const importo = payment.importo_netto.toFixed(2);
+        const nome = `${payment.artista_data.nome} ${payment.artista_data.cognome}`;
+        const causale = payment.causale_pagamento.replace(/;/g, ' ').replace(/"/g, '""');
+        const tipoContratto = determineTipoContratto({has_partita_iva: payment.artista_data.has_partita_iva}, {});
+        
+        csvContent += `${payment.id};${new Date().toISOString().slice(0, 10)};${iban};"${nome}";${importo};EUR;"${causale}";${payment.artista_data.codice_fiscale};${tipoContratto};${payment.agibilita_data?.codice || ''}\n`;
+    });
+    
+    return csvContent;
+}
+
+// ==================== INTEGRAZIONE COMPLETA SCHEMA DATABASE ====================
+
+// ✅ AGGIORNA: Usa tutti i campi del schema database correttamente
+async function updatePaymentsToProcessing(payments) {
+    console.log('📝 Aggiornamento stati pagamenti a IN ELABORAZIONE...');
+    
+    for (const payment of payments) {
+        try {
+            // ✅ INTEGRAZIONE: Usa tutti i campi del schema database
+            const updateData = {
+                stato: 'in_elaborazione',
+                data_elaborazione: new Date().toISOString(),
+                civ_generated: true,
+                civ_file_name: `CIV_${new Date().toISOString().slice(0, 10)}_${payment.id}.csv`,
+                workflow_stage: 'banking_processing',
+                
+                // Campi audit
+                updated_by: currentUser.id,
+                updated_at: new Date().toISOString(),
+                
+                // Metadati elaborazione
+                processing_bank: document.getElementById('selectBanca')?.value || 'generic',
+                processing_batch_id: `BATCH_${Date.now()}`,
+                
+                // Flag per tracking
+                necessita_conferma_movimento: true,
+                movimento_atteso: true
+            };
+            
+            await DatabaseService.updatePayment(payment.id, updateData);
+            
+            // Aggiorna anche l'array locale con tutti i campi
+            const localPayment = pagamentiDB.find(p => p.id === payment.id);
+            if (localPayment) {
+                Object.assign(localPayment, updateData);
+            }
+            
+            console.log(`✅ Pagamento ${payment.id} aggiornato a IN ELABORAZIONE con metadati completi`);
+            
+            // ✅ AUDIT: Log dettagliato per ogni pagamento
+            logAuditEvent('payment_processing_started', 
+                `Pagamento ${payment.id} (${payment.artista_data?.nome}) avviato in elaborazione bancaria`, 
+                payment.id
+            );
+            
+        } catch (error) {
+            console.error(`❌ Errore aggiornamento pagamento ${payment.id}:`, error);
+            throw new Error(`Errore aggiornamento pagamento ${payment.id}: ${error.message}`);
+        }
+    }
+    
+    console.log(`✅ ${payments.length} pagamenti aggiornati a IN ELABORAZIONE con schema database completo`);
+}
+
+// ✅ AGGIORNA: Crea prestazioni occasionali con schema database completo
+async function createProvisionalOccasionaliRecords(payments) {
+    console.log('📄 Creazione prestazioni occasionali provvisorie con schema database...');
+    
+    // Filtra solo i pagamenti occasionali (non P.IVA, non dipendenti)
+    const occasionaliPayments = payments.filter(p => 
+        !p.artista_data?.has_partita_iva && 
+        !p.ritenuta_inps && 
+        p.ritenuta_irpef > 0
+    );
+    
+    if (occasionaliPayments.length === 0) {
+        console.log('ℹ️ Nessuna prestazione occasionale da creare');
+        return;
+    }
+    
+    for (const payment of occasionaliPayments) {
+        try {
+            // ✅ INTEGRAZIONE: Usa tutti i campi del schema prestazioni_occasionali
+            const prestazioneOccasionale = {
+                // Dati artista (conformi a schema)
+                artista_id: payment.artista_id,
+                nome_artista: payment.artista_data.nome,
+                cognome_artista: payment.artista_data.cognome,
+                codice_fiscale: payment.artista_data.codice_fiscale,
+                indirizzo_artista: payment.artista_data.indirizzo || '',
+                citta_artista: payment.artista_data.citta || '',
+                cap_artista: payment.artista_data.cap || '',
+                telefono_artista: payment.artista_data.telefono || '',
+                email_artista: payment.artista_data.email || '',
+                
+                // Dati prestazione
+                agibilita_id: payment.agibilita_id,
+                agibilita_codice: payment.agibilita_data?.codice,
+                data_prestazione: payment.agibilita_data?.data_inizio,
+                luogo_prestazione: payment.agibilita_data?.locale?.descrizione || '',
+                descrizione_prestazione: payment.causale_pagamento,
+                
+                // Dati economici (conformi a schema)
+                compenso_lordo: payment.importo_lordo,
+                ritenuta_irpef: payment.ritenuta_irpef,
+                ritenuta_inps: payment.ritenuta_inps || 0,
+                rimborso_spese: payment.rimborso_spese || 0,
+                compenso_netto: payment.importo_netto,
+                
+                // Dati bancari
+                iban_beneficiario: payment.artista_data.iban,
+                intestatario_conto: `${payment.artista_data.nome} ${payment.artista_data.cognome}`,
+                
+                // Stato e workflow
+                stato: 'provvisoria', // ⚠️ IMPORTANTE: stato provvisorio
+                pagamento_id: payment.id, // Link al pagamento
+                tipo_documento: 'prestazione_occasionale_provvisoria',
+                numero_documento: `PROV_${payment.id}_${Date.now()}`,
+                
+                // Metadati per conferma
+                necessita_conferma: true,
+                confermata: false,
+                movimento_bancario_id: null, // Sarà popolato durante la conferma
+                movimento_bancario_data: null,
+                movimento_bancario_importo: null,
+                
+                // Campi audit (conformi a schema)
+                created_at: new Date().toISOString(),
+                created_by: currentUser.id,
+                updated_at: new Date().toISOString(),
+                updated_by: currentUser.id,
+                
+                // Metadati aggiuntivi
+                workflow_stage: 'provisional_created',
+                batch_id: `BATCH_${Date.now()}`,
+                anno_fiscale: new Date().getFullYear(),
+                
+                // Note operative
+                note: `Prestazione occasionale provvisoria generata automaticamente da pagamento ${payment.id}`,
+                flag_exported: false,
+                flag_printed: false
+            };
+            
+            // ✅ INTEGRAZIONE: Usa funzione DatabaseService appropriata
+            const savedRecord = await DatabaseService.createPrestazioneOccasionale(prestazioneOccasionale);
+            
+            console.log(`✅ Prestazione occasionale provvisoria creata: ${savedRecord.id} per artista ${payment.artista_data.nome}`);
+            
+            logAuditEvent('provisional_prestazione_created', 
+                `Prestazione occasionale provvisoria ${savedRecord.id} creata per ${payment.artista_data.nome} ${payment.artista_data.cognome}`, 
+                payment.id
+            );
+            
+        } catch (error) {
+            console.error(`❌ Errore creazione prestazione occasionale per pagamento ${payment.id}:`, error);
+            throw new Error(`Errore creazione prestazione occasionale: ${error.message}`);
+        }
+    }
+    
+    console.log(`✅ Create ${occasionaliPayments.length} prestazioni occasionali provvisorie con schema database completo`);
+}
+
+function downloadCSVFile(csvContent, filename) {
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    
+    if (link.download !== undefined) {
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        console.log(`📁 File CSV scaricato: ${filename}`);
+        logAuditEvent('csv_downloaded', `File CSV bancario scaricato: ${filename}`, null);
+    } else {
+        showToast('❌ Download non supportato in questo browser', 'error');
+    }
+}
+
+// ==================== INTERFACCIA CONFERMA MOVIMENTI BANCARI ====================
+
+function showBankMovementInterface() {
+    // Crea e mostra interfaccia per upload e conferma movimenti
+    const paymentsInProcessing = pagamentiDB.filter(p => p.stato === 'in_elaborazione');
+    
+    if (paymentsInProcessing.length === 0) {
+        showToast('ℹ️ Nessun pagamento in elaborazione da confermare', 'info');
+        return;
+    }
+    
+    // Crea modal dinamico
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.style.display = 'block';
+    modal.innerHTML = `
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h3>🏦 Conferma Movimenti Bancari</h3>
+                <span class="close" onclick="closeBankMovementModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="bank-confirmation-section">
+                    <div class="section-header">
+                        <h4>📋 Pagamenti in Elaborazione</h4>
+                        <span class="count-badge">${paymentsInProcessing.length} pagamenti</span>
+                    </div>
+                    
+                    <div class="payments-summary">
+                        ${paymentsInProcessing.map(p => `
+                            <div class="payment-summary-item">
+                                <div class="payment-info">
+                                    <strong>${p.artista_data?.nome} ${p.artista_data?.cognome}</strong>
+                                    <span class="payment-amount">€${p.importo_netto.toFixed(2)}</span>
+                                    <span class="payment-iban">${maskIBAN(p.artista_data?.iban)}</span>
+                                </div>
+                                <div class="payment-status">
+                                    <span class="status-badge status-in_elaborazione">In Elaborazione</span>
+                                    <small>Dal ${formatDate(p.data_elaborazione)}</small>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                
+                <div class="bank-upload-section">
+                    <div class="section-header">
+                        <h4>📤 Upload Movimenti Bancari</h4>
+                    </div>
+                    
+                    <div class="upload-area">
+                        <div class="upload-dropzone" id="bankFileDropzone">
+                            <div class="upload-icon">📁</div>
+                            <div class="upload-text">
+                                <strong>Trascina qui il file movimenti bancari</strong><br>
+                                <small>Formati supportati: CSV, Excel (.xlsx, .xls)</small>
+                            </div>
+                            <input type="file" id="bankFileInput" accept=".csv,.xlsx,.xls" style="display: none;">
+                            <button class="btn btn-primary" onclick="document.getElementById('bankFileInput').click()">
+                                Seleziona File
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="upload-instructions">
+                        <h5>📋 Formato File Atteso:</h5>
+                        <ul>
+                            <li><strong>Data:</strong> Formato YYYY-MM-DD o DD/MM/YYYY</li>
+                            <li><strong>Importo:</strong> Formato numerico (es. 1234.56)</li>
+                            <li><strong>IBAN Beneficiario:</strong> IBAN completo</li>
+                            <li><strong>Causale:</strong> Descrizione movimento</li>
+                            <li><strong>Riferimento:</strong> ID transazione (opzionale)</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="matching-results" id="matchingResults" style="display: none;">
+                    <div class="section-header">
+                        <h4>🔗 Risultati Abbinamento</h4>
+                    </div>
+                    <div id="matchingContent"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeBankMovementModal()">Annulla</button>
+                <button class="btn btn-success" id="confirmMatchesBtn" onclick="confirmAllMatches()" disabled>
+                    ✅ Conferma Abbinamenti
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Setup event listeners per upload
+    setupBankFileUpload();
+    
+    logAuditEvent('bank_confirmation_opened', `Interfaccia conferma aperta per ${paymentsInProcessing.length} pagamenti`, null);
+}
+
+function setupBankFileUpload() {
+    const fileInput = document.getElementById('bankFileInput');
+    const dropzone = document.getElementById('bankFileDropzone');
+    
+    if (!fileInput || !dropzone) return;
+    
+    // File input change
+    fileInput.addEventListener('change', function(e) {
+        if (e.target.files.length > 0) {
+            processBankFile(e.target.files[0]);
+        }
+    });
+    
+    // Drag & drop
+    dropzone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        dropzone.classList.add('dragover');
+    });
+    
+    dropzone.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+    });
+    
+    dropzone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+        
+        if (e.dataTransfer.files.length > 0) {
+            processBankFile(e.dataTransfer.files[0]);
+        }
+    });
+}
+
+async function processBankFile(file) {
+    try {
+        showToast('📤 Elaborazione file in corso...', 'info');
+        
+        // Leggi file
+        const fileContent = await readFileContent(file);
+        
+        // Parse contenuto
+        const movements = await parseBankMovementFile(fileContent, file.name);
+        
+        if (movements.length === 0) {
+            showToast('❌ Nessun movimento trovato nel file', 'error');
+            return;
+        }
+        
+        console.log(`📊 ${movements.length} movimenti bancari elaborati`);
+        
+        // Matching con pagamenti
+        const matches = await matchMovementsWithPayments(movements);
+        
+        // Mostra risultati
+        displayMatchingResults(matches);
+        
+        showToast(`🔗 ${matches.confirmed.length} abbinamenti trovati su ${movements.length} movimenti`, 'success');
+        
+    } catch (error) {
+        console.error('❌ Errore elaborazione file:', error);
+        showToast('❌ Errore elaborazione file: ' + error.message, 'error');
+    }
+}
+
+function readFileContent(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        
+        reader.onload = function(e) {
+            resolve(e.target.result);
+        };
+        
+        reader.onerror = function() {
+            reject(new Error('Errore lettura file'));
+        };
+        
+        if (file.name.endsWith('.csv')) {
+            reader.readAsText(file);
+        } else {
+            reader.readAsArrayBuffer(file);
+        }
+    });
+}
+
+async function parseBankMovementFile(fileContent, fileName) {
+    if (fileName.endsWith('.csv')) {
+        return parseCSVMovements(fileContent);
+    } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+        return parseExcelMovements(fileContent);
+    } else {
+        throw new Error('Formato file non supportato');
+    }
+}
+
+function parseCSVMovements(csvContent) {
+    const lines = csvContent.split('\n');
+    const header = lines[0].toLowerCase().split(',').map(h => h.trim().replace(/"/g, ''));
+    
+    // Mapping colonne comuni
+    const columnMapping = {
+        data: ['data', 'date', 'data_valuta', 'data_operazione'],
+        importo: ['importo', 'amount', 'valore', 'dare', 'avere'],
+        beneficiario: ['beneficiario', 'beneficiary', 'destinatario', 'nome'],
+        iban: ['iban', 'iban_beneficiario', 'conto_beneficiario'],
+        causale: ['causale', 'description', 'descrizione', 'motivo'],
+        riferimento: ['riferimento', 'reference', 'id_transazione', 'trn']
+    };
+    
+    const movements = [];
+    
+    for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        
+        const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
+        
+        const movement = {
+            data: findColumnValue(values, header, columnMapping.data),
+            importo: parseFloat(findColumnValue(values, header, columnMapping.importo)) || 0,
+            beneficiario: findColumnValue(values, header, columnMapping.beneficiario),
+            iban_beneficiario: findColumnValue(values, header, columnMapping.iban),
+            causale: findColumnValue(values, header, columnMapping.causale),
+            riferimento: findColumnValue(values, header, columnMapping.riferimento)
+        };
+        
+        // Normalizza data
+        if (movement.data) {
+            movement.data = normalizeDate(movement.data);
+        }
+        
+        // Solo movimenti in uscita con importo positivo
+        if (movement.importo > 0 && movement.iban_beneficiario) {
+            movements.push(movement);
+        }
+    }
+    
+    return movements;
+}
+
+function parseExcelMovements(arrayBuffer) {
+    // Per Excel dovremmo usare una libreria come SheetJS
+    // Per ora simula il parsing
+    showToast('📊 Elaborazione file Excel in sviluppo - usa formato CSV', 'warning');
+    return [];
+}
+
+function findColumnValue(values, header, possibleNames) {
+    for (const name of possibleNames) {
+        const index = header.findIndex(h => h.includes(name));
+        if (index !== -1 && values[index]) {
+            return values[index];
+        }
+    }
+    return '';
+}
+
+function normalizeDate(dateString) {
+    // Normalizza vari formati data a YYYY-MM-DD
+    const formats = [
+        /(\d{4})-(\d{2})-(\d{2})/, // YYYY-MM-DD
+        /(\d{2})\/(\d{2})\/(\d{4})/, // DD/MM/YYYY
+        /(\d{2})-(\d{2})-(\d{4})/, // DD-MM-YYYY
+    ];
+    
+    for (const format of formats) {
+        const match = dateString.match(format);
+        if (match) {
+            if (format === formats[0]) {
+                return dateString; // Già nel formato corretto
+            } else {
+                // Converti DD/MM/YYYY o DD-MM-YYYY in YYYY-MM-DD
+                return `${match[3]}-${match[2]}-${match[1]}`;
+            }
+        }
+    }
+    
+    return dateString; // Restituisce originale se non riconosce il formato
+}
+
+async function matchMovementsWithPayments(movements) {
+    const paymentsInProcessing = pagamentiDB.filter(p => p.stato === 'in_elaborazione');
+    const matches = { confirmed: [], unmatched: [] };
+    
+    console.log(`🔗 Abbinamento ${movements.length} movimenti con ${paymentsInProcessing.length} pagamenti`);
+    
+    for (const movement of movements) {
+        let bestMatch = null;
+        let matchScore = 0;
+        
+        for (const payment of paymentsInProcessing) {
+            let score = 0;
+            
+            // Match importo (peso: 40%)
+            const importoDiff = Math.abs(movement.importo - payment.importo_netto);
+            if (importoDiff < 0.01) score += 40;
+            else if (importoDiff < 1) score += 20;
+            
+            // Match IBAN (peso: 30%)
+            const movementIban = movement.iban_beneficiario?.replace(/\s/g, '').toUpperCase();
+            const paymentIban = payment.artista_data?.iban?.replace(/\s/g, '').toUpperCase();
+            if (movementIban && paymentIban && movementIban === paymentIban) {
+                score += 30;
+            }
+            
+            // Match riferimento/ID (peso: 20%)
+            const hasReferenceMatch = movement.causale?.includes(`PAY${payment.id}`) || 
+                                    movement.causale?.includes(`TRN${payment.id}`) ||
+                                    movement.riferimento?.includes(payment.id.toString());
+            if (hasReferenceMatch) score += 20;
+            
+            // Match nome beneficiario (peso: 10%)
+            const nomeCompleto = `${payment.artista_data?.nome} ${payment.artista_data?.cognome}`.toLowerCase();
+            if (movement.beneficiario?.toLowerCase().includes(nomeCompleto) ||
+                nomeCompleto.includes(movement.beneficiario?.toLowerCase())) {
+                score += 10;
+            }
+            
+            if (score > matchScore && score >= 60) { // Soglia minima 60%
+                matchScore = score;
+                bestMatch = payment;
+            }
+        }
+        
+        if (bestMatch) {
+            matches.confirmed.push({
+                movement: movement,
+                payment: bestMatch,
+                score: matchScore,
+                confidence: matchScore >= 80 ? 'high' : 'medium'
+            });
+        } else {
+            matches.unmatched.push(movement);
+        }
+    }
+    
+    return matches;
+}
+
+function displayMatchingResults(matches) {
+    const resultsDiv = document.getElementById('matchingResults');
+    const contentDiv = document.getElementById('matchingContent');
+    const confirmBtn = document.getElementById('confirmMatchesBtn');
+    
+    if (!resultsDiv || !contentDiv) return;
+    
+    resultsDiv.style.display = 'block';
+    
+    let html = `
+        <div class="matching-summary">
+            <div class="summary-card success">
+                <h4>${matches.confirmed.length}</h4>
+                <p>Abbinamenti Trovati</p>
+            </div>
+            <div class="summary-card warning">
+                <h4>${matches.unmatched.length}</h4>
+                <p>Movimenti Non Abbinati</p>
+            </div>
+        </div>
+        
+        <div class="matching-details">
+    `;
+    
+    if (matches.confirmed.length > 0) {
+        html += `
+            <div class="confirmed-matches">
+                <h5>✅ Abbinamenti Confermati</h5>
+                ${matches.confirmed.map(match => `
+                    <div class="match-item ${match.confidence}">
+                        <div class="match-movement">
+                            <strong>Movimento:</strong> €${match.movement.importo.toFixed(2)} - ${match.movement.beneficiario}<br>
+                            <small>IBAN: ${maskIBAN(match.movement.iban_beneficiario)} | Data: ${match.movement.data}</small>
+                        </div>
+                        <div class="match-arrow">↔️</div>
+                        <div class="match-payment">
+                            <strong>Pagamento:</strong> ${match.payment.artista_data?.nome} ${match.payment.artista_data?.cognome}<br>
+                            <small>€${match.payment.importo_netto.toFixed(2)} | ID: ${match.payment.id}</small>
+                        </div>
+                        <div class="match-confidence">
+                            <span class="confidence-badge ${match.confidence}">${match.score}% ${match.confidence}</span>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+        
+        confirmBtn.disabled = false;
+    }
+    
+    if (matches.unmatched.length > 0) {
+        html += `
+            <div class="unmatched-movements">
+                <h5>⚠️ Movimenti Non Abbinati</h5>
+                ${matches.unmatched.map(movement => `
+                    <div class="unmatched-item">
+                        <strong>${movement.beneficiario}</strong> - €${movement.importo.toFixed(2)}<br>
+                        <small>IBAN: ${maskIBAN(movement.iban_beneficiario)} | ${movement.data}</small>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+    
+    html += '</div>';
+    contentDiv.innerHTML = html;
+    
+    // Salva matches per conferma
+    window.currentMatches = matches;
+}
+
+async function confirmAllMatches() {
+    if (!window.currentMatches?.confirmed?.length) {
+        showToast('❌ Nessun abbinamento da confermare', 'error');
+        return;
+    }
+    
+    const matches = window.currentMatches.confirmed;
+    
+    if (!confirm(`🔄 CONFERMA PAGAMENTI\n\nVerranno confermati ${matches.length} pagamenti.\nI pagamenti passeranno allo stato "PAGATO".\n\nProcedere?`)) {
+        return;
+    }
+    
+    try {
+        showToast('🔄 Conferma pagamenti in corso...', 'info');
+        
+        let confirmed = 0;
+        const errors = [];
+        
+        for (const match of matches) {
+            try {
+                // Conferma pagamento
+                await confirmSinglePayment(match.payment, match.movement);
+                confirmed++;
+                
+            } catch (error) {
+                console.error(`❌ Errore conferma pagamento ${match.payment.id}:`, error);
+                errors.push(`${match.payment.artista_data?.nome}: ${error.message}`);
+            }
+        }
+        
+        // Aggiorna interfaccia
+        await applyAdvancedFilters();
+        await updateExecutiveDashboard();
+        
+        // Chiudi modal
+        closeBankMovementModal();
+        
+        if (confirmed > 0) {
+            showToast(`✅ ${confirmed} pagamenti confermati con successo!`, 'success');
+        }
+        
+        if (errors.length > 0) {
+            console.error('❌ Errori durante la conferma:', errors);
+            showToast(`⚠️ ${errors.length} errori durante la conferma (vedi console)`, 'warning');
+        }
+        
+        logAuditEvent('bulk_payment_confirmation', `${confirmed} pagamenti confermati da movimenti bancari`, null);
+        
+    } catch (error) {
+        console.error('❌ Errore conferma generale:', error);
+        showToast('❌ Errore durante la conferma: ' + error.message, 'error');
+    }
+}
+
+async function confirmSinglePayment(payment, movement) {
+    // FASE 1: Aggiorna stato pagamento con tutti i campi database
+    await DatabaseService.updatePayment(payment.id, {
+        stato: 'pagato',
+        data_pagamento: movement.data,
+        movimento_bancario_data: movement.data,
+        movimento_bancario_importo: movement.importo,
+        movimento_bancario_riferimento: movement.riferimento || movement.causale,
+        movimento_bancario_iban: movement.iban_beneficiario,
+        conferma_automatica: true,
+        confermato_da: currentUser.id,
+        data_conferma: new Date().toISOString(),
+        updated_by: currentUser.id
+    });
+    
+    // FASE 2: Conferma prestazione occasionale (se esiste)
+    await confirmOccasionaleRecord(payment.id, movement);
+    
+    // FASE 3: Aggiorna array locale
+    const localPayment = pagamentiDB.find(p => p.id === payment.id);
+    if (localPayment) {
+        localPayment.stato = 'pagato';
+        localPayment.data_pagamento = movement.data;
+        localPayment.movimento_bancario_data = movement.data;
+        localPayment.movimento_bancario_importo = movement.importo;
+    }
+    
+    console.log(`✅ Pagamento ${payment.id} confermato per ${payment.artista_data?.nome}`);
+}
+
+async function confirmOccasionaleRecord(paymentId, movement) {
+    try {
+        // Trova la prestazione occasionale provvisoria collegata
+        const provisionalRecords = await DatabaseService.getPrestazioniOccasionali({
+            filters: { 
+                pagamento_id: paymentId, 
+                stato: 'provvisoria' 
+            }
+        });
+        
+        if (provisionalRecords && provisionalRecords.length > 0) {
+            const provisionalRecord = provisionalRecords[0];
+            
+            // Aggiorna a definitiva con tutti i dati movimento
+            await DatabaseService.updatePrestazioneOccasionale(provisionalRecord.id, {
+                stato: 'definitiva',
+                movimento_bancario_id: movement.id || `MVT_${Date.now()}`,
+                movimento_bancario_data: movement.data,
+                movimento_bancario_importo: movement.importo,
+                movimento_bancario_riferimento: movement.riferimento,
+                data_conferma: new Date().toISOString(),
+                confermato_da: currentUser.id,
+                necessita_conferma: false,
+                updated_by: currentUser.id
+            });
+            
+            console.log(`✅ Prestazione occasionale ${provisionalRecord.id} confermata come definitiva`);
+            
+            logAuditEvent('prestazione_confirmed', 
+                `Prestazione occasionale confermata definitiva per pagamento ${paymentId}`, 
+                paymentId
+            );
+        } else {
+            console.log(`ℹ️ Nessuna prestazione occasionale provvisoria trovata per pagamento ${paymentId}`);
+        }
+        
+    } catch (error) {
+        console.error(`❌ Errore conferma prestazione occasionale per pagamento ${paymentId}:`, error);
+        // Non bloccare il workflow principale per errori su prestazioni occasionali
+        logAuditEvent('prestazione_confirm_error', 
+            `Errore conferma prestazione occasionale: ${error.message}`, 
+            paymentId
+        );
+    }
+}
+
+function closeBankMovementModal() {
+    const modal = document.querySelector('.modal');
+    if (modal) {
+        document.body.removeChild(modal);
+    }
+    
+    // Cleanup
+    delete window.currentMatches;
+}
+
+// ==================== GESTIONE DIPENDENTI E RIMBORSI ====================
+
+function showMonthlyEmployeeReport() {
+    const currentDate = new Date();
+    const currentMonth = currentDate.toISOString().slice(0, 7); // YYYY-MM
+    
+    // Crea modal per selezione mese e generazione report
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.style.display = 'block';
+    modal.innerHTML = `
+        <div class="modal-content extra-large">
+            <div class="modal-header">
+                <h3>📋 Riepilogo Mensile Dipendenti</h3>
+                <span class="close" onclick="closeEmployeeReportModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="report-controls">
+                    <div class="month-selector">
+                        <label for="reportMonth">Seleziona Mese:</label>
+                        <input type="month" id="reportMonth" value="${currentMonth}" onchange="loadMonthlyEmployeeData()">
+                        <button class="btn btn-primary" onclick="loadMonthlyEmployeeData()">
+                            📊 Carica Dati
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="monthlyEmployeeData" class="monthly-data-container">
+                    <div class="loading-placeholder">
+                        <p>Seleziona un mese e clicca "Carica Dati"</p>
+                    </div>
+                </div>
+                
+                <div class="report-actions" id="reportActions" style="display: none;">
+                    <button class="btn btn-success" onclick="generateEmployeePDF()">
+                        📄 Genera PDF per Consulente
+                    </button>
+                    <button class="btn btn-secondary" onclick="exportEmployeeExcel()">
+                        📊 Export Excel
+                    </button>
+                    <button class="btn btn-warning" onclick="saveMonthlyModifications()">
+                        💾 Salva Modifiche
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Carica automaticamente il mese corrente
+    setTimeout(() => loadMonthlyEmployeeData(), 100);
+}
+
+async function loadMonthlyEmployeeData() {
+    const selectedMonth = document.getElementById('reportMonth').value;
+    if (!selectedMonth) return;
+    
+    try {
+        showToast('📊 Caricamento dati dipendenti...', 'info');
+        
+        // Filtra pagamenti dipendenti del mese selezionato
+        const [year, month] = selectedMonth.split('-');
+        const startDate = new Date(year, month - 1, 1);
+        const endDate = new Date(year, month, 0); // Ultimo giorno del mese
+        
+        const employeePayments = pagamentiDB.filter(p => {
+            const paymentDate = new Date(p.agibilita_data?.data_inizio || p.created_at);
+            return p.ritenuta_inps > 0 && // Solo dipendenti (hanno contributi INPS)
+                   paymentDate >= startDate && 
+                   paymentDate <= endDate;
+        });
+        
+        console.log(`📋 Trovati ${employeePayments.length} pagamenti dipendenti per ${selectedMonth}`);
+        
+        // Raggruppa per dipendente
+        const employeeGroups = groupPaymentsByEmployee(employeePayments);
+        
+        // Mostra interfaccia di editing
+        displayEmployeeEditInterface(employeeGroups, selectedMonth);
+        
+        showToast(`✅ Caricati ${Object.keys(employeeGroups).length} dipendenti per ${selectedMonth}`, 'success');
+        
+    } catch (error) {
+        console.error('❌ Errore caricamento dati dipendenti:', error);
+        showToast('❌ Errore caricamento dati: ' + error.message, 'error');
+    }
+}
+
+function groupPaymentsByEmployee(payments) {
+    const groups = {};
+    
+    payments.forEach(payment => {
+        const employeeKey = payment.artista_data?.codice_fiscale || payment.artista_id;
+        
+        if (!groups[employeeKey]) {
+            groups[employeeKey] = {
+                employee: payment.artista_data,
+                payments: [],
+                totals: {
+                    lordo: 0,
+                    irpef: 0,
+                    inps: 0,
+                    netto: 0,
+                    rimborsoSpese: 0,
+                    rimborsoPercentuale: 10 // Default 10% per dipendenti
+                },
+                settings: {
+                    rimborsoPercentuale: 10, // Modificabile dall'utente
+                    note: ''
+                }
+            };
+        }
+        
+        groups[employeeKey].payments.push(payment);
+        groups[employeeKey].totals.lordo += payment.importo_lordo;
+        groups[employeeKey].totals.irpef += payment.ritenuta_irpef || 0;
+        groups[employeeKey].totals.inps += payment.ritenuta_inps || 0;
+        groups[employeeKey].totals.netto += payment.importo_netto;
+    });
+    
+    // Calcola rimborsi spese per ogni dipendente
+    Object.keys(groups).forEach(employeeKey => {
+        const group = groups[employeeKey];
+        const rimborsoPercentuale = group.settings.rimborsoPercentuale / 100;
+        group.totals.rimborsoSpese = group.totals.lordo * rimborsoPercentuale;
+    });
+    
+    return groups;
+}
+
+function displayEmployeeEditInterface(employeeGroups, selectedMonth) {
+    const container = document.getElementById('monthlyEmployeeData');
+    const actionsDiv = document.getElementById('reportActions');
+    
+    if (Object.keys(employeeGroups).length === 0) {
+        container.innerHTML = '<div class="no-data">Nessun dipendente trovato per il mese selezionato</div>';
+        actionsDiv.style.display = 'none';
+        return;
+    }
+    
+    let html = `
+        <div class="monthly-summary">
+            <h4>📅 Riepilogo ${getMonthName(selectedMonth)}</h4>
+            <div class="summary-stats">
+                <div class="stat-item">
+                    <label>Dipendenti:</label>
+                    <span>${Object.keys(employeeGroups).length}</span>
+                </div>
+                <div class="stat-item">
+                    <label>Totale Lordo:</label>
+                    <span id="totalLordo">€${Object.values(employeeGroups).reduce((sum, g) => sum + g.totals.lordo, 0).toFixed(2)}</span>
+                </div>
+                <div class="stat-item">
+                    <label>Totale Rimborsi:</label>
+                    <span id="totalRimborsi">€${Object.values(employeeGroups).reduce((sum, g) => sum + g.totals.rimborsoSpese, 0).toFixed(2)}</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="employee-list">
+    `;
+    
+    Object.entries(employeeGroups).forEach(([employeeKey, group]) => {
+        html += `
+            <div class="employee-card" data-employee="${employeeKey}">
+                <div class="employee-header">
+                    <div class="employee-info">
+                        <h5>${group.employee?.nome || 'Nome'} ${group.employee?.cognome || 'Cognome'}</h5>
+                        <span class="employee-cf">${group.employee?.codice_fiscale || 'CF N/D'}</span>
+                        <span class="employee-performances">${group.payments.length} prestazioni</span>
+                    </div>
+                    <div class="employee-toggle">
+                        <button class="btn btn-xs btn-outline" onclick="toggleEmployeeDetails('${employeeKey}')">
+                            👁️ Dettagli
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="employee-summary">
+                    <div class="summary-row">
+                        <div class="summary-item">
+                            <label>Lordo Totale:</label>
+                            <span>€${group.totals.lordo.toFixed(2)}</span>
+                        </div>
+                        <div class="summary-item">
+                            <label>IRPEF:</label>
+                            <span>€${group.totals.irpef.toFixed(2)}</span>
+                        </div>
+                        <div class="summary-item">
+                            <label>INPS:</label>
+                            <span>€${group.totals.inps.toFixed(2)}</span>
+                        </div>
+                        <div class="summary-item">
+                            <label>Netto:</label>
+                            <span>€${group.totals.netto.toFixed(2)}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="rimborso-section">
+                        <div class="rimborso-input">
+                            <label>Rimborso Spese (%):</label>
+                            <input type="number" 
+                                   value="${group.settings.rimborsoPercentuale}" 
+                                   min="0" 
+                                   max="50" 
+                                   step="0.1"
+                                   onchange="updateEmployeeReimburse('${employeeKey}', this.value)"
+                                   class="rimborso-percentage">
+                            <span class="rimborso-amount">= €<span id="rimborso_${employeeKey}">${group.totals.rimborsoSpese.toFixed(2)}</span></span>
+                        </div>
+                        
+                        <div class="employee-notes">
+                            <label>Note:</label>
+                            <textarea placeholder="Note aggiuntive per il consulente..." 
+                                      onchange="updateEmployeeNotes('${employeeKey}', this.value)"
+                                      class="employee-note-text">${group.settings.note}</textarea>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="employee-details" id="details_${employeeKey}" style="display: none;">
+                    <h6>📋 Dettaglio Prestazioni:</h6>
+                    <div class="prestazioni-list">
+                        ${group.payments.map(p => `
+                            <div class="prestazione-item">
+                                <div class="prestazione-info">
+                                    <span class="prestazione-date">${formatDate(p.agibilita_data?.data_inizio)}</span>
+                                    <span class="prestazione-event">${p.agibilita_data?.codice || 'N/D'}</span>
+                                    <span class="prestazione-venue">${p.agibilita_data?.locale?.descrizione || 'Locale N/D'}</span>
+                                </div>
+                                <div class="prestazione-amounts">
+                                    <span class="prestazione-lordo">€${p.importo_lordo.toFixed(2)}</span>
+                                    <span class="prestazione-netto">Netto: €${p.importo_netto.toFixed(2)}</span>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
+    actionsDiv.style.display = 'block';
+    
+    // Salva dati per successiva elaborazione
+    window.currentEmployeeData = employeeGroups;
+    window.currentReportMonth = selectedMonth;
+}
+
+function updateEmployeeReimburse(employeeKey, percentage) {
+    if (!window.currentEmployeeData?.[employeeKey]) return;
+    
+    const group = window.currentEmployeeData[employeeKey];
+    group.settings.rimborsoPercentuale = parseFloat(percentage) || 0;
+    group.totals.rimborsoSpese = group.totals.lordo * (group.settings.rimborsoPercentuale / 100);
+    
+    // Aggiorna visualizzazione
+    document.getElementById(`rimborso_${employeeKey}`).textContent = group.totals.rimborsoSpese.toFixed(2);
+    
+    // Aggiorna totali generali
+    updateGeneralTotals();
+    
+    console.log(`💰 Rimborso aggiornato per ${group.employee?.nome}: ${percentage}% = €${group.totals.rimborsoSpese.toFixed(2)}`);
+}
+
+function updateEmployeeNotes(employeeKey, notes) {
+    if (!window.currentEmployeeData?.[employeeKey]) return;
+    
+    window.currentEmployeeData[employeeKey].settings.note = notes;
+    console.log(`📝 Note aggiornate per ${window.currentEmployeeData[employeeKey].employee?.nome}`);
+}
+
+function updateGeneralTotals() {
+    if (!window.currentEmployeeData) return;
+    
+    const totalRimborsi = Object.values(window.currentEmployeeData)
+        .reduce((sum, group) => sum + group.totals.rimborsoSpese, 0);
+    
+    document.getElementById('totalRimborsi').textContent = `€${totalRimborsi.toFixed(2)}`;
+}
+
+function toggleEmployeeDetails(employeeKey) {
+    const detailsDiv = document.getElementById(`details_${employeeKey}`);
+    if (detailsDiv) {
+        detailsDiv.style.display = detailsDiv.style.display === 'none' ? 'block' : 'none';
+    }
+}
+
+async function generateEmployeePDF() {
+    if (!window.currentEmployeeData || !window.currentReportMonth) {
+        showToast('❌ Nessun dato da esportare', 'error');
+        return;
+    }
+    
+    try {
+        showToast('📄 Generazione PDF in corso...', 'info');
+        
+        // Prepara dati per PDF
+        const reportData = {
+            month: window.currentReportMonth,
+            monthName: getMonthName(window.currentReportMonth),
+            employees: window.currentEmployeeData,
+            generatedBy: currentUser.email,
+            generatedAt: new Date().toISOString(),
+            companyInfo: {
+                name: 'OKL SRL - RECORP',
+                address: 'Via Monte Pasubio 222/1 - 36010 Zanè (VI)',
+                piva: 'P.IVA: 04433920248'
+            }
+        };
+        
+        // Genera HTML per PDF
+        const htmlContent = generateEmployeePDFContent(reportData);
+        
+        // Simula generazione PDF (in produzione useresti jsPDF o html2pdf)
+        downloadHTMLasPDF(htmlContent, `Riepilogo_Dipendenti_${window.currentReportMonth}.pdf`);
+        
+        showToast('✅ PDF generato con successo!', 'success');
+        
+        logAuditEvent('employee_pdf_generated', 
+            `PDF riepilogo dipendenti generato per ${window.currentReportMonth}`, 
+            null
+        );
+        
+    } catch (error) {
+        console.error('❌ Errore generazione PDF:', error);
+        showToast('❌ Errore generazione PDF: ' + error.message, 'error');
+    }
+}
+
+function generateEmployeePDFContent(reportData) {
+    const totalLordo = Object.values(reportData.employees).reduce((sum, g) => sum + g.totals.lordo, 0);
+    const totalIrpef = Object.values(reportData.employees).reduce((sum, g) => sum + g.totals.irpef, 0);
+    const totalInps = Object.values(reportData.employees).reduce((sum, g) => sum + g.totals.inps, 0);
+    const totalNetto = Object.values(reportData.employees).reduce((sum, g) => sum + g.totals.netto, 0);
+    const totalRimborsi = Object.values(reportData.employees).reduce((sum, g) => sum + g.totals.rimborsoSpese, 0);
+    
+    return `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>Riepilogo Dipendenti ${reportData.monthName}</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
+                .header { text-align: center; border-bottom: 2px solid #003366; padding-bottom: 20px; margin-bottom: 30px; }
+                .company-info { text-align: center; color: #666; margin-bottom: 20px; }
+                .report-title { color: #003366; font-size: 24px; margin-bottom: 10px; }
+                .report-period { color: #666; font-size: 18px; }
+                .summary-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; background: #f8f9fa; }
+                .summary-table th, .summary-table td { border: 1px solid #ddd; padding: 12px; text-align: center; }
+                .summary-table th { background: #003366; color: white; }
+                .employee-section { margin-bottom: 30px; page-break-inside: avoid; }
+                .employee-header { background: #e9ecef; padding: 15px; border-left: 4px solid #003366; }
+                .employee-name { font-size: 18px; font-weight: bold; color: #003366; }
+                .employee-details { margin: 10px 0; }
+                .performance-table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+                .performance-table th, .performance-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                .performance-table th { background: #f8f9fa; }
+                .totals-row { background: #e3f2fd; font-weight: bold; }
+                .footer { margin-top: 50px; text-align: center; color: #666; font-size: 12px; border-top: 1px solid #ddd; padding-top: 20px; }
+                .rimborso-section { background: #fff3cd; padding: 10px; margin: 10px 0; border-left: 4px solid #ffc107; }
+                @media print { body { margin: 0; } .page-break { page-break-before: always; } }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <div class="company-info">
+                    <strong>${reportData.companyInfo.name}</strong><br>
+                    ${reportData.companyInfo.address}<br>
+                    ${reportData.companyInfo.piva}
+                </div>
+                <h1 class="report-title">RIEPILOGO MENSILE DIPENDENTI</h1>
+                <div class="report-period">${reportData.monthName}</div>
+            </div>
+            
+            <table class="summary-table">
+                <thead>
+                    <tr>
+                        <th>Dipendenti</th>
+                        <th>Totale Lordo</th>
+                        <th>Totale IRPEF</th>
+                        <th>Totale INPS</th>
+                        <th>Totale Netto</th>
+                        <th>Totale Rimborsi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="totals-row">
+                        <td>${Object.keys(reportData.employees).length}</td>
+                        <td>€${totalLordo.toFixed(2)}</td>
+                        <td>€${totalIrpef.toFixed(2)}</td>
+                        <td>€${totalInps.toFixed(2)}</td>
+                        <td>€${totalNetto.toFixed(2)}</td>
+                        <td>€${totalRimborsi.toFixed(2)}</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            ${Object.entries(reportData.employees).map(([key, group]) => `
+                <div class="employee-section">
+                    <div class="employee-header">
+                        <div class="employee-name">${group.employee?.nome || 'Nome'} ${group.employee?.cognome || 'Cognome'}</div>
+                        <div class="employee-details">
+                            <strong>Codice Fiscale:</strong> ${group.employee?.codice_fiscale || 'N/D'}<br>
+                            <strong>Prestazioni:</strong> ${group.payments.length}
+                        </div>
+                    </div>
+                    
+                    <table class="performance-table">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Evento</th>
+                                <th>Locale</th>
+                                <th>Lordo</th>
+                                <th>IRPEF</th>
+                                <th>INPS</th>
+                                <th>Netto</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${group.payments.map(p => `
+                                <tr>
+                                    <td>${formatDate(p.agibilita_data?.data_inizio)}</td>
+                                    <td>${p.agibilita_data?.codice || 'N/D'}</td>
+                                    <td>${p.agibilita_data?.locale?.descrizione || 'Locale N/D'}</td>
+                                    <td>€${p.importo_lordo.toFixed(2)// pagamenti.js - Sistema Gestione Pagamenti RECORP Coordinato Completo
 
 // Import services - PERCORSI CORRETTI (file nel root)
 import { DatabaseService } from '../supabase-config.js';
@@ -35,7 +1324,16 @@ let auditTrail = [];
 let isInitializing = false;
 let isInitialized = false;
 
-// ==================== INIZIALIZZAZIONE SICURA CORRETTA ====================
+// Configurazione rimborsi prestazioni occasionali
+const RIMBORSI_OCCASIONALI = [
+    { min: 99, max: 149, importo: 40 },
+    { min: 150, max: 199, importo: 60 },
+    { min: 200, max: 249, importo: 80 },
+    { min: 250, max: 399, importo: 120 },
+    { min: 400, max: Infinity, percentuale: 0.38 } // 38% del lordo
+];
+
+// ==================== INIZIALIZZAZIONE COORDINATA FINALE ====================
 document.addEventListener('DOMContentLoaded', async function() {
     // 🔥 PREVENZIONE LOOP - Solo un'inizializzazione alla volta
     if (isInitializing || isInitialized) {
@@ -44,7 +1342,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
     
     isInitializing = true;
-    console.log('🚀 Inizializzazione sistema pagamenti avanzato...');
+    console.log('🚀 Inizializzazione sistema pagamenti coordinato...');
     
     try {
         // === STEP 1: AUTENTICAZIONE MANUALE (NO AUTO-INIT) ===
@@ -55,7 +1353,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         currentUser = await AuthGuard.getCurrentUser();
         if (!currentUser) {
             console.warn('⚠️ Utente non autenticato dopo verifica');
-            return; // AuthGuard ha già gestito il redirect
+            return;
         }
         
         console.log('✅ Utente autenticato:', currentUser.email);
@@ -98,10 +1396,14 @@ document.addEventListener('DOMContentLoaded', async function() {
         console.log('🔔 Setup sistema notifiche...');
         setupPaymentNotifications();
         
+        // === STEP 11: INIZIALIZZA SISTEMA COORDINATO ===
+        console.log('⚡ Inizializzazione sistema coordinato avanzato...');
+        await initializeCoordinatedSystem();
+        
         // === COMPLETAMENTO ===
         isInitialized = true;
-        console.log('✅ Sistema pagamenti inizializzato con successo!');
-        logAuditEvent('system_initialized', 'Sistema pagamenti avviato', null);
+        console.log('✅ Sistema pagamenti coordinato inizializzato con successo!');
+        logAuditEvent('coordinated_system_initialized', 'Sistema pagamenti coordinato avviato completamente', null);
         
         // Nascondi loading se presente
         const loadingOverlay = document.getElementById('loading-overlay');
@@ -109,12 +1411,15 @@ document.addEventListener('DOMContentLoaded', async function() {
             loadingOverlay.style.display = 'none';
         }
         
+        // ✅ NOTIFICA: Sistema pronto
+        showToast('🚀 Sistema Pagamenti RECORP caricato con successo!', 'success', 5000);
+        
     } catch (error) {
-        console.error('❌ Errore inizializzazione sistema pagamenti:', error);
+        console.error('❌ Errore inizializzazione sistema pagamenti coordinato:', error);
         
         // Mostra errore user-friendly
         const errorMessage = error.message || 'Errore di inizializzazione sconosciuto';
-        showToast('Errore di inizializzazione: ' + errorMessage, 'error');
+        showToast('Errore di inizializzazione: ' + errorMessage, 'error', 10000);
         
         // Se errore di autenticazione, AuthGuard ha già gestito il redirect
         if (error.message?.includes('Autenticazione')) {
@@ -390,53 +1695,69 @@ async function autoCalculatePaymentsFromAgibilita(forceRecalculate = false) {
     }
 }
 
+// Calcola rimborso automatico per prestazione occasionale
+function calculateRimborsoOccasionale(compensoLordo) {
+    for (const scaglione of RIMBORSI_OCCASIONALI) {
+        if (compensoLordo >= scaglione.min && compensoLordo <= scaglione.max) {
+            if (scaglione.percentuale) {
+                return compensoLordo * scaglione.percentuale;
+            } else {
+                return scaglione.importo;
+            }
+        }
+    }
+    return 0; // Sotto i 99€ nessun rimborso
+}
+
 async function calculatePaymentForArtist(agibilita, artistaAgibilita, artista) {
     try {
         const importoLordo = parseFloat(artistaAgibilita.compenso) || 0;
         
-        // Skip se importo è 0
         if (importoLordo === 0) return null;
         
         const tipoContratto = determineTipoContratto(artista, artistaAgibilita);
         let ritenuteIrpef = 0;
         let ritenuteInps = 0;
+        let rimborsoSpese = 0;
         let importoNetto = importoLordo;
-        let statoIniziale = 'da_pagare'; // ✅ CORRETTO: stato del database
+        let statoIniziale = 'da_pagare';
         
-        // Calcola ritenute in base al tipo contratto
+        // Calcola ritenute e rimborsi in base al tipo contratto
         switch (tipoContratto) {
             case 'occasionale':
                 if (importoLordo > paymentSettings.soglia_ritenuta) {
                     ritenuteIrpef = importoLordo * paymentSettings.ritenuta_occasionale;
-                    importoNetto = importoLordo - ritenuteIrpef;
                 }
+                // ✅ NUOVO: Calcola rimborso automatico per occasionali
+                rimborsoSpese = calculateRimborsoOccasionale(importoLordo);
+                importoNetto = importoLordo - ritenuteIrpef + rimborsoSpese;
                 break;
                 
             case 'partitaiva':
-                // Nessuna ritenuta per P.IVA (fattura necessaria)
                 ritenuteIrpef = 0;
+                // P.IVA gestisce i propri rimborsi nella fattura
+                rimborsoSpese = 0;
+                importoNetto = importoLordo;
                 break;
                 
             case 'chiamata':
             case 'dipendente':
-                // Calcola IRPEF e contributi
-                ritenuteIrpef = importoLordo * 0.23; // 23% IRPEF base
-                ritenuteInps = importoLordo * 0.10; // 10% contributi INPS
+                ritenuteIrpef = importoLordo * 0.23;
+                ritenuteInps = importoLordo * 0.10;
+                // ✅ NUOVO: Rimborso spese dipendenti calcolato separatamente nel riepilogo mensile
+                rimborsoSpese = 0; // Sarà gestito nel riepilogo mensile
                 importoNetto = importoLordo - ritenuteIrpef - ritenuteInps;
                 break;
         }
         
-        // Auto-approvazione per importi bassi
         if (importoLordo < paymentSettings.approvazione_automatica_sotto) {
-            statoIniziale = 'autorizzato'; // ✅ CORRETTO: stato approvato
+            statoIniziale = 'autorizzato';
         }
         
-        // ✅ CORRETTO: Campi conformi al database schema
         const payment = {
             agibilita_id: agibilita.id,
             artista_id: artista.id,
             
-            // ✅ NUOVO: Salva dati completi per evitare JOIN pesanti
             agibilita_data: {
                 codice: agibilita.codice,
                 data_inizio: agibilita.data_inizio,
@@ -452,25 +1773,21 @@ async function calculatePaymentForArtist(agibilita, artistaAgibilita, artista) {
                 partita_iva: artista.partita_iva
             },
             
-            // ✅ CORRETTO: Campi monetari database
             importo_lordo: importoLordo,
             ritenuta_irpef: ritenuteIrpef,
             ritenuta_inps: ritenuteInps,
+            rimborso_spese: rimborsoSpese, // ✅ NUOVO CAMPO
             importo_netto: importoNetto,
             
-            // ✅ CORRETTO: Stato e configurazione
             stato: statoIniziale,
             iban_destinatario: artista.iban,
             intestatario_conto: artista.nome + ' ' + artista.cognome,
             
-            // ✅ CORRETTO: Gestione fatture per P.IVA
             fattura_necessaria: tipoContratto === 'partitaiva',
             fattura_ricevuta: false,
             
-            // Metadati evento
             causale_pagamento: 'Prestazione artistica ' + (artistaAgibilita.ruolo || 'Artista') + ' - ' + agibilita.codice,
             
-            // Audit
             created_by: currentUser.id
         };
         
@@ -508,12 +1825,12 @@ function determineTipoContratto(artista, artistaAgibilita) {
     return 'occasionale';
 }
 
-// ==================== DASHBOARD EXECUTIVO ====================
+// ==================== AGGIORNAMENTO COORDINATO DASHBOARD ====================
+
 async function updateExecutiveDashboard() {
     try {
-        console.log('📊 Aggiornamento dashboard executivo...');
+        console.log('📊 Aggiornamento dashboard executivo coordinato...');
         
-        // Calcola statistiche
         const stats = calculateExecutiveStats();
         
         // Aggiorna contatori principali
@@ -522,23 +1839,61 @@ async function updateExecutiveDashboard() {
         document.getElementById('pagamentiMese').textContent = `€${stats.pagamentiMese.toLocaleString('it-IT', {minimumFractionDigits: 2})}`;
         document.getElementById('ritenuteApplicate').textContent = `€${stats.ritenuteApplicate.toLocaleString('it-IT', {minimumFractionDigits: 2})}`;
         
+        // ✅ NUOVO: Gestione card pagamenti in elaborazione
+        const processingCard = document.getElementById('processingCard');
+        if (stats.inElaborazione > 0) {
+            if (processingCard) {
+                processingCard.style.display = 'block';
+                document.getElementById('totaleInElaborazione').textContent = `€${stats.totaleInElaborazione.toLocaleString('it-IT', {minimumFractionDigits: 2})}`;
+                document.getElementById('trendElaborazione').textContent = `${stats.inElaborazione} pagamenti in attesa conferma`;
+            } else {
+                // Crea card dinamicamente se non esiste
+                createProcessingCard(stats);
+            }
+        } else if (processingCard) {
+            processingCard.style.display = 'none';
+        }
+        
         // Aggiorna badge
         updateTabBadges(stats);
         
-        // Aggiorna trend
+        // Aggiorna trend con info elaborazione
         updateTrendTexts(stats);
         
-        // Aggiorna attività recenti
         updateRecentActivity();
-        
-        // Aggiorna status sistema
         updateSystemStatus();
         
-        console.log('✅ Dashboard executivo aggiornato');
+        console.log('✅ Dashboard executivo aggiornato con stats:', stats);
         
     } catch (error) {
         console.error('❌ Errore aggiornamento dashboard:', error);
     }
+}
+
+function createProcessingCard(stats) {
+    const dashboardCards = document.querySelector('.dashboard-cards');
+    if (!dashboardCards) return;
+    
+    const processingCard = document.createElement('div');
+    processingCard.id = 'processingCard';
+    processingCard.className = 'dashboard-card processing';
+    processingCard.innerHTML = `
+        <div class="card-content">
+            <div class="card-info">
+                <div class="card-value" id="totaleInElaborazione">€${stats.totaleInElaborazione.toLocaleString('it-IT', {minimumFractionDigits: 2})}</div>
+                <div class="card-label">In Elaborazione</div>
+                <div class="card-trend" id="trendElaborazione">${stats.inElaborazione} pagamenti in attesa conferma</div>
+            </div>
+            <div class="card-icon">🏦</div>
+        </div>
+        <div class="card-actions">
+            <button class="btn btn-xs btn-primary" onclick="showBankMovementInterface()">
+                🏦 Conferma Movimenti
+            </button>
+        </div>
+    `;
+    
+    dashboardCards.appendChild(processingCard);
 }
 
 function calculateExecutiveStats() {
@@ -546,28 +1901,30 @@ function calculateExecutiveStats() {
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
     
-    // ✅ CORRETTO: Filtra pagamenti con stati del database
+    // ✅ AGGIORNATO: Include nuovo stato in_elaborazione
     const pagamentiAttivi = pagamentiDB.filter(p => 
-        ['da_pagare', 'autorizzato'].includes(p.stato)
+        ['da_pagare', 'autorizzato', 'in_elaborazione'].includes(p.stato)
     );
     
-    // Totale da pagare
-    const totaleDaPagare = pagamentiAttivi.reduce((sum, p) => sum + p.importo_netto, 0);
+    // Totale da pagare (escludi quelli in elaborazione che sono già "partiti")
+    const totaleDaPagare = pagamentiDB.filter(p => 
+        ['da_pagare', 'autorizzato'].includes(p.stato)
+    ).reduce((sum, p) => sum + p.importo_netto, 0);
     
-    // Numero artisti unici da pagare - ✅ CORRETTO: usa artista_data
+    // Numero artisti unici da pagare/elaborare
     const artistiUniciSet = new Set(pagamentiAttivi.map(p => p.artista_data?.codice_fiscale));
     const numeroArtisti = artistiUniciSet.size;
     
-    // Pagamenti del mese corrente
+    // Pagamenti del mese corrente (solo quelli effettivamente pagati)
     const pagamentiMeseCorrente = pagamentiDB.filter(p => {
-        const paymentDate = new Date(p.created_at);
+        const paymentDate = new Date(p.data_pagamento || p.created_at);
         return paymentDate.getMonth() === currentMonth && 
                paymentDate.getFullYear() === currentYear &&
-               p.stato === 'pagato'; // ✅ CORRETTO: stato database
+               p.stato === 'pagato';
     });
     const pagamentiMese = pagamentiMeseCorrente.reduce((sum, p) => sum + p.importo_netto, 0);
     
-    // Ritenute totali dell'anno - ✅ CORRETTO: usa campi database
+    // Ritenute totali dell'anno
     const pagamentiAnno = pagamentiDB.filter(p => {
         const paymentDate = new Date(p.created_at);
         return paymentDate.getFullYear() === currentYear;
@@ -576,7 +1933,7 @@ function calculateExecutiveStats() {
         sum + (p.ritenuta_irpef || 0) + (p.ritenuta_inps || 0), 0
     );
     
-    // ✅ CORRETTO: Determina tipo contratto dai dati artista
+    // Conta per tipologia (inclusi quelli in elaborazione)
     const occasionali = pagamentiAttivi.filter(p => 
         !p.artista_data?.has_partita_iva && p.ritenuta_irpef > 0
     ).length;
@@ -586,8 +1943,13 @@ function calculateExecutiveStats() {
     ).length;
     
     const dipendenti = pagamentiAttivi.filter(p => 
-        p.ritenuta_inps > 0 // Ha contributi INPS = dipendente/chiamata
+        p.ritenuta_inps > 0
     ).length;
+    
+    // ✅ NUOVO: Statistiche specifiche per stato elaborazione
+    const inElaborazione = pagamentiDB.filter(p => p.stato === 'in_elaborazione').length;
+    const totaleInElaborazione = pagamentiDB.filter(p => p.stato === 'in_elaborazione')
+        .reduce((sum, p) => sum + p.importo_netto, 0);
     
     return {
         totaleDaPagare,
@@ -596,7 +1958,9 @@ function calculateExecutiveStats() {
         ritenuteApplicate,
         occasionali,
         partiteIva,
-        dipendenti
+        dipendenti,
+        inElaborazione,
+        totaleInElaborazione
     };
 }
 
@@ -607,8 +1971,11 @@ function updateTabBadges(stats) {
 }
 
 function updateTrendTexts(stats) {
-    // Questi sarebbero calcolati con dati storici reali
-    document.getElementById('trendDaPagare').textContent = 'In attesa di approvazione';
+    document.getElementById('trendDaPagare').textContent = 
+        stats.inElaborazione > 0 ? 
+        `${stats.inElaborazione} in elaborazione bancaria` : 
+        'In attesa di approvazione';
+    
     document.getElementById('trendArtisti').textContent = `${stats.numeroArtisti} in coda`;
     document.getElementById('trendMese').textContent = 'Mese corrente';
     document.getElementById('trendRitenute').textContent = 'Anno fiscale 2025';
@@ -788,6 +2155,7 @@ function displayOccasionaliAvanzato(pagamenti) {
                         <div class="payment-status">
                             <span class="status-badge status-${p.stato}">${getStatoLabel(p.stato)}</span>
                             ${p.importo_lordo > paymentSettings.approvazione_dirigenziale_sopra ? '<span class="approval-badge">✋ Richiede Approvazione</span>' : ''}
+                            ${p.stato === 'in_elaborazione' ? `<span class="processing-badge">🏦 Dal ${formatDate(p.data_elaborazione)}</span>` : ''}
                         </div>
                     </div>
                     <div class="payment-details">
@@ -801,12 +2169,21 @@ function displayOccasionaliAvanzato(pagamenti) {
                         <div class="amount-breakdown">
                             <span class="amount-lordo">Lordo: €${p.importo_lordo.toFixed(2)}</span>
                             ${p.ritenuta_irpef > 0 ? `<span class="amount-ritenuta">Ritenuta IRPEF (20%): €${p.ritenuta_irpef.toFixed(2)}</span>` : ''}
-                            <span class="amount-netto"><strong>Netto: €${p.importo_netto.toFixed(2)}</strong></span>
+                            ${p.rimborso_spese > 0 ? `<span class="amount-rimborso">💰 Rimborso Spese: €${p.rimborso_spese.toFixed(2)}</span>` : ''}
+                            <span class="amount-netto"><strong>Totale Netto: €${p.importo_netto.toFixed(2)}</strong></span>
                         </div>
                         ${artistaData.iban ? 
                             `<div class="iban-info">🏦 IBAN: ${maskIBAN(artistaData.iban)}</div>` : 
                             `<div class="iban-missing">⚠️ IBAN Mancante</div>`
                         }
+                        ${p.stato === 'pagato' && p.data_pagamento ? 
+                            `<div class="payment-confirmed">✅ Pagato il ${formatDate(p.data_pagamento)}</div>` : ''
+                        }
+                        ${p.rimborso_spese > 0 ? `
+                            <div class="rimborso-details">
+                                <small>📋 Rimborso calcolato automaticamente secondo scaglioni aziendali</small>
+                            </div>
+                        ` : ''}
                     </div>
                     ${p.note ? `<div class="payment-notes">📝 ${p.note}</div>` : ''}
                 </div>
@@ -823,13 +2200,32 @@ function displayOccasionaliAvanzato(pagamenti) {
                                 🏦 Config IBAN
                             </button>
                         ` : ''}
+                        ${p.rimborso_spese > 0 ? `
+                            <button class="btn btn-sm btn-info" onclick="showRimborsoDetails('${p.id}')">
+                                💰 Rimborso
+                            </button>
+                        ` : ''}
                     ` : p.stato === 'autorizzato' ? `
-                        <button class="btn btn-sm btn-primary" onclick="processPayment('${p.id}')">
-                            💳 Elabora
+                        <button class="btn btn-sm btn-primary" onclick="showAdvancedPaymentDetail('${p.id}')">
+                            👁️ Dettagli
                         </button>
+                        <div class="note-elaborazione">
+                            <small>✅ Pronto per elaborazione CIV</small>
+                        </div>
+                    ` : p.stato === 'in_elaborazione' ? `
                         <button class="btn btn-sm btn-secondary" onclick="showAdvancedPaymentDetail('${p.id}')">
                             👁️ Dettagli
                         </button>
+                        <div class="note-elaborazione">
+                            <small>🏦 In elaborazione bancaria</small>
+                        </div>
+                    ` : p.stato === 'pagato' ? `
+                        <button class="btn btn-sm btn-secondary" onclick="showAdvancedPaymentDetail('${p.id}')">
+                            👁️ Dettagli
+                        </button>
+                        <div class="note-pagato">
+                            <small>✅ Pagamento completato</small>
+                        </div>
                     ` : `
                         <button class="btn btn-sm btn-secondary" onclick="showAdvancedPaymentDetail('${p.id}')">
                             👁️ Dettagli
@@ -930,7 +2326,14 @@ function displayDipendentiAvanzato(pagamenti) {
     const container = document.getElementById('listDipendenti');
     
     if (pagamenti.length === 0) {
-        container.innerHTML = '<p class="no-data">Nessun dipendente/chiamata con i filtri correnti</p>';
+        container.innerHTML = `
+            <div class="no-data">
+                <p>Nessun dipendente/chiamata con i filtri correnti</p>
+                <button class="btn btn-primary" onclick="showMonthlyEmployeeReport()">
+                    📋 Genera Riepilogo Mensile
+                </button>
+            </div>
+        `;
         return;
     }
     
@@ -950,56 +2353,70 @@ function displayDipendentiAvanzato(pagamenti) {
         pagamentiPerMese[monthKey].pagamenti.push(p);
     });
     
-    container.innerHTML = Object.entries(pagamentiPerMese).map(([monthKey, monthData]) => {
-        const totaleMese = monthData.pagamenti.reduce((sum, p) => sum + p.importo_lordo, 0);
-        const numeroArtisti = new Set(monthData.pagamenti.map(p => p.artista_data?.codice_fiscale)).size;
+    container.innerHTML = `
+        <div class="dipendenti-header">
+            <h4>👔 Gestione Dipendenti e Contratti a Chiamata</h4>
+            <div class="dipendenti-actions">
+                <button class="btn btn-primary" onclick="showMonthlyEmployeeReport()">
+                    📋 Riepilogo Mensile Completo
+                </button>
+                <button class="btn btn-secondary" onclick="exportAllEmployeeData()">
+                    📊 Export Dati Completi
+                </button>
+            </div>
+        </div>
         
-        return `
-            <div class="month-group">
-                <div class="month-header">
-                    <h4>${monthData.label}</h4>
-                    <div class="month-summary">
-                        <span>${numeroArtisti} artisti</span>
-                        <span>Totale: €${totaleMese.toFixed(2)}</span>
-                        <button class="btn btn-xs btn-primary" onclick="exportMonthPayroll('${monthKey}')">
-                            📤 Export Cedolini
-                        </button>
+        ${Object.entries(pagamentiPerMese).map(([monthKey, monthData]) => {
+            const totaleMese = monthData.pagamenti.reduce((sum, p) => sum + p.importo_lordo, 0);
+            const numeroArtisti = new Set(monthData.pagamenti.map(p => p.artista_data?.codice_fiscale)).size;
+            
+            return `
+                <div class="month-group">
+                    <div class="month-header">
+                        <h5>${monthData.label}</h5>
+                        <div class="month-summary">
+                            <span>${numeroArtisti} artisti</span>
+                            <span>Totale: €${totaleMese.toFixed(2)}</span>
+                            <button class="btn btn-xs btn-primary" onclick="generateMonthReport('${monthKey}')">
+                                📄 PDF Mese
+                            </button>
+                        </div>
+                    </div>
+                    <div class="month-payments">
+                        ${monthData.pagamenti.map(p => {
+                            const artistaData = p.artista_data || {};
+                            const tipoContratto = p.ritenuta_inps > 0 ? 'Contratto a Chiamata' : 'Dipendente Full Time';
+                            
+                            return `
+                                <div class="payment-item ${p.stato}">
+                                    <div class="payment-info">
+                                        <div class="artist-name">
+                                            <strong>${artistaData.nome || 'Nome'} ${artistaData.cognome || 'Cognome'}</strong>
+                                            <span class="contract-badge">${tipoContratto}</span>
+                                        </div>
+                                        <div class="payment-details">
+                                            <span class="agibilita-ref">📄 ${p.agibilita_data?.codice || 'N/D'}</span>
+                                            <span class="event-date">${formatDate(p.agibilita_data?.data_inizio)}</span>
+                                            <span class="venue">${p.agibilita_data?.locale?.descrizione || 'Locale N/D'}</span>
+                                        </div>
+                                        <div class="payment-amounts">
+                                            <span class="amount-total"><strong>Lordo: €${p.importo_lordo.toFixed(2)}</strong></span>
+                                            ${p.ritenuta_irpef > 0 ? `<span class="tax-info">IRPEF: €${p.ritenuta_irpef.toFixed(2)}</span>` : ''}
+                                            ${p.ritenuta_inps > 0 ? `<span class="contrib-info">INPS: €${p.ritenuta_inps.toFixed(2)}</span>` : ''}
+                                            <span class="payroll-note">📋 Da elaborare in cedolino con rimborso spese variabile</span>
+                                        </div>
+                                    </div>
+                                    <div class="payment-status">
+                                        <span class="status-badge status-payroll">Gestione Paghe</span>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
                     </div>
                 </div>
-                <div class="month-payments">
-                    ${monthData.pagamenti.map(p => {
-                        const artistaData = p.artista_data || {};
-                        const tipoContratto = p.ritenuta_inps > 0 ? 'Contratto a Chiamata' : 'Dipendente Full Time';
-                        
-                        return `
-                            <div class="payment-item ${p.stato}">
-                                <div class="payment-info">
-                                    <div class="artist-name">
-                                        <strong>${artistaData.nome || 'Nome'} ${artistaData.cognome || 'Cognome'}</strong>
-                                        <span class="contract-badge">${tipoContratto}</span>
-                                    </div>
-                                    <div class="payment-details">
-                                        <span class="agibilita-ref">📄 ${p.agibilita_data?.codice || 'N/D'}</span>
-                                        <span class="event-date">${formatDate(p.agibilita_data?.data_inizio)}</span>
-                                        <span class="venue">${p.agibilita_data?.locale?.descrizione || 'Locale N/D'}</span>
-                                    </div>
-                                    <div class="payment-amounts">
-                                        <span class="amount-total"><strong>Lordo: €${p.importo_lordo.toFixed(2)}</strong></span>
-                                        ${p.ritenuta_irpef > 0 ? `<span class="tax-info">IRPEF: €${p.ritenuta_irpef.toFixed(2)}</span>` : ''}
-                                        ${p.ritenuta_inps > 0 ? `<span class="contrib-info">INPS: €${p.ritenuta_inps.toFixed(2)}</span>` : ''}
-                                        <span class="payroll-note">📋 Da elaborare in cedolino</span>
-                                    </div>
-                                </div>
-                                <div class="payment-status">
-                                    <span class="status-badge status-payroll">Gestione Paghe</span>
-                                </div>
-                            </div>
-                        `;
-                    }).join('')}
-                </div>
-            </div>
-        `;
-    }).join('');
+            `;
+        }).join('')}
+    `;
 }
 
 function updateCIVPreview() {
@@ -1074,477 +2491,9 @@ function updateDashboardWithFilteredData(pagamentiFiltrati) {
     updateTabBadges(filteredStats);
 }
 
-// ==================== UTILITY FUNCTIONS ====================
-function maskIBAN(iban) {
-    if (!iban) return 'N/D';
-    if (iban.length < 8) return iban;
-    return iban.slice(0, 4) + '*'.repeat(iban.length - 8) + iban.slice(-4);
-}
+// ==================== FUNZIONI CORE WORKFLOW BANCARIO ====================
 
-// ✅ CORRETTO: Stati conformi al database
-function getStatoLabel(stato) {
-    const labels = {
-        'da_pagare': 'Da Pagare',
-        'autorizzato': 'Autorizzato', 
-        'pagato': 'Pagato',
-        'annullato': 'Annullato',
-        'failed': 'Fallito' // Per retrocompatibilità
-    };
-    return labels[stato] || stato;
-}
-
-function formatDate(dateString) {
-    if (!dateString) return 'N/D';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('it-IT');
-}
-
-function formatDateTime(dateString) {
-    if (!dateString) return 'N/D';
-    const date = new Date(dateString);
-    return date.toLocaleString('it-IT');
-}
-
-// ==================== LOGGING E AUDIT ====================
-function logAuditEvent(eventType, description, paymentId = null) {
-    const auditEntry = {
-        id: Date.now(),
-        timestamp: new Date().toISOString(),
-        event_type: eventType,
-        description: description,
-        payment_id: paymentId,
-        user_id: currentUser?.id,
-        user_email: currentUser?.email,
-        ip_address: 'localhost',
-        user_agent: navigator.userAgent
-    };
-    
-    auditTrail.push(auditEntry);
-    
-    // Mantieni solo gli ultimi 1000 eventi in memoria
-    if (auditTrail.length > 1000) {
-        auditTrail = auditTrail.slice(-1000);
-    }
-    
-    console.log('📋 Audit Event:', auditEntry);
-}
-
-// ==================== TOAST NOTIFICATIONS ====================
-function showToast(message, type = 'info', duration = 5000) {
-    const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    toast.innerHTML = `
-        <div class="toast-content">
-            <span class="toast-icon">${getToastIcon(type)}</span>
-            <span class="toast-message">${message}</span>
-        </div>
-    `;
-    
-    const container = document.getElementById('toast-container');
-    container.appendChild(toast);
-    
-    setTimeout(() => toast.classList.add('show'), 10);
-    
-    setTimeout(() => {
-        toast.classList.remove('show');
-        setTimeout(() => toast.remove(), 300);
-    }, duration);
-}
-
-function getToastIcon(type) {
-    const icons = {
-        'success': '✅',
-        'error': '❌', 
-        'warning': '⚠️',
-        'info': 'ℹ️'
-    };
-    return icons[type] || icons.info;
-}
-
-// ==================== TAB MANAGEMENT ====================
-function showPaymentTab(tabName) {
-    // Aggiorna tabs
-    document.querySelectorAll('.tab').forEach(tab => {
-        tab.classList.remove('active');
-    });
-    
-    const targetTabId = `tab${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`;
-    const targetTab = document.getElementById(targetTabId);
-    if (targetTab) {
-        targetTab.classList.add('active');
-    }
-    
-    // Aggiorna contenuti
-    document.querySelectorAll('.tab-content').forEach(content => {
-        content.classList.remove('active');
-    });
-    
-    const targetContentId = `tabContent${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`;
-    const targetContent = document.getElementById(targetContentId);
-    if (targetContent) {
-        targetContent.classList.add('active');
-    }
-}
-
-// ==================== EVENT LISTENERS ====================
-function setupEventListeners() {
-    // Chiusura modali con click esterno
-    window.addEventListener('click', function(event) {
-        if (event.target.classList.contains('modal')) {
-            event.target.style.display = 'none';
-        }
-    });
-    
-    // Filtro artista con debounce
-    let artistaTimeout;
-    const filterArtista = document.getElementById('filterArtista');
-    if (filterArtista) {
-        filterArtista.addEventListener('input', function() {
-            clearTimeout(artistaTimeout);
-            artistaTimeout = setTimeout(() => applyAdvancedFilters(), 500);
-        });
-    }
-}
-
-function setupPaymentNotifications() {
-    // Controlla notifiche ogni 5 minuti
-    setInterval(checkPaymentNotifications, 5 * 60 * 1000);
-    checkPaymentNotifications();
-}
-
-function checkPaymentNotifications() {
-    try {
-        const today = new Date();
-        
-        // Controlla pagamenti in scadenza
-        const pagamentiInScadenza = pagamentiDB.filter(p => {
-            if (p.stato !== 'da_pagare') return false;
-            
-            const createdDate = new Date(p.created_at);
-            const daysSinceCreated = Math.floor((today - createdDate) / (1000 * 60 * 60 * 24));
-            
-            return daysSinceCreated >= 7; // 7 giorni senza elaborazione
-        });
-        
-        if (pagamentiInScadenza.length > 0) {
-            showToast(`⚠️ ${pagamentiInScadenza.length} pagamenti in attesa da oltre 7 giorni`, 'warning', 8000);
-        }
-        
-        // Controlla fatture mancanti
-        const fattureMancantiPIva = pagamentiDB.filter(p => 
-            p.artista_data?.has_partita_iva && 
-            p.stato === 'da_pagare' && 
-            !p.fattura_ricevuta
-        );
-        
-        if (fattureMancantiPIva.length > 0) {
-            const daysSinceOldest = Math.floor((today - new Date(Math.min(...fattureMancantiPIva.map(p => new Date(p.created_at))))) / (1000 * 60 * 60 * 24));
-            
-            if (daysSinceOldest >= 3) {
-                showToast(`📧 ${fattureMancantiPIva.length} fatture P.IVA mancanti da oltre 3 giorni`, 'warning', 8000);
-            }
-        }
-        
-    } catch (error) {
-        console.error('❌ Errore controllo notifiche:', error);
-    }
-}
-
-// ==================== FUNZIONI INTERATTIVE ====================
-function togglePaymentSelection(paymentId) {
-    if (selectedPayments.has(paymentId)) {
-        selectedPayments.delete(paymentId);
-    } else {
-        selectedPayments.add(paymentId);
-    }
-    
-    const checkbox = document.getElementById(`pay_${paymentId}`);
-    const item = checkbox?.closest('.payment-item');
-    if (item) {
-        item.classList.toggle('selected', selectedPayments.has(paymentId));
-    }
-    
-    logAuditEvent('payment_selected', `Pagamento ${selectedPayments.has(paymentId) ? 'selezionato' : 'deselezionato'}`, paymentId);
-    
-    // Aggiorna anteprima CIV
-    updateCIVPreview();
-}
-
-function selectAllOccasionali() {
-    // ✅ CORRETTO: Filtra usando struttura database
-    const occasionali = pagamentiDB.filter(p => 
-        !p.artista_data?.has_partita_iva && 
-        !p.ritenuta_inps &&
-        ['da_pagare', 'autorizzato'].includes(p.stato)
-    );
-    
-    occasionali.forEach(p => {
-        selectedPayments.add(p.id);
-        const checkbox = document.getElementById(`pay_${p.id}`);
-        if (checkbox) {
-            checkbox.checked = true;
-            checkbox.closest('.payment-item')?.classList.add('selected');
-        }
-    });
-    
-    showToast(`✅ Selezionati ${occasionali.length} pagamenti occasionali`, 'success');
-    logAuditEvent('bulk_selection', `${occasionali.length} pagamenti occasionali selezionati`, null);
-    
-    // Aggiorna anteprima CIV
-    updateCIVPreview();
-}
-
-// ==================== FUNZIONI PRINCIPALI SISTEMA ====================
-async function syncPaymentsFromAgibilita() {
-    try {
-        showToast('🔄 Sincronizzazione in corso...', 'info');
-        
-        // Ricarica agibilità dal database
-        const lastYear = new Date();
-        lastYear.setFullYear(lastYear.getFullYear() - 1);
-        agibilitaDB = await DatabaseService.getAgibilita({
-            fromDate: lastYear.toISOString()
-        });
-        
-        // ✅ MODIFICATO: Forzato ricalcolo di tutte le agibilità
-        await autoCalculatePaymentsFromAgibilita(true);
-        
-        // Ricarica pagamenti aggiornati
-        pagamentiDB = await DatabaseService.getPagamenti();
-        
-        // Aggiorna interfaccia
-        await applyAdvancedFilters();
-        await updateExecutiveDashboard();
-        
-        showToast('✅ Sincronizzazione completata!', 'success');
-        logAuditEvent('sync_agibilita', 'Sincronizzazione pagamenti da agibilità completata', null);
-        
-    } catch (error) {
-        console.error('❌ Errore sincronizzazione:', error);
-        showToast('❌ Errore durante la sincronizzazione: ' + error.message, 'error');
-    }
-}
-
-async function autoCalculateAllPayments() {
-    if (confirm('Vuoi ricalcolare automaticamente tutti i pagamenti dalle agibilità recenti?')) {
-        try {
-            showToast('🧮 Ricalcolo in corso...', 'info');
-            await autoCalculatePaymentsFromAgibilita(true);
-            
-            // Ricarica e aggiorna interfaccia
-            pagamentiDB = await DatabaseService.getPagamenti();
-            await applyAdvancedFilters();
-            await updateExecutiveDashboard();
-            
-            showToast('✅ Ricalcolo completato!', 'success');
-        } catch (error) {
-            console.error('❌ Errore ricalcolo:', error);
-            showToast('❌ Errore durante il ricalcolo: ' + error.message, 'error');
-        }
-    }
-}
-
-function approveAllPending() {
-    const pendingPayments = pagamentiDB.filter(function(p) { return p.stato === 'da_pagare'; });
-    
-    if (pendingPayments.length === 0) {
-        showToast('Nessun pagamento in attesa di approvazione', 'info');
-        return;
-    }
-    
-    if (confirm('Confermi l\'approvazione di tutti i ' + pendingPayments.length + ' pagamenti pendenti?')) {
-        showToast('Approvazione automatica di ' + pendingPayments.length + ' pagamenti in sviluppo', 'info');
-        logAuditEvent('bulk_approval', `Richiesta approvazione automatica di ${pendingPayments.length} pagamenti`, null);
-    }
-}
-
-function generateMonthlyReport() {
-    const month = prompt('Inserisci il mese per il report (YYYY-MM):') || 
-                 new Date().toISOString().slice(0, 7);
-    
-    showToast(`Generazione report mensile per ${month} in sviluppo`, 'info');
-    logAuditEvent('report_requested', `Report mensile richiesto per ${month}`, null);
-}
-
-function approveSelectedOccasionali() {
-    const selected = Array.from(selectedPayments);
-    if (selected.length === 0) {
-        showToast('Seleziona almeno un pagamento', 'warning');
-        return;
-    }
-    
-    if (confirm(`Confermi l'approvazione di ${selected.length} pagamenti occasionali?`)) {
-        showToast(`Approvazione di ${selected.length} pagamenti in sviluppo`, 'info');
-        logAuditEvent('bulk_approval_occasionali', `Approvazione ${selected.length} pagamenti occasionali richiesta`, null);
-        selectedPayments.clear();
-        updateCIVPreview();
-    }
-}
-
-// ==================== FUNZIONI PLACEHOLDER IMPLEMENTATE ====================
-function showAdvancedPaymentDetail(paymentId) {
-    const payment = pagamentiDB.find(p => p.id === paymentId);
-    if (!payment) {
-        showToast('Pagamento non trovato', 'error');
-        return;
-    }
-    
-    console.log('📋 Dettaglio pagamento:', payment);
-    showToast(`Visualizzazione dettagli pagamento ${paymentId} - Funzione in sviluppo`, 'info');
-    logAuditEvent('payment_detail_viewed', `Visualizzato dettaglio pagamento ${paymentId}`, paymentId);
-}
-
-function approvePayment(paymentId) {
-    const payment = pagamentiDB.find(p => p.id === paymentId);
-    if (!payment) {
-        showToast('Pagamento non trovato', 'error');
-        return;
-    }
-    
-    if (payment.stato !== 'da_pagare') {
-        showToast('Il pagamento non è in stato "da pagare"', 'warning');
-        return;
-    }
-    
-    if (confirm(`Confermi l'approvazione del pagamento di €${payment.importo_netto.toFixed(2)} per ${payment.artista_data?.nome} ${payment.artista_data?.cognome}?`)) {
-        showToast(`Approvazione pagamento ${paymentId} in sviluppo`, 'info');
-        logAuditEvent('payment_approval_requested', `Approvazione richiesta per pagamento ${paymentId}`, paymentId);
-    }
-}
-
-function processPayment(paymentId) {
-    const payment = pagamentiDB.find(p => p.id === paymentId);
-    if (!payment) {
-        showToast('Pagamento non trovato', 'error');
-        return;
-    }
-    
-    if (payment.stato !== 'autorizzato') {
-        showToast('Il pagamento deve essere prima autorizzato', 'warning');
-        return;
-    }
-    
-    if (!payment.artista_data?.iban) {
-        showToast('IBAN mancante per questo artista', 'error');
-        return;
-    }
-    
-    if (confirm(`Confermi l'elaborazione del pagamento di €${payment.importo_netto.toFixed(2)} verso l'IBAN ${maskIBAN(payment.artista_data.iban)}?`)) {
-        showToast(`Elaborazione pagamento ${paymentId} in sviluppo`, 'info');
-        logAuditEvent('payment_processing_requested', `Elaborazione richiesta per pagamento ${paymentId}`, paymentId);
-    }
-}
-
-function retryPayment(paymentId) {
-    const payment = pagamentiDB.find(p => p.id === paymentId);
-    if (!payment) {
-        showToast('Pagamento non trovato', 'error');
-        return;
-    }
-    
-    if (confirm(`Confermi il nuovo tentativo di elaborazione del pagamento ${paymentId}?`)) {
-        showToast(`Retry pagamento ${paymentId} in sviluppo`, 'info');
-        logAuditEvent('payment_retry_requested', `Retry richiesto per pagamento ${paymentId}`, paymentId);
-    }
-}
-
-function configureIBAN(artistaId, paymentId) {
-    const artista = artistiDB.find(a => a.id === parseInt(artistaId));
-    if (!artista) {
-        showToast('Artista non trovato', 'error');
-        return;
-    }
-    
-    const newIban = prompt(`Inserisci IBAN per ${artista.nome} ${artista.cognome}:`, artista.iban || '');
-    if (newIban && newIban.trim()) {
-        showToast(`Configurazione IBAN per ${artista.nome} in sviluppo`, 'info');
-        logAuditEvent('iban_configuration_requested', `Configurazione IBAN richiesta per artista ${artistaId}`, paymentId);
-    }
-}
-
-function toggleFatturaRicevuta(paymentId, ricevuta) {
-    const payment = pagamentiDB.find(p => p.id === paymentId);
-    if (!payment) {
-        showToast('Pagamento non trovato', 'error');
-        return;
-    }
-    
-    showToast(`Fattura ${ricevuta ? 'confermata' : 'rimossa'} - Funzione in sviluppo`, 'info');
-    logAuditEvent('invoice_status_changed', `Stato fattura modificato: ${ricevuta ? 'ricevuta' : 'non ricevuta'}`, paymentId);
-}
-
-function sendInvoiceReminder(paymentId) {
-    const payment = pagamentiDB.find(p => p.id === paymentId);
-    if (!payment) {
-        showToast('Pagamento non trovato', 'error');
-        return;
-    }
-    
-    if (confirm(`Inviare sollecito fattura a ${payment.artista_data?.nome} ${payment.artista_data?.cognome}?`)) {
-        showToast('Invio sollecito fattura in sviluppo', 'info');
-        logAuditEvent('invoice_reminder_sent', `Sollecito fattura inviato per pagamento ${paymentId}`, paymentId);
-    }
-}
-
-function checkAllInvoices() {
-    const partiteIva = pagamentiDB.filter(p => p.artista_data?.has_partita_iva);
-    showToast(`Verifica automatica di ${partiteIva.length} fatture P.IVA in sviluppo`, 'info');
-    logAuditEvent('bulk_invoice_check', `Verifica automatica ${partiteIva.length} fatture richiesta`, null);
-}
-
-function markAllInvoicesReceived() {
-    const pendingInvoices = pagamentiDB.filter(p => 
-        p.artista_data?.has_partita_iva && 
-        p.stato === 'da_pagare' && 
-        !p.fattura_ricevuta
-    );
-    
-    if (pendingInvoices.length === 0) {
-        showToast('Nessuna fattura in attesa', 'info');
-        return;
-    }
-    
-    if (confirm(`Confermare come ricevute ${pendingInvoices.length} fatture?`)) {
-        showToast(`Conferma automatica di ${pendingInvoices.length} fatture in sviluppo`, 'info');
-        logAuditEvent('bulk_invoice_received', `Conferma automatica ${pendingInvoices.length} fatture`, null);
-    }
-}
-
-function generateInvoiceReminders() {
-    const overdueInvoices = pagamentiDB.filter(p => {
-        if (!p.artista_data?.has_partita_iva || p.fattura_ricevuta) return false;
-        
-        const daysSince = Math.floor((new Date() - new Date(p.created_at)) / (1000 * 60 * 60 * 24));
-        return daysSince >= 3;
-    });
-    
-    if (overdueInvoices.length === 0) {
-        showToast('Nessuna fattura in ritardo', 'info');
-        return;
-    }
-    
-    showToast(`Generazione ${overdueInvoices.length} solleciti automatici in sviluppo`, 'info');
-    logAuditEvent('bulk_invoice_reminders', `Generazione ${overdueInvoices.length} solleciti fatture`, null);
-}
-
-function generatePayrollExport() {
-    const dipendenti = pagamentiDB.filter(p => p.ritenuta_inps > 0);
-    showToast(`Export buste paga per ${dipendenti.length} dipendenti in sviluppo`, 'info');
-    logAuditEvent('payroll_export_requested', `Export buste paga richiesto per ${dipendenti.length} dipendenti`, null);
-}
-
-function calculateContributions() {
-    const dipendenti = pagamentiDB.filter(p => p.ritenuta_inps > 0);
-    showToast(`Calcolo contributi per ${dipendenti.length} dipendenti in sviluppo`, 'info');
-    logAuditEvent('contributions_calculation', `Calcolo contributi richiesto per ${dipendenti.length} dipendenti`, null);
-}
-
-function exportMonthPayroll(monthKey) {
-    showToast(`Export cedolini per ${monthKey} in sviluppo`, 'info');
-    logAuditEvent('monthly_payroll_export', `Export cedolini mensile richiesto per ${monthKey}`, null);
-}
-
-function generateAdvancedCIV() {
+async function generateAdvancedCIV() {
     const banca = document.getElementById('selectBanca').value;
     if (!banca) {
         showToast('Seleziona una banca', 'warning');
@@ -1557,104 +2506,14 @@ function generateAdvancedCIV() {
         return;
     }
     
-    const authorizedPayments = selected.filter(id => {
-        const payment = pagamentiDB.find(p => p.id === id);
-        return payment && payment.stato === 'autorizzato';
-    });
+    const authorizedPayments = selected.map(id => {
+        return pagamentiDB.find(p => p.id === id);
+    }).filter(p => p && p.stato === 'autorizzato');
     
     if (authorizedPayments.length === 0) {
         showToast('Nessun pagamento autorizzato tra quelli selezionati', 'warning');
         return;
     }
     
-    if (confirm(`Generare file CIV ${banca.toUpperCase()} per ${authorizedPayments.length} pagamenti autorizzati?`)) {
-        showToast(`Generazione CIV ${banca} per ${authorizedPayments.length} pagamenti in sviluppo`, 'info');
-        logAuditEvent('civ_generation', `CIV ${banca} richiesto per ${authorizedPayments.length} pagamenti`, null);
-    }
-}
-
-function calculateRetentions() {
-    const occasionali = pagamentiDB.filter(p => 
-        !p.artista_data?.has_partita_iva && !p.ritenuta_inps
-    );
-    showToast(`Ricalcolo ritenute per ${occasionali.length} prestazioni occasionali in sviluppo`, 'info');
-    logAuditEvent('retentions_recalculation', `Ricalcolo ritenute per ${occasionali.length} prestazioni`, null);
-}
-
-function exportAuditLog() {
-    if (auditTrail.length === 0) {
-        showToast('Nessun evento di audit da esportare', 'info');
-        return;
-    }
-    
-    showToast(`Export di ${auditTrail.length} eventi audit in sviluppo`, 'info');
-    logAuditEvent('audit_export', `Export audit log richiesto (${auditTrail.length} eventi)`, null);
-}
-
-function clearOldLogs() {
-    const oldEvents = auditTrail.filter(event => {
-        const eventDate = new Date(event.timestamp);
-        const monthsAgo = new Date();
-        monthsAgo.setMonth(monthsAgo.getMonth() - 6);
-        return eventDate < monthsAgo;
-    });
-    
-    if (oldEvents.length === 0) {
-        showToast('Nessun log vecchio da eliminare', 'info');
-        return;
-    }
-    
-    if (confirm(`Eliminare ${oldEvents.length} eventi di log più vecchi di 6 mesi?`)) {
-        showToast(`Pulizia di ${oldEvents.length} log vecchi in sviluppo`, 'info');
-        logAuditEvent('logs_cleanup', `Pulizia ${oldEvents.length} log vecchi richiesta`, null);
-    }
-}
-
-function showPaymentSettings() {
-    showToast('Impostazioni sistema pagamenti in sviluppo', 'info');
-    logAuditEvent('settings_accessed', 'Accesso impostazioni pagamenti', null);
-}
-
-function saveFilterPreset() {
-    const presetName = prompt('Nome del preset filtri:', '');
-    if (presetName && presetName.trim()) {
-        showToast(`Salvataggio preset "${presetName}" in sviluppo`, 'info');
-        logAuditEvent('filter_preset_saved', `Preset filtri "${presetName}" salvato`, null);
-    }
-}
-
-// ==================== ESPORTAZIONE FUNZIONI GLOBALI ====================
-window.showPaymentTab = showPaymentTab;
-window.applyAdvancedFilters = applyAdvancedFilters;
-window.resetAdvancedFilters = resetAdvancedFilters;
-window.selectAllOccasionali = selectAllOccasionali;
-window.approveSelectedOccasionali = approveSelectedOccasionali;
-window.togglePaymentSelection = togglePaymentSelection;
-window.showAdvancedPaymentDetail = showAdvancedPaymentDetail;
-window.approvePayment = approvePayment;
-window.processPayment = processPayment;
-window.retryPayment = retryPayment;
-window.toggleFatturaRicevuta = toggleFatturaRicevuta;
-window.sendInvoiceReminder = sendInvoiceReminder;
-window.checkAllInvoices = checkAllInvoices;
-window.markAllInvoicesReceived = markAllInvoicesReceived;
-window.generateInvoiceReminders = generateInvoiceReminders;
-window.configureIBAN = configureIBAN;
-window.generatePayrollExport = generatePayrollExport;
-window.calculateContributions = calculateContributions;
-window.exportMonthPayroll = exportMonthPayroll;
-window.generateAdvancedCIV = generateAdvancedCIV;
-window.calculateRetentions = calculateRetentions;
-window.syncPaymentsFromAgibilita = syncPaymentsFromAgibilita;
-window.showPaymentSettings = showPaymentSettings;
-window.autoCalculateAllPayments = autoCalculateAllPayments;
-window.approveAllPending = approveAllPending;
-window.generateMonthlyReport = generateMonthlyReport;
-window.exportAuditLog = exportAuditLog;
-window.clearOldLogs = clearOldLogs;
-window.saveFilterPreset = saveFilterPreset;
-window.showProcessPayments = () => showPaymentTab('occasionali');
-window.showPendingApprovals = () => showPaymentTab('occasionali');
-window.showPaymentHistory = () => showPaymentTab('audit');
-
-console.log('💰 Sistema Pagamenti RECORP completamente inizializzato! 🚀');
+    // Verifica prerequisiti per ogni pagamento
+    const errors = [];

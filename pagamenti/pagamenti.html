@@ -8,697 +8,1894 @@
     <!-- 🎨 CSS - UNIFIED STYLESHEET -->
     <link rel="stylesheet" href="../assets/style.css">
     
-    <!-- 🔥 CARICA SUPABASE VIA CDN PRIMA DI TUTTO -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
-    <!-- Security Headers -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://nommluymuwioddhaujxu.supabase.co https://cdn.jsdelivr.net; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com;">
-    <meta http-equiv="X-Content-Type-Options" content="nosniff">
-    <meta http-equiv="X-Frame-Options" content="DENY">
+    <style>
+        /* ==================== CORE STYLES ==================== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            background: white;
+            min-height: 100vh;
+            box-shadow: 0 0 30px rgba(0,0,0,0.1);
+        }
+
+        .header {
+            background: linear-gradient(135deg, #003366 0%, #0066cc 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="2" fill="rgba(255,255,255,0.1)"/></svg>') repeat;
+            animation: float 20s linear infinite;
+        }
+
+        @keyframes float {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            100% { transform: translate(-50px, -50px) rotate(360deg); }
+        }
+
+        .header-content {
+            position: relative;
+            z-index: 1;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header .subtitle {
+            font-size: 1.1em;
+            opacity: 0.9;
+            margin-bottom: 20px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        /* ==================== DASHBOARD CARDS ==================== */
+        .dashboard-section {
+            margin-bottom: 40px;
+        }
+
+        .section-title {
+            font-size: 1.8em;
+            color: #003366;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #0066cc;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .dashboard-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .dashboard-card {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 15px;
+            padding: 25px;
+            border-left: 5px solid #0066cc;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .dashboard-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .dashboard-card.success {
+            border-left-color: #28a745;
+            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+        }
+
+        .dashboard-card.warning {
+            border-left-color: #ffc107;
+            background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+        }
+
+        .dashboard-card.processing {
+            border-left-color: #17a2b8;
+            background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);
+        }
+
+        .card-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card-info {
+            flex: 1;
+        }
+
+        .card-value {
+            font-size: 2.2em;
+            font-weight: bold;
+            color: #003366;
+            margin-bottom: 5px;
+        }
+
+        .card-label {
+            font-size: 1.1em;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .card-trend {
+            font-size: 0.9em;
+            color: #888;
+        }
+
+        .card-icon {
+            font-size: 3em;
+            opacity: 0.3;
+            margin-left: 20px;
+        }
+
+        .card-actions {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+        }
+
+        /* ==================== FILTRI AVANZATI ==================== */
+        .filters-section {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            border: 1px solid #dee2e6;
+        }
+
+        .filters-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .filter-group label {
+            font-weight: 600;
+            color: #003366;
+            margin-bottom: 8px;
+            font-size: 0.9em;
+        }
+
+        .filter-group input,
+        .filter-group select {
+            padding: 12px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .filter-group input:focus,
+        .filter-group select:focus {
+            outline: none;
+            border-color: #0066cc;
+            box-shadow: 0 0 10px rgba(0, 102, 204, 0.2);
+        }
+
+        .filters-actions {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        /* ==================== TABS SYSTEM ==================== */
+        .tabs-container {
+            margin-bottom: 30px;
+        }
+
+        .tabs-header {
+            display: flex;
+            background: #f8f9fa;
+            border-radius: 15px 15px 0 0;
+            border: 1px solid #dee2e6;
+            border-bottom: none;
+            overflow: hidden;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-right: 1px solid #dee2e6;
+            position: relative;
+        }
+
+        .tab:last-child {
+            border-right: none;
+        }
+
+        .tab:hover {
+            background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+        }
+
+        .tab.active {
+            background: linear-gradient(135deg, #0066cc 0%, #003366 100%);
+            color: white;
+            font-weight: bold;
+        }
+
+        .tab-badge {
+            background: #dc3545;
+            color: white;
+            border-radius: 12px;
+            padding: 4px 8px;
+            font-size: 0.8em;
+            margin-left: 8px;
+            font-weight: bold;
+        }
+
+        .tab.active .tab-badge {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .tab-content {
+            display: none;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-top: none;
+            border-radius: 0 0 15px 15px;
+            padding: 30px;
+            min-height: 400px;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* ==================== PAYMENT ITEMS ==================== */
+        .payment-item {
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+        }
+
+        .payment-item:hover {
+            border-color: #0066cc;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .payment-item.selected {
+            border-color: #28a745;
+            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+        }
+
+        .payment-item.da_pagare {
+            border-left: 5px solid #ffc107;
+        }
+
+        .payment-item.autorizzato {
+            border-left: 5px solid #28a745;
+        }
+
+        .payment-item.in_elaborazione {
+            border-left: 5px solid #17a2b8;
+            background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);
+        }
+
+        .payment-item.pagato {
+            border-left: 5px solid #6c757d;
+            opacity: 0.8;
+        }
+
+        .payment-checkbox {
+            display: flex;
+            align-items: center;
+        }
+
+        .payment-checkbox input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .payment-info {
+            flex: 1;
+        }
+
+        .payment-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 15px;
+        }
+
+        .artist-name {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .artist-name strong {
+            font-size: 1.1em;
+            color: #003366;
+        }
+
+        .cf-badge,
+        .piva-badge,
+        .contract-badge {
+            background: #0066cc;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+
+        .foreign-badge {
+            background: #ffc107;
+            color: #333;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.7em;
+        }
+
+        .payment-status {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .status-da_pagare {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        .status-autorizzato {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-in_elaborazione {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .status-pagato {
+            background: #e2e3e5;
+            color: #383d41;
+            border: 1px solid #d6d8db;
+        }
+
+        .status-payroll {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .approval-badge,
+        .processing-badge {
+            background: #dc3545;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 0.7em;
+        }
+
+        .payment-details {
+            margin-bottom: 15px;
+        }
+
+        .event-info {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+
+        .event-info span {
+            background: #f8f9fa;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 0.9em;
+            border: 1px solid #e9ecef;
+        }
+
+        .agibilita-ref {
+            background: #e7f3ff !important;
+            color: #003366 !important;
+            font-weight: bold;
+        }
+
+        .payment-amounts {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+        }
+
+        .amount-breakdown {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .amount-lordo {
+            color: #6c757d;
+        }
+
+        .amount-ritenuta {
+            color: #dc3545;
+            font-size: 0.9em;
+        }
+
+        .amount-rimborso {
+            color: #28a745;
+            font-size: 0.9em;
+            font-weight: bold;
+        }
+
+        .amount-netto {
+            color: #003366;
+            font-size: 1.1em;
+        }
+
+        .iban-info,
+        .iban-missing {
+            font-size: 0.9em;
+            margin-top: 8px;
+        }
+
+        .iban-missing {
+            color: #dc3545;
+            font-weight: bold;
+        }
+
+        .payment-confirmed {
+            background: #d4edda;
+            color: #155724;
+            padding: 8px;
+            border-radius: 6px;
+            font-size: 0.9em;
+            margin-top: 10px;
+        }
+
+        .payment-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            min-width: 150px;
+        }
+
+        .payment-notes {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 6px;
+            padding: 10px;
+            margin-top: 10px;
+            font-size: 0.9em;
+        }
+
+        /* ==================== BUTTONS ==================== */
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #0066cc 0%, #003366 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #0052a3 0%, #002244 100%);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: linear-gradient(135deg, #218838 0%, #1c7430 100%);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
+            color: #333;
+        }
+
+        .btn-warning:hover {
+            background: linear-gradient(135deg, #e0a800 0%, #d39e00 100%);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: linear-gradient(135deg, #c82333 0%, #bd2130 100%);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: linear-gradient(135deg, #5a6268 0%, #545b62 100%);
+        }
+
+        .btn-info {
+            background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+            color: white;
+        }
+
+        .btn-sm {
+            padding: 8px 16px;
+            font-size: 0.9em;
+        }
+
+        .btn-xs {
+            padding: 6px 12px;
+            font-size: 0.8em;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 2px solid #0066cc;
+            color: #0066cc;
+        }
+
+        .btn-outline:hover {
+            background: #0066cc;
+            color: white;
+        }
+
+        /* ==================== CIV SECTION ==================== */
+        .civ-section {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            border: 1px solid #2196f3;
+        }
+
+        .civ-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .civ-controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .civ-preview {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            border: 1px solid #2196f3;
+            margin-bottom: 20px;
+        }
+
+        .civ-totals {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .civ-total-item {
+            text-align: center;
+        }
+
+        .civ-total-item .label {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .civ-total-item .value {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #003366;
+        }
+
+        .civ-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .civ-item:last-child {
+            border-bottom: none;
+        }
+
+        .civ-beneficiary {
+            flex: 1;
+        }
+
+        .civ-beneficiary strong {
+            display: block;
+            color: #003366;
+            margin-bottom: 4px;
+        }
+
+        .civ-beneficiary .iban,
+        .civ-beneficiary .causale {
+            font-size: 0.9em;
+            color: #666;
+            display: block;
+        }
+
+        .civ-amounts {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .civ-amounts span {
+            font-weight: bold;
+        }
+
+        .civ-netto {
+            color: #28a745;
+            font-size: 1.1em;
+        }
+
+        /* ==================== MODALS ==================== */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 0;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 90vh;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .modal-content.large {
+            max-width: 1200px;
+        }
+
+        .modal-content.extra-large {
+            max-width: 1400px;
+        }
+
+        .modal-header {
+            background: linear-gradient(135deg, #003366 0%, #0066cc 100%);
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            font-size: 1.4em;
+        }
+
+        .close {
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 1;
+        }
+
+        .close:hover {
+            opacity: 0.7;
+        }
+
+        .modal-body {
+            padding: 30px;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        .modal-footer {
+            background: #f8f9fa;
+            padding: 20px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 15px;
+            border-top: 1px solid #dee2e6;
+        }
+
+        /* ==================== LOADING ==================== */
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.9);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .loading-content {
+            text-align: center;
+            padding: 40px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #0066cc;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* ==================== TOAST NOTIFICATIONS ==================== */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+        }
+
+        .toast {
+            background: white;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            border-left: 4px solid #0066cc;
+            opacity: 0;
+            transform: translateX(300px);
+            transition: all 0.3s ease;
+            max-width: 400px;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .toast.toast-success {
+            border-left-color: #28a745;
+        }
+
+        .toast.toast-error {
+            border-left-color: #dc3545;
+        }
+
+        .toast.toast-warning {
+            border-left-color: #ffc107;
+        }
+
+        .toast-content {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .toast-icon {
+            font-size: 1.2em;
+        }
+
+        .toast-message {
+            flex: 1;
+            font-weight: 500;
+        }
+
+        /* ==================== UTILITY CLASSES ==================== */
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-style: italic;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .text-muted {
+            color: #6c757d;
+        }
+
+        .mb-3 {
+            margin-bottom: 1rem;
+        }
+
+        .mt-3 {
+            margin-top: 1rem;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        /* ==================== RESPONSIVE ==================== */
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+
+            .header h1 {
+                font-size: 1.8em;
+            }
+
+            .dashboard-cards {
+                grid-template-columns: 1fr;
+            }
+
+            .filters-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .tabs-header {
+                flex-direction: column;
+            }
+
+            .tab {
+                border-right: none;
+                border-bottom: 1px solid #dee2e6;
+            }
+
+            .payment-item {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .payment-actions {
+                min-width: unset;
+                flex-direction: row;
+                flex-wrap: wrap;
+            }
+
+            .civ-controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .modal-content {
+                width: 95%;
+                margin: 10px auto;
+            }
+        }
+
+        /* ==================== ENHANCED STYLES ==================== */
+        .dipendenti-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding: 20px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 12px;
+            border: 1px solid #dee2e6;
+        }
+
+        .dipendenti-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .month-group {
+            margin-bottom: 30px;
+            border: 1px solid #dee2e6;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .month-header {
+            background: linear-gradient(135deg, #e9ecef 0%, #f8f9fa 100%);
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .month-summary {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .month-payments {
+            padding: 20px;
+        }
+
+        .bank-confirmation-section,
+        .bank-upload-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #dee2e6;
+            border-radius: 12px;
+            background: #f8f9fa;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .count-badge {
+            background: #0066cc;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+
+        .upload-area {
+            border: 2px dashed #dee2e6;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .upload-area:hover,
+        .upload-area.dragover {
+            border-color: #0066cc;
+            background: #f8f9fa;
+        }
+
+        .upload-icon {
+            font-size: 3em;
+            color: #6c757d;
+            margin-bottom: 20px;
+        }
+
+        .upload-text {
+            color: #6c757d;
+            margin-bottom: 20px;
+        }
+
+        .matching-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .summary-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            border: 1px solid #dee2e6;
+        }
+
+        .summary-card.success {
+            border-color: #28a745;
+            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+        }
+
+        .summary-card.warning {
+            border-color: #ffc107;
+            background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+        }
+
+        .summary-card h4 {
+            font-size: 2em;
+            margin-bottom: 10px;
+            color: #003366;
+        }
+
+        .match-item {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr auto;
+            gap: 15px;
+            align-items: center;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border: 1px solid #dee2e6;
+        }
+
+        .match-item.high {
+            border-color: #28a745;
+            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+        }
+
+        .match-item.medium {
+            border-color: #ffc107;
+            background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+        }
+
+        .confidence-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+
+        .confidence-badge.high {
+            background: #28a745;
+            color: white;
+        }
+
+        .confidence-badge.medium {
+            background: #ffc107;
+            color: #333;
+        }
+    </style>
 </head>
 <body>
-    <!-- Loading Overlay -->
+    <!-- 🚀 LOADING OVERLAY -->
     <div id="loading-overlay" class="loading-overlay">
-        <div class="loading-spinner"></div>
-        <div class="loading-text" id="loading-text">🔄 Inizializzazione sistema pagamenti...</div>
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <h3>Caricamento Sistema Pagamenti...</h3>
+            <p>Inizializzazione database e calcolo automatico pagamenti in corso</p>
+        </div>
     </div>
 
-    <!-- Toast Container -->
+    <!-- 📱 TOAST CONTAINER -->
     <div id="toast-container" class="toast-container"></div>
 
-    <!-- Header Navigation -->
-    <header class="main-header">
-        <div class="header-content">
-            <div class="header-left">
-                <h1 class="page-title">💰 Gestione Pagamenti</h1>
-                <nav class="breadcrumb">
-                    <a href="../index.html">🏠 Dashboard</a>
-                    <span class="separator">→</span>
-                    <span class="current">Pagamenti</span>
-                </nav>
+    <div class="container">
+        <!-- 🎯 HEADER SECTION -->
+        <header class="header">
+            <div class="header-content">
+                <h1>💰 SISTEMA PAGAMENTI RECORP</h1>
+                <p class="subtitle">Gestione completa pagamenti artisti con workflow bancario avanzato</p>
+                <div class="header-actions">
+                    <button class="btn btn-primary" onclick="syncPaymentsFromAgibilita()">
+                        🔄 Sincronizza da Agibilità
+                    </button>
+                    <button class="btn btn-success" onclick="autoCalculateAllPayments()">
+                        🧮 Ricalcola Tutti
+                    </button>
+                    <button class="btn btn-warning" onclick="generateMonthlyReport()">
+                        📊 Report Mensile
+                    </button>
+                    <button class="btn btn-info" onclick="showBankMovementInterface()">
+                        🏦 Conferma Movimenti
+                    </button>
+                </div>
             </div>
-            <div class="header-right">
-                <button class="btn btn-primary" onclick="syncPaymentsFromAgibilita()" disabled>
-                    🔄 Sincronizza da Agibilità
-                </button>
-                <button class="btn btn-secondary" onclick="showPaymentSettings()" disabled>
-                    ⚙️ Impostazioni
-                </button>
-                <button class="btn btn-warning" onclick="goBackToDashboard()">
-                    ← Torna alla Dashboard
-                </button>
-                <button class="btn btn-danger" onclick="handleLogout()">
-                    🚪 Logout
-                </button>
-            </div>
-        </div>
-    </header>
+        </header>
 
-    <!-- Executive Dashboard -->
-    <section class="executive-dashboard">
-        <div class="dashboard-header">
-            <h2>📊 Dashboard Esecutivo</h2>
-            <div class="dashboard-actions">
-                <button class="btn btn-sm btn-outline" onclick="autoCalculateAllPayments()" disabled>
-                    🧮 Calcola Tutti
+        <!-- 📊 DASHBOARD EXECUTIVO -->
+        <section class="dashboard-section">
+            <h2 class="section-title">
+                📈 Dashboard Executivo
+                <button class="btn btn-xs btn-outline" onclick="updateExecutiveDashboard()">
+                    🔄 Aggiorna
                 </button>
-                <button class="btn btn-sm btn-outline" onclick="approveAllPending()" disabled>
-                    ✅ Approva Tutti Pendenti
-                </button>
-                <button class="btn btn-sm btn-outline" onclick="generateMonthlyReport()" disabled>
-                    📋 Report Mensile
-                </button>
+            </h2>
+
+            <div class="dashboard-cards">
+                <div class="dashboard-card">
+                    <div class="card-content">
+                        <div class="card-info">
+                            <div class="card-value" id="totaleDaPagare">€0,00</div>
+                            <div class="card-label">Totale da Pagare</div>
+                            <div class="card-trend" id="trendDaPagare">In attesa di approvazione</div>
+                        </div>
+                        <div class="card-icon">💰</div>
+                    </div>
+                    <div class="card-actions">
+                        <button class="btn btn-xs btn-primary" onclick="approveAllPending()">
+                            ✅ Approva Tutti
+                        </button>
+                    </div>
+                </div>
+
+                <div class="dashboard-card success">
+                    <div class="card-content">
+                        <div class="card-info">
+                            <div class="card-value" id="numeroArtisti">0</div>
+                            <div class="card-label">Artisti in Coda</div>
+                            <div class="card-trend" id="trendArtisti">Attualmente in gestione</div>
+                        </div>
+                        <div class="card-icon">👥</div>
+                    </div>
+                </div>
+
+                <div class="dashboard-card">
+                    <div class="card-content">
+                        <div class="card-info">
+                            <div class="card-value" id="pagamentiMese">€0,00</div>
+                            <div class="card-label">Pagamenti Mese</div>
+                            <div class="card-trend" id="trendMese">Mese corrente</div>
+                        </div>
+                        <div class="card-icon">📅</div>
+                    </div>
+                </div>
+
+                <div class="dashboard-card warning">
+                    <div class="card-content">
+                        <div class="card-info">
+                            <div class="card-value" id="ritenuteApplicate">€0,00</div>
+                            <div class="card-label">Ritenute Applicate</div>
+                            <div class="card-trend" id="trendRitenute">Anno fiscale 2025</div>
+                        </div>
+                        <div class="card-icon">📋</div>
+                    </div>
+                    <div class="card-actions">
+                        <button class="btn btn-xs btn-secondary" onclick="calculateRetentions()">
+                            🧮 Ricalcola
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ✅ NUOVA CARD: Pagamenti in Elaborazione (dinamica) -->
+                <div id="processingCard" class="dashboard-card processing" style="display: none;">
+                    <div class="card-content">
+                        <div class="card-info">
+                            <div class="card-value" id="totaleInElaborazione">€0,00</div>
+                            <div class="card-label">In Elaborazione</div>
+                            <div class="card-trend" id="trendElaborazione">Attesa conferma bancaria</div>
+                        </div>
+                        <div class="card-icon">🏦</div>
+                    </div>
+                    <div class="card-actions">
+                        <button class="btn btn-xs btn-primary" onclick="showBankMovementInterface()">
+                            🏦 Conferma Movimenti
+                        </button>
+                    </div>
+                </div>
             </div>
-        </div>
-        
-        <div class="dashboard-cards">
-            <div class="dashboard-card primary">
-                <div class="card-icon">💰</div>
-                <div class="card-content">
-                    <div class="card-value" id="totaleDaPagare">€0,00</div>
-                    <div class="card-label">Totale da Pagare</div>
-                    <div class="card-trend" id="trendDaPagare">Caricamento...</div>
-                </div>
-                <div class="card-actions">
-                    <button class="btn btn-xs btn-primary" onclick="showProcessPayments()" disabled>Elabora</button>
-                </div>
-            </div>
-            
-            <div class="dashboard-card success">
-                <div class="card-icon">👥</div>
-                <div class="card-content">
-                    <div class="card-value" id="numeroArtisti">0</div>
-                    <div class="card-label">Artisti da Pagare</div>
-                    <div class="card-trend" id="trendArtisti">Caricamento...</div>
-                </div>
-                <div class="card-actions">
-                    <button class="btn btn-xs btn-outline" onclick="showPendingApprovals()" disabled>Visualizza</button>
-                </div>
-            </div>
-            
-            <div class="dashboard-card info">
-                <div class="card-icon">📅</div>
-                <div class="card-content">
-                    <div class="card-value" id="pagamentiMese">€0,00</div>
-                    <div class="card-label">Pagamenti Mese</div>
-                    <div class="card-trend" id="trendMese">Caricamento...</div>
-                </div>
-            </div>
-            
-            <div class="dashboard-card warning">
-                <div class="card-icon">🧾</div>
-                <div class="card-content">
-                    <div class="card-value" id="ritenuteApplicate">€0,00</div>
-                    <div class="card-label">Ritenute Applicate</div>
-                    <div class="card-trend" id="trendRitenute">Caricamento...</div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Advanced Filters -->
-        <div class="filters-section">
-            <div class="filters-header">
-                <h3>🔍 Filtri Avanzati</h3>
-                <div class="filter-actions">
-                    <button class="btn btn-xs btn-outline" onclick="saveFilterPreset()" disabled>💾 Salva Preset</button>
-                    <button class="btn btn-xs btn-secondary" onclick="resetAdvancedFilters()" disabled>🔄 Reset</button>
-                </div>
-            </div>
+        </section>
+
+        <!-- 🔍 FILTRI AVANZATI -->
+        <section class="filters-section">
+            <h3 class="section-title">🔍 Filtri Avanzati</h3>
             
             <div class="filters-grid">
                 <div class="filter-group">
-                    <label for="filterStato">Stato</label>
-                    <select id="filterStato" class="form-select" onchange="applyAdvancedFilters()" disabled>
-                        <option value="">Tutti</option>
+                    <label for="filterStato">Stato Pagamento:</label>
+                    <select id="filterStato" onchange="applyAdvancedFilters()">
+                        <option value="">Tutti gli stati</option>
                         <option value="da_pagare">Da Pagare</option>
                         <option value="autorizzato">Autorizzato</option>
+                        <option value="in_elaborazione">In Elaborazione</option>
                         <option value="pagato">Pagato</option>
                         <option value="annullato">Annullato</option>
                     </select>
                 </div>
-                
+
                 <div class="filter-group">
-                    <label for="filterDateFrom">Data Da</label>
-                    <input type="date" id="filterDateFrom" class="form-control" onchange="applyAdvancedFilters()" disabled>
+                    <label for="filterDateFrom">Data Da:</label>
+                    <input type="date" id="filterDateFrom" onchange="applyAdvancedFilters()">
                 </div>
-                
+
                 <div class="filter-group">
-                    <label for="filterDateTo">Data A</label>
-                    <input type="date" id="filterDateTo" class="form-control" onchange="applyAdvancedFilters()" disabled>
+                    <label for="filterDateTo">Data A:</label>
+                    <input type="date" id="filterDateTo" onchange="applyAdvancedFilters()">
                 </div>
-                
+
                 <div class="filter-group">
-                    <label for="filterTipoContratto">Tipo Contratto</label>
-                    <select id="filterTipoContratto" class="form-select" onchange="applyAdvancedFilters()" disabled>
-                        <option value="">Tutti</option>
+                    <label for="filterTipoContratto">Tipo Contratto:</label>
+                    <select id="filterTipoContratto" onchange="applyAdvancedFilters()">
+                        <option value="">Tutti i tipi</option>
                         <option value="occasionale">Prestazione Occasionale</option>
                         <option value="partitaiva">Partita IVA</option>
-                        <option value="chiamata">Contratto a Chiamata</option>
-                        <option value="dipendente">Dipendente</option>
+                        <option value="dipendente">Dipendente/Chiamata</option>
                     </select>
                 </div>
-                
+
                 <div class="filter-group">
-                    <label for="filterArtista">Cerca Artista</label>
-                    <input type="text" id="filterArtista" class="form-control" placeholder="Nome, cognome o CF..." disabled>
+                    <label for="filterArtista">Cerca Artista:</label>
+                    <input type="text" id="filterArtista" placeholder="Nome, cognome o CF...">
+                </div>
+
+                <div class="filter-group">
+                    <label for="filterImportoMin">Importo Minimo:</label>
+                    <input type="number" id="filterImportoMin" placeholder="€ 0.00" step="0.01" onchange="applyAdvancedFilters()">
+                </div>
+            </div>
+
+            <div class="filters-actions">
+                <button class="btn btn-primary" onclick="applyAdvancedFilters()">
+                    🔍 Applica Filtri
+                </button>
+                <button class="btn btn-secondary" onclick="resetAdvancedFilters()">
+                    🔄 Reset
+                </button>
+                <button class="btn btn-info" onclick="saveFilterPreset()">
+                    💾 Salva Preset
+                </button>
+            </div>
+        </section>
+
+        <!-- 📑 TABS PAGAMENTI -->
+        <section class="tabs-container">
+            <div class="tabs-header">
+                <div class="tab active" id="tabOccasionale" onclick="showPaymentTab('occasionale')">
+                    💼 Prestazioni Occasionali
+                    <span class="tab-badge" id="badgeOccasionale">0</span>
+                </div>
+                <div class="tab" id="tabPartitaIva" onclick="showPaymentTab('partitaIva')">
+                    🏢 Partite IVA
+                    <span class="tab-badge" id="badgePartitaIva">0</span>
+                </div>
+                <div class="tab" id="tabDipendenti" onclick="showPaymentTab('dipendenti')">
+                    👔 Dipendenti
+                    <span class="tab-badge" id="badgeDipendenti">0</span>
+                </div>
+            </div>
+
+            <!-- TAB: PRESTAZIONI OCCASIONALI -->
+            <div class="tab-content active" id="tabContentOccasionale">
+                <div style="margin-bottom: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h4>💼 Prestazioni Occasionali</h4>
+                        <div style="display: flex; gap: 10px;">
+                            <button class="btn btn-sm btn-success" onclick="selectAllOccasionali()">
+                                ☑️ Seleziona Tutti
+                            </button>
+                            <button class="btn btn-sm btn-primary" onclick="approveSelectedOccasionali()">
+                                ✅ Approva Selezionati
+                            </button>
+                        </div>
+                    </div>
+                    <p class="text-muted">
+                        🔍 Prestazioni occasionali con calcolo automatico ritenute IRPEF (20%) e rimborsi spese per scaglioni.
+                        Importo netto include rimborsi secondo policy aziendale.
+                    </p>
                 </div>
                 
-                <div class="filter-group">
-                    <label for="filterImportoMin">Importo Minimo</label>
-                    <input type="number" id="filterImportoMin" class="form-control" min="0" step="0.01" placeholder="0,00" onchange="applyAdvancedFilters()" disabled>
+                <div id="listOccasionale">
+                    <div class="no-data">
+                        <p>Caricamento prestazioni occasionali...</p>
+                    </div>
                 </div>
             </div>
-        </div>
-        
-        <!-- System Status -->
-        <div class="system-status">
-            <div class="status-item">
-                <span class="status-icon" id="dbStatus">🟡</span>
-                <span class="status-label">Database: <span id="dbStatusText">Connessione...</span></span>
-            </div>
-            <div class="status-item">
-                <span class="status-icon" id="authStatus">🟡</span>
-                <span class="status-label">Auth: <span id="authStatusText">Verifica...</span></span>
-            </div>
-            <div class="status-item">
-                <span class="status-icon" id="systemStatus">🟡</span>
-                <span class="status-label">Sistema: <span id="systemStatusText">Inizializzazione...</span></span>
-            </div>
-        </div>
-    </section>
 
-    <!-- Payment Tabs Navigation -->
-    <div class="payment-tabs">
-        <div class="tab active" id="tabOccasionali" onclick="showPaymentTab('occasionali')">
-            <span class="tab-icon">🎭</span>
-            <span class="tab-label">Prestazioni Occasionali</span>
-            <span class="tab-badge" id="badgeOccasionale">0</span>
-        </div>
-        <div class="tab" id="tabPartitaIva" onclick="showPaymentTab('partitaiva')">
-            <span class="tab-icon">🏢</span>
-            <span class="tab-label">Partite IVA</span>
-            <span class="tab-badge" id="badgePartitaIva">0</span>
-        </div>
-        <div class="tab" id="tabDipendenti" onclick="showPaymentTab('dipendenti')">
-            <span class="tab-icon">👔</span>
-            <span class="tab-label">Dipendenti</span>
-            <span class="tab-badge" id="badgeDipendenti">0</span>
-        </div>
-        <div class="tab" id="tabCiv" onclick="showPaymentTab('civ')">
-            <span class="tab-icon">🏦</span>
-            <span class="tab-label">CIV Bancari</span>
-        </div>
-        <div class="tab" id="tabAudit" onclick="showPaymentTab('audit')">
-            <span class="tab-icon">📋</span>
-            <span class="tab-label">Audit</span>
-        </div>
-    </div>
+            <!-- TAB: PARTITE IVA -->
+            <div class="tab-content" id="tabContentPartitaIva">
+                <div style="margin-bottom: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h4>🏢 Partite IVA</h4>
+                        <div style="display: flex; gap: 10px;">
+                            <button class="btn btn-sm btn-warning" onclick="checkAllInvoices()">
+                                📧 Verifica Fatture
+                            </button>
+                            <button class="btn btn-sm btn-success" onclick="markAllInvoicesReceived()">
+                                ✅ Tutte Ricevute
+                            </button>
+                            <button class="btn btn-sm btn-secondary" onclick="generateInvoiceReminders()">
+                                📨 Solleciti Auto
+                            </button>
+                        </div>
+                    </div>
+                    <p class="text-muted">
+                        📋 Pagamenti verso Partite IVA. Richiesta fattura obbligatoria prima dell'elaborazione.
+                        Sistema di solleciti automatici per fatture in ritardo.
+                    </p>
+                </div>
+                
+                <div id="listPartitaIva">
+                    <div class="no-data">
+                        <p>Caricamento partite IVA...</p>
+                    </div>
+                </div>
+            </div>
 
-    <!-- Tab Contents -->
-    <div class="payment-content">
-        
-        <!-- Prestazioni Occasionali Tab -->
-        <div class="tab-content active" id="tabContentOccasionali">
-            <div class="tab-header">
-                <h3>🎭 Prestazioni Occasionali</h3>
-                <div class="tab-actions">
-                    <button class="btn btn-sm btn-outline" onclick="selectAllOccasionali()" disabled>
-                        ☑️ Seleziona Tutti
-                    </button>
-                    <button class="btn btn-sm btn-success" onclick="approveSelectedOccasionali()" disabled>
-                        ✅ Approva Selezionati
-                    </button>
-                    <button class="btn btn-sm btn-primary" onclick="calculateRetentions()" disabled>
-                        🧮 Ricalcola Ritenute
-                    </button>
+            <!-- TAB: DIPENDENTI -->
+            <div class="tab-content" id="tabContentDipendenti">
+                <div class="dipendenti-header">
+                    <div>
+                        <h4>👔 Dipendenti e Contratti a Chiamata</h4>
+                        <p class="text-muted">
+                            Gestione prestazioni per dipendenti con calcolo IRPEF e contributi INPS.
+                            Rimborsi spese configurabili in percentuale nel riepilogo mensile.
+                        </p>
+                    </div>
+                    <div class="dipendenti-actions">
+                        <button class="btn btn-primary" onclick="showMonthlyEmployeeReport()">
+                            📋 Riepilogo Mensile
+                        </button>
+                        <button class="btn btn-secondary" onclick="generatePayrollExport()">
+                            📤 Export Buste Paga
+                        </button>
+                        <button class="btn btn-info" onclick="calculateContributions()">
+                            🧮 Calcola Contributi
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="listDipendenti">
+                    <div class="no-data">
+                        <p>Caricamento dipendenti...</p>
+                    </div>
                 </div>
             </div>
-            
-            <div class="payment-help">
-                <div class="help-content">
-                    <strong>ℹ️ Prestazioni Occasionali:</strong>
-                    Ritenuta IRPEF del 20% applicata su compensi superiori a €25,82. 
-                    Soglia annua €5.000 per persona fisica.
-                </div>
-            </div>
-            
-            <div class="payment-list" id="listOccasionale">
-                <div class="no-data">
-                    <div class="loading-spinner"></div>
-                    <p>Caricamento pagamenti occasionali...</p>
-                </div>
-            </div>
-        </div>
+        </section>
 
-        <!-- Partite IVA Tab -->
-        <div class="tab-content" id="tabContentPartitaiva">
-            <div class="tab-header">
-                <h3>🏢 Partite IVA</h3>
-                <div class="tab-actions">
-                    <button class="btn btn-sm btn-outline" onclick="checkAllInvoices()" disabled>
-                        📧 Verifica Fatture
-                    </button>
-                    <button class="btn btn-sm btn-warning" onclick="markAllInvoicesReceived()" disabled>
-                        ✅ Conferma Tutte Ricevute
-                    </button>
-                    <button class="btn btn-sm btn-secondary" onclick="generateInvoiceReminders()" disabled>
-                        📬 Genera Solleciti
-                    </button>
-                </div>
-            </div>
-            
-            <div class="payment-help">
-                <div class="help-content">
-                    <strong>ℹ️ Partite IVA:</strong>
-                    Nessuna ritenuta applicata. Fattura obbligatoria prima del pagamento.
-                    Verificare dati fattura e IBAN prima dell'approvazione.
-                </div>
-            </div>
-            
-            <div class="payment-list" id="listPartitaIva">
-                <div class="no-data">
-                    <div class="loading-spinner"></div>
-                    <p>Caricamento pagamenti partite IVA...</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Dipendenti Tab -->
-        <div class="tab-content" id="tabContentDipendenti">
-            <div class="tab-header">
-                <h3>👔 Dipendenti e Contratti a Chiamata</h3>
-                <div class="tab-actions">
-                    <button class="btn btn-sm btn-primary" onclick="generatePayrollExport()" disabled>
-                        📤 Export Buste Paga
-                    </button>
-                    <button class="btn btn-sm btn-outline" onclick="calculateContributions()" disabled>
-                        🧮 Calcola Contributi
-                    </button>
-                </div>
-            </div>
-            
-            <div class="payment-help">
-                <div class="help-content">
-                    <strong>ℹ️ Dipendenti:</strong>
-                    Gestione attraverso sistema paghe. IRPEF e contributi INPS calcolati automaticamente.
-                    I pagamenti vengono elaborati tramite cedolino mensile.
-                </div>
-            </div>
-            
-            <div class="payment-list" id="listDipendenti">
-                <div class="no-data">
-                    <div class="loading-spinner"></div>
-                    <p>Caricamento pagamenti dipendenti...</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- CIV Bancari Tab -->
-        <div class="tab-content" id="tabContentCiv">
-            <div class="tab-header">
+        <!-- 🏦 SEZIONE CIV BANCARI -->
+        <section class="civ-section">
+            <div class="civ-header">
                 <h3>🏦 Generazione CIV Bancari</h3>
-                <div class="tab-actions">
-                    <select id="selectBanca" class="form-select" disabled>
-                        <option value="">Seleziona Banca</option>
+                <div class="civ-controls">
+                    <label for="selectBanca">Seleziona Banca:</label>
+                    <select id="selectBanca">
+                        <option value="">-- Scegli Banca --</option>
                         <option value="intesa">Intesa Sanpaolo</option>
                         <option value="unicredit">UniCredit</option>
                         <option value="bnl">BNL</option>
                         <option value="monte_paschi">Monte dei Paschi</option>
                         <option value="banco_bpm">Banco BPM</option>
+                        <option value="massive_transfer">Template Massive Transfer</option>
                         <option value="generic">Formato Generico</option>
                     </select>
-                    <button class="btn btn-sm btn-success" onclick="generateAdvancedCIV()" disabled>
-                        📤 Genera CIV
+                    <button class="btn btn-success" onclick="generateAdvancedCIV()">
+                        💾 Genera CIV
                     </button>
                 </div>
             </div>
-            
+
             <div class="civ-preview">
-                <div class="civ-summary">
-                    <div class="summary-item">
-                        <span class="summary-label">Beneficiari:</span>
-                        <span class="summary-value" id="civNumBeneficiari">0</span>
+                <h4>📋 Anteprima Pagamenti Selezionati</h4>
+                
+                <div class="civ-totals">
+                    <div class="civ-total-item">
+                        <div class="label">Beneficiari</div>
+                        <div class="value" id="civNumBeneficiari">0</div>
                     </div>
-                    <div class="summary-item">
-                        <span class="summary-label">Totale Lordo:</span>
-                        <span class="summary-value" id="civTotaleLordo">€0,00</span>
+                    <div class="civ-total-item">
+                        <div class="label">Totale Lordo</div>
+                        <div class="value" id="civTotaleLordo">€0,00</div>
                     </div>
-                    <div class="summary-item">
-                        <span class="summary-label">Ritenute:</span>
-                        <span class="summary-value" id="civTotaleRitenute">€0,00</span>
+                    <div class="civ-total-item">
+                        <div class="label">Ritenute</div>
+                        <div class="value" id="civTotaleRitenute">€0,00</div>
                     </div>
-                    <div class="summary-item total">
-                        <span class="summary-label">Totale Netto:</span>
-                        <span class="summary-value" id="civTotaleNetto">€0,00</span>
+                    <div class="civ-total-item">
+                        <div class="label">Totale Netto</div>
+                        <div class="value" id="civTotaleNetto">€0,00</div>
                     </div>
                 </div>
-                
-                <div class="civ-preview-list" id="civPreviewList">
+
+                <div id="civPreviewList">
                     <p class="no-data">Nessun pagamento selezionato per CIV</p>
                 </div>
             </div>
-        </div>
 
-        <!-- Audit Tab -->
-        <div class="tab-content" id="tabContentAudit">
-            <div class="tab-header">
-                <h3>📋 Audit Trail e Log Sistema</h3>
-                <div class="tab-actions">
-                    <button class="btn btn-sm btn-outline" onclick="exportAuditLog()" disabled>
-                        📤 Export Log
-                    </button>
-                    <button class="btn btn-sm btn-warning" onclick="clearOldLogs()" disabled>
-                        🗑️ Pulisci Log Vecchi
-                    </button>
-                    <button class="btn btn-sm btn-secondary" onclick="showPaymentHistory()" disabled>
-                        📈 Storico Pagamenti
-                    </button>
-                </div>
+            <div style="background: #fff3cd; padding: 15px; border-radius: 8px; border: 1px solid #ffeaa7;">
+                <h5>⚠️ Processo Elaborazione CIV</h5>
+                <ol style="margin-left: 20px; color: #856404;">
+                    <li><strong>Generazione CSV:</strong> I pagamenti autorizzati passano in stato "IN ELABORAZIONE"</li>
+                    <li><strong>Prestazioni Occasionali:</strong> Create automaticamente in stato "PROVVISORIA"</li>
+                    <li><strong>Upload Bancario:</strong> File CIV caricato sul sistema bancario</li>
+                    <li><strong>Conferma Movimenti:</strong> Abbinamento automatico per stato "PAGATO" finale</li>
+                </ol>
             </div>
-            
-            <div class="audit-summary">
-                <div class="recent-activity">
-                    <h4>🕒 Attività Recenti</h4>
-                    <div id="recentActivityList" class="activity-list">
+        </section>
+
+        <!-- 📊 SEZIONE AUDIT E SISTEMA -->
+        <section class="dashboard-section">
+            <h2 class="section-title">📊 Monitoraggio Sistema</h2>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
+                <div style="background: #f8f9fa; padding: 25px; border-radius: 15px; border: 1px solid #dee2e6;">
+                    <h4 style="color: #003366; margin-bottom: 20px;">🔍 Attività Recenti</h4>
+                    <div id="recentActivityList">
                         <p class="no-data">Caricamento attività...</p>
                     </div>
                 </div>
+
+                <div style="background: #f8f9fa; padding: 25px; border-radius: 15px; border: 1px solid #dee2e6;">
+                    <h4 style="color: #003366; margin-bottom: 20px;">⚙️ Status Sistema</h4>
+                    <div style="display: flex; flex-direction: column; gap: 15px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span>Database:</span>
+                            <span>
+                                <span id="dbStatus">🟢</span>
+                                <span id="dbStatusText">Connesso</span>
+                            </span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span>Sistema:</span>
+                            <span>
+                                <span id="systemStatus">🟢</span>
+                                <span id="systemStatusText">Operativo</span>
+                            </span>
+                        </div>
+                        <div style="display: flex; gap: 10px; margin-top: 15px;">
+                            <button class="btn btn-xs btn-secondary" onclick="exportAuditLog()">
+                                📤 Export Log
+                            </button>
+                            <button class="btn btn-xs btn-warning" onclick="clearOldLogs()">
+                                🗑️ Pulisci Vecchi
+                            </button>
+                            <button class="btn btn-xs btn-primary" onclick="showPaymentSettings()">
+                                ⚙️ Impostazioni
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
-        </div>
+        </section>
+
+        <!-- 🏢 FOOTER AZIENDALE -->
+        <footer style="margin-top: 50px; padding: 30px; background: linear-gradient(135deg, #003366 0%, #0066cc 100%); color: white; border-radius: 15px; text-align: center;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 30px; margin-bottom: 20px;">
+                <div>
+                    <h4>🏢 OKL SRL - RECORP</h4>
+                    <p>Sistema Gestione Pagamenti Artisti</p>
+                    <p>Versione 2.0 - Workflow Bancario Completo</p>
+                </div>
+                <div>
+                    <h4>📍 Contatti</h4>
+                    <p>Via Monte Pasubio 222/1</p>
+                    <p>36010 Zanè (VI) - Italia</p>
+                    <p>P.IVA: 04433920248</p>
+                </div>
+                <div>
+                    <h4>⚡ Funzionalità</h4>
+                    <p>✅ Calcolo Automatico Pagamenti</p>
+                    <p>✅ Workflow Bancario Completo</p>
+                    <p>✅ Rimborsi Automatici</p>
+                    <p>✅ Gestione Dipendenti PDF</p>
+                </div>
+                <div>
+                    <h4>🔧 Supporto</h4>
+                    <p>Sistema RECORP ALL-IN-ONE</p>
+                    <p>Assistenza Tecnica Disponibile</p>
+                    <p>Aggiornamenti Automatici</p>
+                </div>
+            </div>
+            <div style="border-top: 1px solid rgba(255,255,255,0.3); padding-top: 20px;">
+                <p>&copy; 2025 OKL SRL. Tutti i diritti riservati. Sistema sviluppato per gestione completa pagamenti artistici con integrazione bancaria.</p>
+            </div>
+        </footer>
     </div>
 
-    <!-- Footer -->
-    <footer class="main-footer">
-        <div class="footer-content">
-            <div class="company-info">
-                <strong>OKL SRL - RECORP</strong><br>
-                Via Monte Pasubio 222/1 - 36010 Zanè (VI)<br>
-                P.IVA: 04433920248
-            </div>
-            <div class="footer-links">
-                <a href="#privacy">Privacy Policy</a>
-                <a href="#terms">Termini di Servizio</a>
-                <a href="#cookies">Cookie Policy</a>
-            </div>
-            <div class="footer-copyright">
-                © 2025 OKL SRL - Tutti i diritti riservati
-            </div>
-        </div>
-    </footer>
+    <!-- 🚀 JAVASCRIPT IMPORT -->
+    <script type="module" src="pagamenti.js"></script>
 
-    <!-- 🔥 JAVASCRIPT STEP-BY-STEP SICURO -->
+    <!-- 📱 INLINE SCRIPTS PER SUPPORTO -->
     <script>
-        // ==================== VARIABILI GLOBALI ====================
-        let systemReady = false;
-        let currentUser = null;
-        let supabaseClient = null;
+        // ==================== SUPPORTO GLOBALE FUNZIONI ====================
         
-        // ==================== FUNZIONI BASE ====================
-        function updateLoadingText(message) {
-            const loadingText = document.getElementById('loading-text');
-            if (loadingText) {
-                loadingText.textContent = message;
+        // Previeni errori se il modulo non è ancora caricato
+        window.addEventListener('error', function(e) {
+            if (e.message.includes('is not defined')) {
+                console.warn('⚠️ Funzione non ancora caricata:', e.message);
+                showFallbackToast('Sistema in caricamento, riprova tra poco...', 'warning');
             }
-            console.log('🔄 ' + message);
-        }
-        
-        function updateSystemStatus(component, status, message) {
-            const statusIcon = document.getElementById(component + 'Status');
-            const statusText = document.getElementById(component + 'StatusText');
-            
-            if (statusIcon && statusText) {
-                statusIcon.textContent = status === 'ok' ? '🟢' : status === 'warning' ? '🟡' : '🔴';
-                statusText.textContent = message;
-            }
-        }
-        
-        function showToast(message, type = 'info') {
-            console.log(`[TOAST] ${type.toUpperCase()}: ${message}`);
-            
+        });
+
+        // Funzione toast di fallback se il sistema principale non è pronto
+        function showFallbackToast(message, type = 'info') {
             const toast = document.createElement('div');
-            toast.className = `toast toast-${type}`;
-            toast.innerHTML = `
-                <div class="toast-content">
-                    <span class="toast-icon">${type === 'success' ? '✅' : type === 'error' ? '❌' : type === 'warning' ? '⚠️' : 'ℹ️'}</span>
-                    <span class="toast-message">${message}</span>
-                </div>
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: white;
+                border: 2px solid #0066cc;
+                border-radius: 8px;
+                padding: 15px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                z-index: 10000;
+                max-width: 300px;
             `;
+            toast.innerHTML = `<strong>⚠️ ${message}</strong>`;
             
-            const container = document.getElementById('toast-container');
-            if (container) {
-                container.appendChild(toast);
-                
-                setTimeout(() => toast.classList.add('show'), 10);
-                setTimeout(() => {
-                    toast.classList.remove('show');
-                    setTimeout(() => toast.remove(), 300);
-                }, 5000);
-            }
-        }
-        
-        function enableButtons() {
-            document.querySelectorAll('button[disabled], select[disabled], input[disabled]').forEach(el => {
-                el.disabled = false;
-            });
-        }
-        
-        // ==================== INIZIALIZZAZIONE STEP-BY-STEP ====================
-        async function initializeSystem() {
-            try {
-                updateLoadingText('🔐 Verifica autenticazione...');
-                
-                // STEP 1: Verifica autenticazione localStorage
-                const sessionData = localStorage.getItem('recorp_user_session');
-                if (!sessionData) {
-                    throw new Error('Nessuna sessione trovata - Redirect al login');
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.parentNode.removeChild(toast);
                 }
-                
-                const session = JSON.parse(sessionData);
-                if (!session.email) {
-                    throw new Error('Sessione incompleta - Redirect al login');
-                }
-                
-                // Verifica scadenza
-                if (session.expires_at) {
-                    const expiresAt = new Date(session.expires_at * 1000);
-                    if (expiresAt <= new Date()) {
-                        throw new Error('Sessione scaduta - Redirect al login');
+            }, 3000);
+        }
+
+        // Verifica stato caricamento sistema
+        function checkSystemReady() {
+            const interval = setInterval(() => {
+                if (window.pagamentiDB && window.currentUser) {
+                    clearInterval(interval);
+                    console.log('✅ Sistema pagamenti completamente caricato');
+                    
+                    // Nascondi loading se ancora visibile
+                    const loading = document.getElementById('loading-overlay');
+                    if (loading) {
+                        loading.style.display = 'none';
                     }
                 }
-                
-                currentUser = {
-                    email: session.email,
-                    id: session.user_id,
-                    isLocal: true
-                };
-                
-                updateSystemStatus('auth', 'ok', `Autenticato: ${session.email}`);
-                updateLoadingText('✅ Autenticazione verificata');
-                
-                // STEP 2: Verifica Supabase client
-                updateLoadingText('🔌 Connessione database...');
-                
-                if (!window.supabase) {
-                    throw new Error('Supabase client non caricato dal CDN');
+            }, 1000);
+            
+            // Timeout di sicurezza dopo 30 secondi
+            setTimeout(() => {
+                clearInterval(interval);
+                const loading = document.getElementById('loading-overlay');
+                if (loading && loading.style.display !== 'none') {
+                    loading.style.display = 'none';
+                    showFallbackToast('Sistema caricato con possibili limitazioni', 'warning');
                 }
-                
-                // Inizializza client Supabase
-                supabaseClient = window.supabase.createClient(
-                    'https://nommluymuwioddhaujxu.supabase.co',
-                    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5vbW1sdXltdXdpb2RkaGF1anh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE5ODA5MjgsImV4cCI6MjA2NzU1NjkyOH0.oaF5uaNe21W8NU67n1HjngngMUClkss2achTQ7BZ5tE'
-                );
-                
-                // Test connessione database
-                const { data, error } = await supabaseClient
-                    .from('artisti')
-                    .select('count')
-                    .limit(1);
-                
-                if (error && error.code !== '42P01') {
-                    console.warn('⚠️ Warning database:', error);
-                    updateSystemStatus('db', 'warning', 'Connesso (con avvisi)');
-                } else {
-                    updateSystemStatus('db', 'ok', 'Connesso');
+            }, 30000);
+        }
+
+        // Avvia controllo quando DOM è pronto
+        document.addEventListener('DOMContentLoaded', function() {
+            checkSystemReady();
+        });
+
+        // ==================== UTILITY FUNCTIONS INLINE ====================
+        
+        // Funzioni di utilità sempre disponibili
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('it-IT', {
+                style: 'currency',
+                currency: 'EUR',
+                minimumFractionDigits: 2
+            }).format(amount);
+        }
+
+        function formatDateIT(dateString) {
+            if (!dateString) return 'N/D';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('it-IT');
+        }
+
+        function maskIBAN(iban) {
+            if (!iban) return 'N/D';
+            if (iban.length < 8) return iban;
+            return iban.slice(0, 4) + '*'.repeat(iban.length - 8) + iban.slice(-4);
+        }
+
+        // ==================== GESTIONE ERRORI GLOBALE ====================
+        
+        window.addEventListener('unhandledrejection', function(event) {
+            console.error('❌ Errore Promise non gestito:', event.reason);
+            showFallbackToast('Errore sistema: ' + (event.reason?.message || 'Errore sconosciuto'), 'error');
+        });
+
+        // ==================== FUNZIONI PLACEHOLDER SICURE ====================
+        
+        // Wrapper sicuro per funzioni che potrebbero non essere ancora caricate
+        function safeCallFunction(functionName, ...args) {
+            if (typeof window[functionName] === 'function') {
+                try {
+                    return window[functionName](...args);
+                } catch (error) {
+                    console.error(`❌ Errore esecuzione ${functionName}:`, error);
+                    showFallbackToast(`Errore: ${functionName}`, 'error');
                 }
-                
-                updateLoadingText('✅ Database connesso');
-                
-                // STEP 3: Carica sistema pagamenti
-                updateLoadingText('📥 Caricamento moduli sistema...');
-                
-                // Carica i moduli JavaScript in modo sicuro
-                await loadPaymentModules();
-                
-                updateLoadingText('✅ Sistema inizializzato');
-                updateSystemStatus('system', 'ok', 'Operativo');
-                
-                // STEP 4: Finalizza
-                systemReady = true;
-                enableButtons();
-                
-                // Nascondi loading
-                const loadingOverlay = document.getElementById('loading-overlay');
-                if (loadingOverlay) {
-                    loadingOverlay.style.display = 'none';
-                }
-                
-                showToast('✅ Sistema pagamenti pronto!', 'success');
-                console.log('🎉 Inizializzazione completata con successo');
-                
-            } catch (error) {
-                console.error('❌ Errore inizializzazione:', error);
-                updateSystemStatus('system', 'error', 'Errore');
-                
-                if (error.message.includes('Redirect al login')) {
-                    updateLoadingText('🔄 Reindirizzamento al login...');
-                    setTimeout(() => {
-                        window.location.href = '../login.html';
-                    }, 2000);
-                } else {
-                    updateLoadingText('❌ Errore: ' + error.message);
-                    showToast('Errore: ' + error.message, 'error');
-                }
+            } else {
+                console.warn(`⚠️ Funzione ${functionName} non ancora disponibile`);
+                showFallbackToast('Funzione in caricamento, riprova...', 'warning');
             }
         }
+
+        // Override delle funzioni onclick con wrapper sicuro
+        const originalOnclick = HTMLElement.prototype.onclick;
         
-        async function loadPaymentModules() {
-            try {
-                // Carica i moduli solo se il DOM è pronto e Supabase è disponibile
-                if (supabaseClient && document.readyState === 'complete') {
-                    // I moduli verranno caricati dinamicamente qui
-                    // Per ora simula il caricamento
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                    
-                    // Imposta dati mock per test
-                    updateMockData();
-                    
-                    console.log('✅ Moduli pagamenti caricati');
-                } else {
-                    throw new Error('Prerequisiti non soddisfatti per caricamento moduli');
-                }
-            } catch (error) {
-                console.error('❌ Errore caricamento moduli:', error);
-                throw error;
-            }
+        // Funzioni sicure per i pulsanti nell'HTML
+        function syncPaymentsFromAgibilita() {
+            safeCallFunction('syncPaymentsFromAgibilita');
         }
         
-        function updateMockData() {
-            // Aggiorna dashboard con dati mock per test
-            document.getElementById('totaleDaPagare').textContent = '€1.234,56';
-            document.getElementById('numeroArtisti').textContent = '12';
-            document.getElementById('pagamentiMese').textContent = '€5.678,90';
-            document.getElementById('ritenuteApplicate').textContent = '€987,65';
-            
-            document.getElementById('trendDaPagare').textContent = 'In attesa di approvazione';
-            document.getElementById('trendArtisti').textContent = '12 in coda';
-            document.getElementById('trendMese').textContent = 'Mese corrente';
-            document.getElementById('trendRitenute').textContent = 'Anno fiscale 2025';
-            
-            // Aggiorna badge tabs
-            document.getElementById('badgeOccasionale').textContent = '8';
-            document.getElementById('badgePartitaIva').textContent = '3';
-            document.getElementById('badgeDipendenti').textContent = '1';
-            
-            // Mostra placeholder di test nelle liste
-            const listOccasionale = document.getElementById('listOccasionale');
-            const listPartitaIva = document.getElementById('listPartitaIva');
-            const listDipendenti = document.getElementById('listDipendenti');
-            
-            if (listOccasionale) {
-                listOccasionale.innerHTML = '<p class="no-data">✅ Sistema pronto - 8 prestazioni occasionali disponibili<br><small>Sistema completo sarà caricato quando risolveremo il loop originale</small></p>';
-            }
-            
-            if (listPartitaIva) {
-                listPartitaIva.innerHTML = '<p class="no-data">✅ Sistema pronto - 3 partite IVA disponibili<br><small>Sistema completo sarà caricato quando risolveremo il loop originale</small></p>';
-            }
-            
-            if (listDipendenti) {
-                listDipendenti.innerHTML = '<p class="no-data">✅ Sistema pronto - 1 dipendente disponibile<br><small>Sistema completo sarà caricato quando risolveremo il loop originale</small></p>';
-            }
+        function autoCalculateAllPayments() {
+            safeCallFunction('autoCalculateAllPayments');
         }
         
-        // ==================== FUNZIONI PLACEHOLDER ====================
-        function goBackToDashboard() {
-            window.location.href = '../index.html';
+        function generateMonthlyReport() {
+            safeCallFunction('generateMonthlyReport');
         }
         
-        function handleLogout() {
-            if (confirm('Sei sicuro di voler uscire dal sistema RECORP?')) {
-                localStorage.removeItem('recorp_user_session');
-                sessionStorage.clear();
-                window.location.href = '../login.html';
-            }
+        function showBankMovementInterface() {
+            safeCallFunction('showBankMovementInterface');
+        }
+        
+        function updateExecutiveDashboard() {
+            safeCallFunction('updateExecutiveDashboard');
+        }
+        
+        function applyAdvancedFilters() {
+            safeCallFunction('applyAdvancedFilters');
+        }
+        
+        function resetAdvancedFilters() {
+            safeCallFunction('resetAdvancedFilters');
+        }
+        
+        function saveFilterPreset() {
+            safeCallFunction('saveFilterPreset');
         }
         
         function showPaymentTab(tabName) {
-            // Rimuovi active da tutti i tab
-            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-            
-            // Attiva tab selezionato
-            const targetTab = document.getElementById(`tab${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`);
-            const targetContent = document.getElementById(`tabContent${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`);
-            
-            if (targetTab) targetTab.classList.add('active');
-            if (targetContent) targetContent.classList.add('active');
+            safeCallFunction('showPaymentTab', tabName);
         }
         
-        // Tutte le altre funzioni placeholder
-        function syncPaymentsFromAgibilita() { showToast('Sincronizzazione in sviluppo', 'info'); }
-        function showPaymentSettings() { showToast('Impostazioni in sviluppo', 'info'); }
-        function autoCalculateAllPayments() { showToast('Calcolo automatico in sviluppo', 'info'); }
-        function approveAllPending() { showToast('Approvazione automatica in sviluppo', 'info'); }
-        function generateMonthlyReport() { showToast('Report mensile in sviluppo', 'info'); }
-        function showProcessPayments() { showPaymentTab('occasionali'); }
-        function showPendingApprovals() { showPaymentTab('occasionali'); }
-        function saveFilterPreset() { showToast('Salvataggio preset in sviluppo', 'info'); }
-        function resetAdvancedFilters() { showToast('Reset filtri in sviluppo', 'info'); }
-        function applyAdvancedFilters() { console.log('Filtri applicati'); }
-        function selectAllOccasionali() { showToast('Selezione in sviluppo', 'info'); }
-        function approveSelectedOccasionali() { showToast('Approvazione in sviluppo', 'info'); }
-        function calculateRetentions() { showToast('Calcolo ritenute in sviluppo', 'info'); }
-        function checkAllInvoices() { showToast('Verifica fatture in sviluppo', 'info'); }
-        function markAllInvoicesReceived() { showToast('Conferma fatture in sviluppo', 'info'); }
-        function generateInvoiceReminders() { showToast('Solleciti in sviluppo', 'info'); }
-        function generatePayrollExport() { showToast('Export cedolini in sviluppo', 'info'); }
-        function calculateContributions() { showToast('Calcolo contributi in sviluppo', 'info'); }
-        function generateAdvancedCIV() { showToast('Generazione CIV in sviluppo', 'info'); }
-        function exportAuditLog() { showToast('Export audit in sviluppo', 'info'); }
-        function clearOldLogs() { showToast('Pulizia log in sviluppo', 'info'); }
-        function showPaymentHistory() { showPaymentTab('audit'); }
+        function selectAllOccasionali() {
+            safeCallFunction('selectAllOccasionali');
+        }
         
-        // ==================== INIZIALIZZAZIONE ====================
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('🚀 DOM caricato, avvio inizializzazione sicura...');
+        function approveSelectedOccasionali() {
+            safeCallFunction('approveSelectedOccasionali');
+        }
+        
+        function checkAllInvoices() {
+            safeCallFunction('checkAllInvoices');
+        }
+        
+        function markAllInvoicesReceived() {
+            safeCallFunction('markAllInvoicesReceived');
+        }
+        
+        function generateInvoiceReminders() {
+            safeCallFunction('generateInvoiceReminders');
+        }
+        
+        function showMonthlyEmployeeReport() {
+            safeCallFunction('showMonthlyEmployeeReport');
+        }
+        
+        function generatePayrollExport() {
+            safeCallFunction('generatePayrollExport');
+        }
+        
+        function calculateContributions() {
+            safeCallFunction('calculateContributions');
+        }
+        
+        function generateAdvancedCIV() {
+            safeCallFunction('generateAdvancedCIV');
+        }
+        
+        function approveAllPending() {
+            safeCallFunction('approveAllPending');
+        }
+        
+        function calculateRetentions() {
+            safeCallFunction('calculateRetentions');
+        }
+        
+        function exportAuditLog() {
+            safeCallFunction('exportAuditLog');
+        }
+        
+        function clearOldLogs() {
+            safeCallFunction('clearOldLogs');
+        }
+        
+        function showPaymentSettings() {
+            safeCallFunction('showPaymentSettings');
+        }
+
+        // ==================== GESTIONE RESPONSIVE ====================
+        
+        function handleResponsive() {
+            const isMobile = window.innerWidth <= 768;
             
-            // 🔧 DEBUG CSS
-            const links = document.querySelectorAll('link[rel="stylesheet"]');
-            links.forEach((link, index) => {
-                console.log(`CSS ${index + 1}: ${link.href}`);
-                link.addEventListener('load', () => {
-                    console.log(`✅ CSS caricato: ${link.href}`);
-                });
-                link.addEventListener('error', () => {
-                    console.error(`❌ CSS non caricato: ${link.href}`);
-                });
-            });
+            // Adatta elementi per mobile
+            const headerActions = document.querySelector('.header-actions');
+            const filters = document.querySelector('.filters-grid');
+            const dashboardCards = document.querySelector('.dashboard-cards');
             
-            // Aggiungi delay per assicurare che tutto sia caricato
-            setTimeout(initializeSystem, 100);
-        });
+            if (isMobile) {
+                if (headerActions) {
+                    headerActions.style.flexDirection = 'column';
+                    headerActions.style.gap = '10px';
+                }
+                
+                if (filters) {
+                    filters.style.gridTemplateColumns = '1fr';
+                }
+                
+                if (dashboardCards) {
+                    dashboardCards.style.gridTemplateColumns = '1fr';
+                }
+            } else {
+                if (headerActions) {
+                    headerActions.style.flexDirection = 'row';
+                    headerActions.style.gap = '15px';
+                }
+                
+                if (filters) {
+                    filters.style.gridTemplateColumns = 'repeat(auto-fit, minmax(200px, 1fr))';
+                }
+                
+                if (dashboardCards) {
+                    dashboardCards.style.gridTemplateColumns = 'repeat(auto-fit, minmax(280px, 1fr))';
+                }
+            }
+        }
+
+        // Ascolta resize
+        window.addEventListener('resize', handleResponsive);
         
-        // Error handling globale
-        window.addEventListener('error', function(event) {
-            console.error('❌ JavaScript Error:', event.error);
-            updateSystemStatus('system', 'error', 'Errore JS');
-        });
+        // Applica al caricamento
+        document.addEventListener('DOMContentLoaded', handleResponsive);
+
+        // ==================== ACCESSIBILITÀ ====================
         
-        window.addEventListener('unhandledrejection', function(event) {
-            console.error('❌ Promise Rejection:', event.reason);
-            updateSystemStatus('system', 'error', 'Promise Error');
+        // Migliora accessibilità con tasti di scelta rapida
+        document.addEventListener('keydown', function(e) {
+            // Ctrl+S per salvare/sincronizzare
+            if (e.ctrlKey && e.key === 's') {
+                e.preventDefault();
+                syncPaymentsFromAgibilita();
+            }
+            
+            // Ctrl+R per ricalcolare
+            if (e.ctrlKey && e.key === 'r') {
+                e.preventDefault();
+                autoCalculateAllPayments();
+            }
+            
+            // Ctrl+B per aprire interfaccia bancaria
+            if (e.ctrlKey && e.key === 'b') {
+                e.preventDefault();
+                showBankMovementInterface();
+            }
+            
+            // Ctrl+M per report mensile
+            if (e.ctrlKey && e.key === 'm') {
+                e.preventDefault();
+                showMonthlyEmployeeReport();
+            }
         });
+
+        // ==================== PERFORMANCE MONITORING ====================
         
-        console.log('💰 Pagamenti SAFE inizializzato');
+        let performanceMetrics = {
+            loadStart: performance.now(),
+            functionsLoaded: false,
+            dataLoaded: false
+        };
+
+        function trackPerformance(metric, value) {
+            performanceMetrics[metric] = value;
+            console.log(`📊 Performance ${metric}:`, value);
+        }
+
+        // Monitor caricamento
+        window.addEventListener('load', function() {
+            trackPerformance('pageLoad', performance.now() - performanceMetrics.loadStart);
+        });
+
+        // ==================== DEBUG MODE ====================
+        
+        // Attiva debug in console per sviluppo
+        if (window.location.hostname === 'localhost' || window.location.hostname.includes('test')) {
+            window.RECORP_DEBUG = true;
+            console.log('🔧 DEBUG MODE ATTIVO - Sistema Pagamenti RECORP');
+            
+            // Funzioni debug
+            window.debugRecorp = {
+                getPayments: () => window.pagamentiDB || [],
+                getUser: () => window.currentUser || null,
+                getFilters: () => window.currentFilters || {},
+                getSettings: () => window.paymentSettings || {},
+                
+                // Test functions
+                testToast: (msg, type) => showFallbackToast(msg, type),
+                testCalculation: () => safeCallFunction('autoCalculateAllPayments'),
+                testFilters: () => safeCallFunction('applyAdvancedFilters'),
+                
+                // Performance info
+                performance: () => performanceMetrics
+            };
+            
+            console.log('🔧 Usa window.debugRecorp per debug');
+        }
+
+        console.log('✅ Sistema Pagamenti RECORP - HTML + JS Inline caricato');
     </script>
 </body>
 </html>
