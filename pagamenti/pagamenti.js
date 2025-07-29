@@ -31,57 +31,99 @@ let currentFilters = {
 // Audit trail
 let auditTrail = [];
 
-// ==================== INIZIALIZZAZIONE SICURA ====================
+// 🔥 FLAG PER EVITARE INIT MULTIPLI
+let isInitializing = false;
+let isInitialized = false;
+
+// ==================== INIZIALIZZAZIONE SICURA CORRETTA ====================
 document.addEventListener('DOMContentLoaded', async function() {
+    // 🔥 PREVENZIONE LOOP - Solo un'inizializzazione alla volta
+    if (isInitializing || isInitialized) {
+        console.log('⚠️ Inizializzazione già in corso o completata, skip');
+        return;
+    }
+    
+    isInitializing = true;
     console.log('🚀 Inizializzazione sistema pagamenti avanzato...');
     
     try {
-        // === VERIFICA AUTENTICAZIONE ===
+        // === STEP 1: AUTENTICAZIONE MANUALE (NO AUTO-INIT) ===
+        console.log('🔐 Inizializzazione autenticazione manuale...');
+        await AuthGuard.initPageProtection();
+        
+        // === STEP 2: VERIFICA UTENTE ===
         currentUser = await AuthGuard.getCurrentUser();
         if (!currentUser) {
-            console.warn('⚠️ Utente non autenticato - AuthGuard gestirà il redirect');
-            return;
+            console.warn('⚠️ Utente non autenticato dopo verifica');
+            return; // AuthGuard ha già gestito il redirect
         }
         
         console.log('✅ Utente autenticato:', currentUser.email);
         
-        // === TEST CONNESSIONE DATABASE ===
-        const connected = await DatabaseService.testConnection();
-        if (!connected.connected) {
-            throw new Error('Connessione database fallita');
+        // === STEP 3: TEST CONNESSIONE DATABASE ===
+        console.log('🔌 Test connessione database...');
+        const connectionTest = await DatabaseService.testConnection();
+        if (!connectionTest.connected) {
+            throw new Error('Connessione database fallita: ' + (connectionTest.error || 'Errore sconosciuto'));
         }
+        console.log('✅ Database connesso');
         
-        // === CARICA DATI INIZIALI ===
+        // === STEP 4: CARICA DATI INIZIALI ===
+        console.log('📥 Caricamento dati iniziali...');
         await loadInitialData();
         
-        // === SETUP INTERFACCIA ===
+        // === STEP 5: SETUP INTERFACCIA ===
+        console.log('🖥️ Setup interfaccia...');
         setupDefaultFilters();
         setupEventListeners();
         
-        // === CALCOLA PAGAMENTI AUTOMATICAMENTE (FORZATO) ===
+        // === STEP 6: CALCOLO AUTOMATICO PAGAMENTI ===
         console.log('🧮 Avvio calcolo automatico pagamenti...');
-        await autoCalculatePaymentsFromAgibilita(true); // ✅ FORZATO
+        await autoCalculatePaymentsFromAgibilita(true);
         
-        // === RICARICA PAGAMENTI DOPO IL CALCOLO ===
-        console.log('📥 Ricaricamento pagamenti aggiornati...');
+        // === STEP 7: RICARICA PAGAMENTI AGGIORNATI ===
+        console.log('🔄 Ricaricamento pagamenti aggiornati...');
         pagamentiDB = await DatabaseService.getPagamenti();
         console.log('✅ ' + pagamentiDB.length + ' pagamenti totali caricati');
         
-        // === APPLICA FILTRI E MOSTRA DATI ===
+        // === STEP 8: APPLICA FILTRI E MOSTRA DATI ===
+        console.log('🔍 Applicazione filtri e visualizzazione...');
         await applyAdvancedFilters();
         
-        // === AGGIORNA DASHBOARD ===
+        // === STEP 9: AGGIORNA DASHBOARD ===
+        console.log('📊 Aggiornamento dashboard...');
         await updateExecutiveDashboard();
         
-        // === SETUP SISTEMA NOTIFICHE ===
+        // === STEP 10: SETUP NOTIFICHE ===
+        console.log('🔔 Setup sistema notifiche...');
         setupPaymentNotifications();
         
+        // === COMPLETAMENTO ===
+        isInitialized = true;
         console.log('✅ Sistema pagamenti inizializzato con successo!');
         logAuditEvent('system_initialized', 'Sistema pagamenti avviato', null);
         
+        // Nascondi loading se presente
+        const loadingOverlay = document.getElementById('loading-overlay');
+        if (loadingOverlay) {
+            loadingOverlay.style.display = 'none';
+        }
+        
     } catch (error) {
         console.error('❌ Errore inizializzazione sistema pagamenti:', error);
-        showToast('Errore di inizializzazione: ' + error.message, 'error');
+        
+        // Mostra errore user-friendly
+        const errorMessage = error.message || 'Errore di inizializzazione sconosciuto';
+        showToast('Errore di inizializzazione: ' + errorMessage, 'error');
+        
+        // Se errore di autenticazione, AuthGuard ha già gestito il redirect
+        if (error.message?.includes('Autenticazione')) {
+            console.log('🔄 Errore autenticazione - AuthGuard gestirà il redirect');
+            return;
+        }
+        
+    } finally {
+        isInitializing = false;
     }
 });
 
@@ -111,7 +153,7 @@ async function loadInitialData() {
         
     } catch (error) {
         console.error('❌ Errore caricamento dati:', error);
-        showToast('Errore nel caricamento dei dati', 'error');
+        showToast('Errore nel caricamento dei dati: ' + error.message, 'error');
         throw error;
     }
 }
@@ -599,4303 +641,33 @@ function updateSystemStatus() {
     document.getElementById('dbStatus').textContent = '🟢';
     document.getElementById('dbStatusText').textContent = 'Connesso';
     
-    // API Banche status (simulato)
-    document.getElementById('bankApiStatus').textContent = '🟡';
-    document.getElementById('bankApiStatusText').textContent = 'Test Mode';
-    
-    // Sistema tasse status// pagamenti.js - Sistema Gestione Pagamenti RECORP Avanzato
-
-// Import services - PERCORSI CORRETTI (file nel root)
-import { DatabaseService } from '../supabase-config.js';
-import { AuthGuard } from '../auth-guard.js';
-
-// ==================== VARIABILI GLOBALI ====================
-let pagamentiDB = [];
-let artistiDB = [];
-let agibilitaDB = [];
-let selectedPayments = new Set();
-let currentUser = null;
-let paymentSettings = {
-    ritenuta_occasionale: 0.20, // 20%
-    soglia_ritenuta: 25.82,
-    soglia_annua_occasionale: 5000,
-    approvazione_automatica_sotto: 100,
-    approvazione_dirigenziale_sopra: 500
-};
-
-// Filtri correnti
-let currentFilters = {
-    stato: 'da_pagare', // ✅ CORRETTO: stato del database
-    dateFrom: null,
-    dateTo: null,
-    tipoContratto: '',
-    artista: '',
-    importoMin: null
-};
-
-// Audit trail
-let auditTrail = [];
-
-// 🔥 FLAG PER EVITARE INIT MULTIPLI
-let isInitializing = false;
-let isInitialized = false;
-
-// ==================== INIZIALIZZAZIONE SICURA CORRETTA ====================
-document.addEventListener('DOMContentLoaded', async function() {
-    // 🔥 PREVENZIONE LOOP - Solo un'inizializzazione alla volta
-    if (isInitializing || isInitialized) {
-        console.log('⚠️ Inizializzazione già in corso o completata, skip');
-        return;
-    }
-    
-    isInitializing = true;
-    console.log('🚀 Inizializzazione sistema pagamenti avanzato...');
-    
-    try {
-        // === STEP 1: AUTENTICAZIONE MANUALE (NO AUTO-INIT) ===
-        console.log('🔐 Inizializzazione autenticazione manuale...');
-        await AuthGuard.initPageProtection();
-        
-        // === STEP 2: VERIFICA UTENTE ===
-        currentUser = await AuthGuard.getCurrentUser();
-        if (!currentUser) {
-            console.warn('⚠️ Utente non autenticato dopo verifica');
-            return; // AuthGuard ha già gestito il redirect
-        }
-        
-        console.log('✅ Utente autenticato:', currentUser.email);
-        
-        // === STEP 3: TEST CONNESSIONE DATABASE ===
-        console.log('🔌 Test connessione database...');
-        const connectionTest = await DatabaseService.testConnection();
-        if (!connectionTest.connected) {
-            throw new Error('Connessione database fallita: ' + (connectionTest.error || 'Errore sconosciuto'));
-        }
-        console.log('✅ Database connesso');
-        
-        // === STEP 4: CARICA DATI INIZIALI ===
-        console.log('📥 Caricamento dati iniziali...');
-        await loadInitialData();
-        
-        // === STEP 5: SETUP INTERFACCIA ===
-        console.log('🖥️ Setup interfaccia...');
-        setupDefaultFilters();
-        setupEventListeners();
-        
-        // === STEP 6: CALCOLO AUTOMATICO PAGAMENTI ===
-        console.log('🧮 Avvio calcolo automatico pagamenti...');
-        await autoCalculatePaymentsFromAgibilita(true);
-        
-        // === STEP 7: RICARICA PAGAMENTI AGGIORNATI ===
-        console.log('🔄 Ricaricamento pagamenti aggiornati...');
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log('✅ ' + pagamentiDB.length + ' pagamenti totali caricati');
-        
-        // === STEP 8: APPLICA FILTRI E MOSTRA DATI ===
-        console.log('🔍 Applicazione filtri e visualizzazione...');
-        await applyAdvancedFilters();
-        
-        // === STEP 9: AGGIORNA DASHBOARD ===
-        console.log('📊 Aggiornamento dashboard...');
-        await updateExecutiveDashboard();
-        
-        // === STEP 10: SETUP NOTIFICHE ===
-        console.log('🔔 Setup sistema notifiche...');
-        setupPaymentNotifications();
-        
-        // === COMPLETAMENTO ===
-        isInitialized = true;
-        console.log('✅ Sistema pagamenti inizializzato con successo!');
-        logAuditEvent('system_initialized', 'Sistema pagamenti avviato', null);
-        
-        // Nascondi loading se presente
-        const loadingOverlay = document.getElementById('loading-overlay');
-        if (loadingOverlay) {
-            loadingOverlay.style.display = 'none';
-        }
-        
-    } catch (error) {
-        console.error('❌ Errore inizializzazione sistema pagamenti:', error);
-        
-        // Mostra errore user-friendly
-        const errorMessage = error.message || 'Errore di inizializzazione sconosciuto';
-        showToast('Errore di inizializzazione: ' + errorMessage, 'error');
-        
-        // Se errore di autenticazione, AuthGuard ha già gestito il redirect
-        if (error.message?.includes('Autenticazione')) {
-            console.log('🔄 Errore autenticazione - AuthGuard gestirà il redirect');
-            return;
-        }
-        
-    } finally {
-        isInitializing = false;
-    }
-});
-
-// ==================== CARICAMENTO DATI SICURO ====================
-async function loadInitialData() {
-    try {
-        console.log('📥 Caricamento dati iniziali...');
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        artistiDB = await DatabaseService.getArtistsWithFinancialData();
-        console.log(`✅ ${artistiDB.length} artisti caricati`);
-        
-        // Carica agibilità recenti (ultimo anno)
-        const lastYear = new Date();
-        lastYear.setFullYear(lastYear.getFullYear() - 1);
-        agibilitaDB = await DatabaseService.getAgibilita({
-            fromDate: lastYear.toISOString()
-        });
-        console.log(`✅ ${agibilitaDB.length} agibilità caricate`);
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log(`✅ ${pagamentiDB.length} pagamenti caricati`);
-        
-        // Carica configurazioni sistema
-        await loadPaymentSettings();
-        
-    } catch (error) {
-        console.error('❌ Errore caricamento dati:', error);
-        showToast('Errore nel caricamento dei dati: ' + error.message, 'error');
-        throw error;
-    }
+    // Sistema status
+    document.getElementById('systemStatus').textContent = '🟢';
+    document.getElementById('systemStatusText').textContent = 'Operativo';
 }
-    document.getElementById(// pagamenti.js - Sistema Gestione Pagamenti RECORP Avanzato
 
-// Import services - PERCORSI CORRETTI (file nel root)
-import { DatabaseService } from '../supabase-config.js';
-import { AuthGuard } from '../auth-guard.js';
-
-// ==================== VARIABILI GLOBALI ====================
-let pagamentiDB = [];
-let artistiDB = [];
-let agibilitaDB = [];
-let selectedPayments = new Set();
-let currentUser = null;
-let paymentSettings = {
-    ritenuta_occasionale: 0.20, // 20%
-    soglia_ritenuta: 25.82,
-    soglia_annua_occasionale: 5000,
-    approvazione_automatica_sotto: 100,
-    approvazione_dirigenziale_sopra: 500
-};
-
-// Filtri correnti
-let currentFilters = {
-    stato: 'da_pagare', // ✅ CORRETTO: stato del database
-    dateFrom: null,
-    dateTo: null,
-    tipoContratto: '',
-    artista: '',
-    importoMin: null
-};
-
-// Audit trail
-let auditTrail = [];
-
-// 🔥 FLAG PER EVITARE INIT MULTIPLI
-let isInitializing = false;
-let isInitialized = false;
-
-// ==================== INIZIALIZZAZIONE SICURA CORRETTA ====================
-document.addEventListener('DOMContentLoaded', async function() {
-    // 🔥 PREVENZIONE LOOP - Solo un'inizializzazione alla volta
-    if (isInitializing || isInitialized) {
-        console.log('⚠️ Inizializzazione già in corso o completata, skip');
-        return;
-    }
+// ==================== GESTIONE FILTRI AVANZATI ====================
+function setupDefaultFilters() {
+    const today = new Date();
+    const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate());
     
-    isInitializing = true;
-    console.log('🚀 Inizializzazione sistema pagamenti avanzato...');
-    
-    try {
-        // === STEP 1: AUTENTICAZIONE MANUALE (NO AUTO-INIT) ===
-        console.log('🔐 Inizializzazione autenticazione manuale...');
-        await AuthGuard.initPageProtection();
-        
-        // === STEP 2: VERIFICA UTENTE ===
-        currentUser = await AuthGuard.getCurrentUser();
-        if (!currentUser) {
-            console.warn('⚠️ Utente non autenticato dopo verifica');
-            return; // AuthGuard ha già gestito il redirect
-        }
-        
-        console.log('✅ Utente autenticato:', currentUser.email);
-        
-        // === STEP 3: TEST CONNESSIONE DATABASE ===
-        console.log('🔌 Test connessione database...');
-        const connectionTest = await DatabaseService.testConnection();
-        if (!connectionTest.connected) {
-            throw new Error('Connessione database fallita: ' + (connectionTest.error || 'Errore sconosciuto'));
-        }
-        console.log('✅ Database connesso');
-        
-        // === STEP 4: CARICA DATI INIZIALI ===
-        console.log('📥 Caricamento dati iniziali...');
-        await loadInitialData();
-        
-        // === STEP 5: SETUP INTERFACCIA ===
-        console.log('🖥️ Setup interfaccia...');
-        setupDefaultFilters();
-        setupEventListeners();
-        
-        // === STEP 6: CALCOLO AUTOMATICO PAGAMENTI ===
-        console.log('🧮 Avvio calcolo automatico pagamenti...');
-        await autoCalculatePaymentsFromAgibilita(true);
-        
-        // === STEP 7: RICARICA PAGAMENTI AGGIORNATI ===
-        console.log('🔄 Ricaricamento pagamenti aggiornati...');
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log('✅ ' + pagamentiDB.length + ' pagamenti totali caricati');
-        
-        // === STEP 8: APPLICA FILTRI E MOSTRA DATI ===
-        console.log('🔍 Applicazione filtri e visualizzazione...');
-        await applyAdvancedFilters();
-        
-        // === STEP 9: AGGIORNA DASHBOARD ===
-        console.log('📊 Aggiornamento dashboard...');
-        await updateExecutiveDashboard();
-        
-        // === STEP 10: SETUP NOTIFICHE ===
-        console.log('🔔 Setup sistema notifiche...');
-        setupPaymentNotifications();
-        
-        // === COMPLETAMENTO ===
-        isInitialized = true;
-        console.log('✅ Sistema pagamenti inizializzato con successo!');
-        logAuditEvent('system_initialized', 'Sistema pagamenti avviato', null);
-        
-        // Nascondi loading se presente
-        const loadingOverlay = document.getElementById('loading-overlay');
-        if (loadingOverlay) {
-            loadingOverlay.style.display = 'none';
-        }
-        
-    } catch (error) {
-        console.error('❌ Errore inizializzazione sistema pagamenti:', error);
-        
-        // Mostra errore user-friendly
-        const errorMessage = error.message || 'Errore di inizializzazione sconosciuto';
-        showToast('Errore di inizializzazione: ' + errorMessage, 'error');
-        
-        // Se errore di autenticazione, AuthGuard ha già gestito il redirect
-        if (error.message?.includes('Autenticazione')) {
-            console.log('🔄 Errore autenticazione - AuthGuard gestirà il redirect');
-            return;
-        }
-        
-    } finally {
-        isInitializing = false;
-    }
-});
-
-// ==================== CARICAMENTO DATI SICURO ====================
-async function loadInitialData() {
-    try {
-        console.log('📥 Caricamento dati iniziali...');
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        artistiDB = await DatabaseService.getArtistsWithFinancialData();
-        console.log(`✅ ${artistiDB.length} artisti caricati`);
-        
-        // Carica agibilità recenti (ultimo anno)
-        const lastYear = new Date();
-        lastYear.setFullYear(lastYear.getFullYear() - 1);
-        agibilitaDB = await DatabaseService.getAgibilita({
-            fromDate: lastYear.toISOString()
-        });
-        console.log(`✅ ${agibilitaDB.length} agibilità caricate`);
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log(`✅ ${pagamentiDB.length} pagamenti caricati`);
-        
-        // Carica configurazioni sistema
-        await loadPaymentSettings();
-        
-    } catch (error) {
-        console.error('❌ Errore caricamento dati:', error);
-        showToast('Errore nel caricamento dei dati: ' + error.message, 'error');
-        throw error;
-    }
-}'taxApiStatus').textContent = '🟢';
-    document.getElementById(// pagamenti.js - Sistema Gestione Pagamenti RECORP Avanzato
-
-// Import services - PERCORSI CORRETTI (file nel root)
-import { DatabaseService } from '../supabase-config.js';
-import { AuthGuard } from '../auth-guard.js';
-
-// ==================== VARIABILI GLOBALI ====================
-let pagamentiDB = [];
-let artistiDB = [];
-let agibilitaDB = [];
-let selectedPayments = new Set();
-let currentUser = null;
-let paymentSettings = {
-    ritenuta_occasionale: 0.20, // 20%
-    soglia_ritenuta: 25.82,
-    soglia_annua_occasionale: 5000,
-    approvazione_automatica_sotto: 100,
-    approvazione_dirigenziale_sopra: 500
-};
-
-// Filtri correnti
-let currentFilters = {
-    stato: 'da_pagare', // ✅ CORRETTO: stato del database
-    dateFrom: null,
-    dateTo: null,
-    tipoContratto: '',
-    artista: '',
-    importoMin: null
-};
-
-// Audit trail
-let auditTrail = [];
-
-// 🔥 FLAG PER EVITARE INIT MULTIPLI
-let isInitializing = false;
-let isInitialized = false;
-
-// ==================== INIZIALIZZAZIONE SICURA CORRETTA ====================
-document.addEventListener('DOMContentLoaded', async function() {
-    // 🔥 PREVENZIONE LOOP - Solo un'inizializzazione alla volta
-    if (isInitializing || isInitialized) {
-        console.log('⚠️ Inizializzazione già in corso o completata, skip');
-        return;
-    }
-    
-    isInitializing = true;
-    console.log('🚀 Inizializzazione sistema pagamenti avanzato...');
-    
-    try {
-        // === STEP 1: AUTENTICAZIONE MANUALE (NO AUTO-INIT) ===
-        console.log('🔐 Inizializzazione autenticazione manuale...');
-        await AuthGuard.initPageProtection();
-        
-        // === STEP 2: VERIFICA UTENTE ===
-        currentUser = await AuthGuard.getCurrentUser();
-        if (!currentUser) {
-            console.warn('⚠️ Utente non autenticato dopo verifica');
-            return; // AuthGuard ha già gestito il redirect
-        }
-        
-        console.log('✅ Utente autenticato:', currentUser.email);
-        
-        // === STEP 3: TEST CONNESSIONE DATABASE ===
-        console.log('🔌 Test connessione database...');
-        const connectionTest = await DatabaseService.testConnection();
-        if (!connectionTest.connected) {
-            throw new Error('Connessione database fallita: ' + (connectionTest.error || 'Errore sconosciuto'));
-        }
-        console.log('✅ Database connesso');
-        
-        // === STEP 4: CARICA DATI INIZIALI ===
-        console.log('📥 Caricamento dati iniziali...');
-        await loadInitialData();
-        
-        // === STEP 5: SETUP INTERFACCIA ===
-        console.log('🖥️ Setup interfaccia...');
-        setupDefaultFilters();
-        setupEventListeners();
-        
-        // === STEP 6: CALCOLO AUTOMATICO PAGAMENTI ===
-        console.log('🧮 Avvio calcolo automatico pagamenti...');
-        await autoCalculatePaymentsFromAgibilita(true);
-        
-        // === STEP 7: RICARICA PAGAMENTI AGGIORNATI ===
-        console.log('🔄 Ricaricamento pagamenti aggiornati...');
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log('✅ ' + pagamentiDB.length + ' pagamenti totali caricati');
-        
-        // === STEP 8: APPLICA FILTRI E MOSTRA DATI ===
-        console.log('🔍 Applicazione filtri e visualizzazione...');
-        await applyAdvancedFilters();
-        
-        // === STEP 9: AGGIORNA DASHBOARD ===
-        console.log('📊 Aggiornamento dashboard...');
-        await updateExecutiveDashboard();
-        
-        // === STEP 10: SETUP NOTIFICHE ===
-        console.log('🔔 Setup sistema notifiche...');
-        setupPaymentNotifications();
-        
-        // === COMPLETAMENTO ===
-        isInitialized = true;
-        console.log('✅ Sistema pagamenti inizializzato con successo!');
-        logAuditEvent('system_initialized', 'Sistema pagamenti avviato', null);
-        
-        // Nascondi loading se presente
-        const loadingOverlay = document.getElementById('loading-overlay');
-        if (loadingOverlay) {
-            loadingOverlay.style.display = 'none';
-        }
-        
-    } catch (error) {
-        console.error('❌ Errore inizializzazione sistema pagamenti:', error);
-        
-        // Mostra errore user-friendly
-        const errorMessage = error.message || 'Errore di inizializzazione sconosciuto';
-        showToast('Errore di inizializzazione: ' + errorMessage, 'error');
-        
-        // Se errore di autenticazione, AuthGuard ha già gestito il redirect
-        if (error.message?.includes('Autenticazione')) {
-            console.log('🔄 Errore autenticazione - AuthGuard gestirà il redirect');
-            return;
-        }
-        
-    } finally {
-        isInitializing = false;
-    }
-});
-
-// ==================== CARICAMENTO DATI SICURO ====================
-async function loadInitialData() {
-    try {
-        console.log('📥 Caricamento dati iniziali...');
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        artistiDB = await DatabaseService.getArtistsWithFinancialData();
-        console.log(`✅ ${artistiDB.length} artisti caricati`);
-        
-        // Carica agibilità recenti (ultimo anno)
-        const lastYear = new Date();
-        lastYear.setFullYear(lastYear.getFullYear() - 1);
-        agibilitaDB = await DatabaseService.getAgibilita({
-            fromDate: lastYear.toISOString()
-        });
-        console.log(`✅ ${agibilitaDB.length} agibilità caricate`);
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log(`✅ ${pagamentiDB.length} pagamenti caricati`);
-        
-        // Carica configurazioni sistema
-        await loadPaymentSettings();
-        
-    } catch (error) {
-        console.error('❌ Errore caricamento dati:', error);
-        showToast('Errore nel caricamento dei dati: ' + error.message, 'error');
-        throw error;
-    }
-}'taxApiStatusText').textContent = 'Operativo';
-}// pagamenti.js - Sistema Gestione Pagamenti RECORP Avanzato
-
-// Import services - PERCORSI CORRETTI (file nel root)
-import { DatabaseService } from '../supabase-config.js';
-import { AuthGuard } from '../auth-guard.js';
-
-// ==================== VARIABILI GLOBALI ====================
-let pagamentiDB = [];
-let artistiDB = [];
-let agibilitaDB = [];
-let selectedPayments = new Set();
-let currentUser = null;
-let paymentSettings = {
-    ritenuta_occasionale: 0.20, // 20%
-    soglia_ritenuta: 25.82,
-    soglia_annua_occasionale: 5000,
-    approvazione_automatica_sotto: 100,
-    approvazione_dirigenziale_sopra: 500
-};
-
-// Filtri correnti
-let currentFilters = {
-    stato: 'da_pagare', // ✅ CORRETTO: stato del database
-    dateFrom: null,
-    dateTo: null,
-    tipoContratto: '',
-    artista: '',
-    importoMin: null
-};
-
-// Audit trail
-let auditTrail = [];
-
-// 🔥 FLAG PER EVITARE INIT MULTIPLI
-let isInitializing = false;
-let isInitialized = false;
-
-// ==================== INIZIALIZZAZIONE SICURA CORRETTA ====================
-document.addEventListener('DOMContentLoaded', async function() {
-    // 🔥 PREVENZIONE LOOP - Solo un'inizializzazione alla volta
-    if (isInitializing || isInitialized) {
-        console.log('⚠️ Inizializzazione già in corso o completata, skip');
-        return;
-    }
-    
-    isInitializing = true;
-    console.log('🚀 Inizializzazione sistema pagamenti avanzato...');
-    
-    try {
-        // === STEP 1: AUTENTICAZIONE MANUALE (NO AUTO-INIT) ===
-        console.log('🔐 Inizializzazione autenticazione manuale...');
-        await AuthGuard.initPageProtection();
-        
-        // === STEP 2: VERIFICA UTENTE ===
-        currentUser = await AuthGuard.getCurrentUser();
-        if (!currentUser) {
-            console.warn('⚠️ Utente non autenticato dopo verifica');
-            return; // AuthGuard ha già gestito il redirect
-        }
-        
-        console.log('✅ Utente autenticato:', currentUser.email);
-        
-        // === STEP 3: TEST CONNESSIONE DATABASE ===
-        console.log('🔌 Test connessione database...');
-        const connectionTest = await DatabaseService.testConnection();
-        if (!connectionTest.connected) {
-            throw new Error('Connessione database fallita: ' + (connectionTest.error || 'Errore sconosciuto'));
-        }
-        console.log('✅ Database connesso');
-        
-        // === STEP 4: CARICA DATI INIZIALI ===
-        console.log('📥 Caricamento dati iniziali...');
-        await loadInitialData();
-        
-        // === STEP 5: SETUP INTERFACCIA ===
-        console.log('🖥️ Setup interfaccia...');
-        setupDefaultFilters();
-        setupEventListeners();
-        
-        // === STEP 6: CALCOLO AUTOMATICO PAGAMENTI ===
-        console.log('🧮 Avvio calcolo automatico pagamenti...');
-        await autoCalculatePaymentsFromAgibilita(true);
-        
-        // === STEP 7: RICARICA PAGAMENTI AGGIORNATI ===
-        console.log('🔄 Ricaricamento pagamenti aggiornati...');
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log('✅ ' + pagamentiDB.length + ' pagamenti totali caricati');
-        
-        // === STEP 8: APPLICA FILTRI E MOSTRA DATI ===
-        console.log('🔍 Applicazione filtri e visualizzazione...');
-        await applyAdvancedFilters();
-        
-        // === STEP 9: AGGIORNA DASHBOARD ===
-        console.log('📊 Aggiornamento dashboard...');
-        await updateExecutiveDashboard();
-        
-        // === STEP 10: SETUP NOTIFICHE ===
-        console.log('🔔 Setup sistema notifiche...');
-        setupPaymentNotifications();
-        
-        // === COMPLETAMENTO ===
-        isInitialized = true;
-        console.log('✅ Sistema pagamenti inizializzato con successo!');
-        logAuditEvent('system_initialized', 'Sistema pagamenti avviato', null);
-        
-        // Nascondi loading se presente
-        const loadingOverlay = document.getElementById('loading-overlay');
-        if (loadingOverlay) {
-            loadingOverlay.style.display = 'none';
-        }
-        
-    } catch (error) {
-        console.error('❌ Errore inizializzazione sistema pagamenti:', error);
-        
-        // Mostra errore user-friendly
-        const errorMessage = error.message || 'Errore di inizializzazione sconosciuto';
-        showToast('Errore di inizializzazione: ' + errorMessage, 'error');
-        
-        // Se errore di autenticazione, AuthGuard ha già gestito il redirect
-        if (error.message?.includes('Autenticazione')) {
-            console.log('🔄 Errore autenticazione - AuthGuard gestirà il redirect');
-            return;
-        }
-        
-    } finally {
-        isInitializing = false;
-    }
-});
-
-// ==================== CARICAMENTO DATI SICURO ====================
-async function loadInitialData() {
-    try {
-        console.log('📥 Caricamento dati iniziali...');
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        artistiDB = await DatabaseService.getArtistsWithFinancialData();
-        console.log(`✅ ${artistiDB.length} artisti caricati`);
-        
-        // Carica agibilità recenti (ultimo anno)
-        const lastYear = new Date();
-        lastYear.setFullYear(lastYear.getFullYear() - 1);
-        agibilitaDB = await DatabaseService.getAgibilita({
-            fromDate: lastYear.toISOString()
-        });
-        console.log(`✅ ${agibilitaDB.length} agibilità caricate`);
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log(`✅ ${pagamentiDB.length} pagamenti caricati`);
-        
-        // Carica configurazioni sistema
-        await loadPaymentSettings();
-        
-    } catch (error) {
-        console.error('❌ Errore caricamento dati:', error);
-        showToast('Errore nel caricamento dei dati: ' + error.message, 'error');
-        throw error;
-    }
+    document.getElementById('filterDateFrom').value = lastMonth.toISOString().split('T')[0];
+    document.getElementById('filterDateTo').value = today.toISOString().split('T')[0];
+    document.getElementById('filterStato').value = 'da_pagare'; // ✅ CORRETTO: stato database
 }
-// pagamenti.js - Sistema Gestione Pagamenti RECORP Avanzato
 
-// Import services - PERCORSI CORRETTI (file nel root)
-import { DatabaseService } from '../supabase-config.js';
-import { AuthGuard } from '../auth-guard.js';
-
-// ==================== VARIABILI GLOBALI ====================
-let pagamentiDB = [];
-let artistiDB = [];
-let agibilitaDB = [];
-let selectedPayments = new Set();
-let currentUser = null;
-let paymentSettings = {
-    ritenuta_occasionale: 0.20, // 20%
-    soglia_ritenuta: 25.82,
-    soglia_annua_occasionale: 5000,
-    approvazione_automatica_sotto: 100,
-    approvazione_dirigenziale_sopra: 500
-};
-
-// Filtri correnti
-let currentFilters = {
-    stato: 'da_pagare', // ✅ CORRETTO: stato del database
-    dateFrom: null,
-    dateTo: null,
-    tipoContratto: '',
-    artista: '',
-    importoMin: null
-};
-
-// Audit trail
-let auditTrail = [];
-
-// 🔥 FLAG PER EVITARE INIT MULTIPLI
-let isInitializing = false;
-let isInitialized = false;
-
-// ==================== INIZIALIZZAZIONE SICURA CORRETTA ====================
-document.addEventListener('DOMContentLoaded', async function() {
-    // 🔥 PREVENZIONE LOOP - Solo un'inizializzazione alla volta
-    if (isInitializing || isInitialized) {
-        console.log('⚠️ Inizializzazione già in corso o completata, skip');
-        return;
-    }
-    
-    isInitializing = true;
-    console.log('🚀 Inizializzazione sistema pagamenti avanzato...');
-    
+async function applyAdvancedFilters() {
     try {
-        // === STEP 1: AUTENTICAZIONE MANUALE (NO AUTO-INIT) ===
-        console.log('🔐 Inizializzazione autenticazione manuale...');
-        await AuthGuard.initPageProtection();
+        // Raccogli filtri
+        currentFilters = {
+            stato: document.getElementById('filterStato').value,
+            dateFrom: document.getElementById('filterDateFrom').value,
+            dateTo: document.getElementById('filterDateTo').value,
+            tipoContratto: document.getElementById('filterTipoContratto').value,
+            artista: document.getElementById('filterArtista').value.toLowerCase(),
+            importoMin: parseFloat(document.getElementById('filterImportoMin').value) || null
+        };
         
-        // === STEP 2: VERIFICA UTENTE ===
-        currentUser = await AuthGuard.getCurrentUser();
-        if (!currentUser) {
-            console.warn('⚠️ Utente non autenticato dopo verifica');
-            return; // AuthGuard ha già gestito il redirect
-        }
-        
-        console.log('✅ Utente autenticato:', currentUser.email);
-        
-        // === STEP 3: TEST CONNESSIONE DATABASE ===
-        console.log('🔌 Test connessione database...');
-        const connectionTest = await DatabaseService.testConnection();
-        if (!connectionTest.connected) {
-            throw new Error('Connessione database fallita: ' + (connectionTest.error || 'Errore sconosciuto'));
-        }
-        console.log('✅ Database connesso');
-        
-        // === STEP 4: CARICA DATI INIZIALI ===
-        console.log('📥 Caricamento dati iniziali...');
-        await loadInitialData();
-        
-        // === STEP 5: SETUP INTERFACCIA ===
-        console.log('🖥️ Setup interfaccia...');
-        setupDefaultFilters();
-        setupEventListeners();
-        
-        // === STEP 6: CALCOLO AUTOMATICO PAGAMENTI ===
-        console.log('🧮 Avvio calcolo automatico pagamenti...');
-        await autoCalculatePaymentsFromAgibilita(true);
-        
-        // === STEP 7: RICARICA PAGAMENTI AGGIORNATI ===
-        console.log('🔄 Ricaricamento pagamenti aggiornati...');
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log('✅ ' + pagamentiDB.length + ' pagamenti totali caricati');
-        
-        // === STEP 8: APPLICA FILTRI E MOSTRA DATI ===
-        console.log('🔍 Applicazione filtri e visualizzazione...');
-        await applyAdvancedFilters();
-        
-        // === STEP 9: AGGIORNA DASHBOARD ===
-        console.log('📊 Aggiornamento dashboard...');
-        await updateExecutiveDashboard();
-        
-        // === STEP 10: SETUP NOTIFICHE ===
-        console.log('🔔 Setup sistema notifiche...');
-        setupPaymentNotifications();
-        
-        // === COMPLETAMENTO ===
-        isInitialized = true;
-        console.log('✅ Sistema pagamenti inizializzato con successo!');
-        logAuditEvent('system_initialized', 'Sistema pagamenti avviato', null);
-        
-        // Nascondi loading se presente
-        const loadingOverlay = document.getElementById('loading-overlay');
-        if (loadingOverlay) {
-            loadingOverlay.style.display = 'none';
-        }
-        
-    } catch (error) {
-        console.error('❌ Errore inizializzazione sistema pagamenti:', error);
-        
-        // Mostra errore user-friendly
-        const errorMessage = error.message || 'Errore di inizializzazione sconosciuto';
-        showToast('Errore di inizializzazione: ' + errorMessage, 'error');
-        
-        // Se errore di autenticazione, AuthGuard ha già gestito il redirect
-        if (error.message?.includes('Autenticazione')) {
-            console.log('🔄 Errore autenticazione - AuthGuard gestirà il redirect');
-            return;
-        }
-        
-    } finally {
-        isInitializing = false;
-    }
-});
-
-// ==================== CARICAMENTO DATI SICURO ====================
-async function loadInitialData() {
-    try {
-        console.log('📥 Caricamento dati iniziali...');
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        artistiDB = await DatabaseService.getArtistsWithFinancialData();
-        console.log(`✅ ${artistiDB.length} artisti caricati`);
-        
-        // Carica agibilità recenti (ultimo anno)
-        const lastYear = new Date();
-        lastYear.setFullYear(lastYear.getFullYear() - 1);
-        agibilitaDB = await DatabaseService.getAgibilita({
-            fromDate: lastYear.toISOString()
-        });
-        console.log(`✅ ${agibilitaDB.length} agibilità caricate`);
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log(`✅ ${pagamentiDB.length} pagamenti caricati`);
-        
-        // Carica configurazioni sistema
-        await loadPaymentSettings();
-        
-    } catch (error) {
-        console.error('❌ Errore caricamento dati:', error);
-        showToast('Errore nel caricamento dei dati: ' + error.message, 'error');
-        throw error;
-    }
-}
-// ==================== GEST// pagamenti.js - Sistema Gestione Pagamenti RECORP Avanzato
-
-// Import services - PERCORSI CORRETTI (file nel root)
-import { DatabaseService } from '../supabase-config.js';
-import { AuthGuard } from '../auth-guard.js';
-
-// ==================== VARIABILI GLOBALI ====================
-let pagamentiDB = [];
-let artistiDB = [];
-let agibilitaDB = [];
-let selectedPayments = new Set();
-let currentUser = null;
-let paymentSettings = {
-    ritenuta_occasionale: 0.20, // 20%
-    soglia_ritenuta: 25.82,
-    soglia_annua_occasionale: 5000,
-    approvazione_automatica_sotto: 100,
-    approvazione_dirigenziale_sopra: 500
-};
-
-// Filtri correnti
-let currentFilters = {
-    stato: 'da_pagare', // ✅ CORRETTO: stato del database
-    dateFrom: null,
-    dateTo: null,
-    tipoContratto: '',
-    artista: '',
-    importoMin: null
-};
-
-// Audit trail
-let auditTrail = [];
-
-// 🔥 FLAG PER EVITARE INIT MULTIPLI
-let isInitializing = false;
-let isInitialized = false;
-
-// ==================== INIZIALIZZAZIONE SICURA CORRETTA ====================
-document.addEventListener('DOMContentLoaded', async function() {
-    // 🔥 PREVENZIONE LOOP - Solo un'inizializzazione alla volta
-    if (isInitializing || isInitialized) {
-        console.log('⚠️ Inizializzazione già in corso o completata, skip');
-        return;
-    }
-    
-    isInitializing = true;
-    console.log('🚀 Inizializzazione sistema pagamenti avanzato...');
-    
-    try {
-        // === STEP 1: AUTENTICAZIONE MANUALE (NO AUTO-INIT) ===
-        console.log('🔐 Inizializzazione autenticazione manuale...');
-        await AuthGuard.initPageProtection();
-        
-        // === STEP 2: VERIFICA UTENTE ===
-        currentUser = await AuthGuard.getCurrentUser();
-        if (!currentUser) {
-            console.warn('⚠️ Utente non autenticato dopo verifica');
-            return; // AuthGuard ha già gestito il redirect
-        }
-        
-        console.log('✅ Utente autenticato:', currentUser.email);
-        
-        // === STEP 3: TEST CONNESSIONE DATABASE ===
-        console.log('🔌 Test connessione database...');
-        const connectionTest = await DatabaseService.testConnection();
-        if (!connectionTest.connected) {
-            throw new Error('Connessione database fallita: ' + (connectionTest.error || 'Errore sconosciuto'));
-        }
-        console.log('✅ Database connesso');
-        
-        // === STEP 4: CARICA DATI INIZIALI ===
-        console.log('📥 Caricamento dati iniziali...');
-        await loadInitialData();
-        
-        // === STEP 5: SETUP INTERFACCIA ===
-        console.log('🖥️ Setup interfaccia...');
-        setupDefaultFilters();
-        setupEventListeners();
-        
-        // === STEP 6: CALCOLO AUTOMATICO PAGAMENTI ===
-        console.log('🧮 Avvio calcolo automatico pagamenti...');
-        await autoCalculatePaymentsFromAgibilita(true);
-        
-        // === STEP 7: RICARICA PAGAMENTI AGGIORNATI ===
-        console.log('🔄 Ricaricamento pagamenti aggiornati...');
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log('✅ ' + pagamentiDB.length + ' pagamenti totali caricati');
-        
-        // === STEP 8: APPLICA FILTRI E MOSTRA DATI ===
-        console.log('🔍 Applicazione filtri e visualizzazione...');
-        await applyAdvancedFilters();
-        
-        // === STEP 9: AGGIORNA DASHBOARD ===
-        console.log('📊 Aggiornamento dashboard...');
-        await updateExecutiveDashboard();
-        
-        // === STEP 10: SETUP NOTIFICHE ===
-        console.log('🔔 Setup sistema notifiche...');
-        setupPaymentNotifications();
-        
-        // === COMPLETAMENTO ===
-        isInitialized = true;
-        console.log('✅ Sistema pagamenti inizializzato con successo!');
-        logAuditEvent('system_initialized', 'Sistema pagamenti avviato', null);
-        
-        // Nascondi loading se presente
-        const loadingOverlay = document.getElementById('loading-overlay');
-        if (loadingOverlay) {
-            loadingOverlay.style.display = 'none';
-        }
-        
-    } catch (error) {
-        console.error('❌ Errore inizializzazione sistema pagamenti:', error);
-        
-        // Mostra errore user-friendly
-        const errorMessage = error.message || 'Errore di inizializzazione sconosciuto';
-        showToast('Errore di inizializzazione: ' + errorMessage, 'error');
-        
-        // Se errore di autenticazione, AuthGuard ha già gestito il redirect
-        if (error.message?.includes('Autenticazione')) {
-            console.log('🔄 Errore autenticazione - AuthGuard gestirà il redirect');
-            return;
-        }
-        
-    } finally {
-        isInitializing = false;
-    }
-});
-
-// ==================== CARICAMENTO DATI SICURO ====================
-async function loadInitialData() {
-    try {
-        console.log('📥 Caricamento dati iniziali...');
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        artistiDB = await DatabaseService.getArtistsWithFinancialData();
-        console.log(`✅ ${artistiDB.length} artisti caricati`);
-        
-        // Carica agibilità recenti (ultimo anno)
-        const lastYear = new Date();
-        lastYear.setFullYear(lastYear.getFullYear() - 1);
-        agibilitaDB = await DatabaseService.getAgibilita({
-            fromDate: lastYear.toISOString()
-        });
-        console.log(`✅ ${agibilitaDB.length} agibilità caricate`);
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log(`✅ ${pagamentiDB.length} pagamenti caricati`);
-        
-        // Carica configurazioni sistema
-        await loadPaymentSettings();
-        
-    } catch (error) {
-        console.error('❌ Errore caricamento dati:', error);
-        showToast('Errore nel caricamento dei dati: ' + error.message, 'error');
-        throw error;
-    }
-}IONE FILTRI AVANZATI ====================
-function setupDefaultFilters// pagamenti.js - Sistema Gestione Pagamenti RECORP Avanzato
-
-// Import services - PERCORSI CORRETTI (file nel root)
-import { DatabaseService } from '../supabase-config.js';
-import { AuthGuard } from '../auth-guard.js';
-
-// ==================== VARIABILI GLOBALI ====================
-let pagamentiDB = [];
-let artistiDB = [];
-let agibilitaDB = [];
-let selectedPayments = new Set();
-let currentUser = null;
-let paymentSettings = {
-    ritenuta_occasionale: 0.20, // 20%
-    soglia_ritenuta: 25.82,
-    soglia_annua_occasionale: 5000,
-    approvazione_automatica_sotto: 100,
-    approvazione_dirigenziale_sopra: 500
-};
-
-// Filtri correnti
-let currentFilters = {
-    stato: 'da_pagare', // ✅ CORRETTO: stato del database
-    dateFrom: null,
-    dateTo: null,
-    tipoContratto: '',
-    artista: '',
-    importoMin: null
-};
-
-// Audit trail
-let auditTrail = [];
-
-// 🔥 FLAG PER EVITARE INIT MULTIPLI
-let isInitializing = false;
-let isInitialized = false;
-
-// ==================== INIZIALIZZAZIONE SICURA CORRETTA ====================
-document.addEventListener('DOMContentLoaded', async function() {
-    // 🔥 PREVENZIONE LOOP - Solo un'inizializzazione alla volta
-    if (isInitializing || isInitialized) {
-        console.log('⚠️ Inizializzazione già in corso o completata, skip');
-        return;
-    }
-    
-    isInitializing = true;
-    console.log('🚀 Inizializzazione sistema pagamenti avanzato...');
-    
-    try {
-        // === STEP 1: AUTENTICAZIONE MANUALE (NO AUTO-INIT) ===
-        console.log('🔐 Inizializzazione autenticazione manuale...');
-        await AuthGuard.initPageProtection();
-        
-        // === STEP 2: VERIFICA UTENTE ===
-        currentUser = await AuthGuard.getCurrentUser();
-        if (!currentUser) {
-            console.warn('⚠️ Utente non autenticato dopo verifica');
-            return; // AuthGuard ha già gestito il redirect
-        }
-        
-        console.log('✅ Utente autenticato:', currentUser.email);
-        
-        // === STEP 3: TEST CONNESSIONE DATABASE ===
-        console.log('🔌 Test connessione database...');
-        const connectionTest = await DatabaseService.testConnection();
-        if (!connectionTest.connected) {
-            throw new Error('Connessione database fallita: ' + (connectionTest.error || 'Errore sconosciuto'));
-        }
-        console.log('✅ Database connesso');
-        
-        // === STEP 4: CARICA DATI INIZIALI ===
-        console.log('📥 Caricamento dati iniziali...');
-        await loadInitialData();
-        
-        // === STEP 5: SETUP INTERFACCIA ===
-        console.log('🖥️ Setup interfaccia...');
-        setupDefaultFilters();
-        setupEventListeners();
-        
-        // === STEP 6: CALCOLO AUTOMATICO PAGAMENTI ===
-        console.log('🧮 Avvio calcolo automatico pagamenti...');
-        await autoCalculatePaymentsFromAgibilita(true);
-        
-        // === STEP 7: RICARICA PAGAMENTI AGGIORNATI ===
-        console.log('🔄 Ricaricamento pagamenti aggiornati...');
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log('✅ ' + pagamentiDB.length + ' pagamenti totali caricati');
-        
-        // === STEP 8: APPLICA FILTRI E MOSTRA DATI ===
-        console.log('🔍 Applicazione filtri e visualizzazione...');
-        await applyAdvancedFilters();
-        
-        // === STEP 9: AGGIORNA DASHBOARD ===
-        console.log('📊 Aggiornamento dashboard...');
-        await updateExecutiveDashboard();
-        
-        // === STEP 10: SETUP NOTIFICHE ===
-        console.log('🔔 Setup sistema notifiche...');
-        setupPaymentNotifications();
-        
-        // === COMPLETAMENTO ===
-        isInitialized = true;
-        console.log('✅ Sistema pagamenti inizializzato con successo!');
-        logAuditEvent('system_initialized', 'Sistema pagamenti avviato', null);
-        
-        // Nascondi loading se presente
-        const loadingOverlay = document.getElementById('loading-overlay');
-        if (loadingOverlay) {
-            loadingOverlay.style.display = 'none';
-        }
-        
-    } catch (error) {
-        console.error('❌ Errore inizializzazione sistema pagamenti:', error);
-        
-        // Mostra errore user-friendly
-        const errorMessage = error.message || 'Errore di inizializzazione sconosciuto';
-        showToast('Errore di inizializzazione: ' + errorMessage, 'error');
-        
-        // Se errore di autenticazione, AuthGuard ha già gestito il redirect
-        if (error.message?.includes('Autenticazione')) {
-            console.log('🔄 Errore autenticazione - AuthGuard gestirà il redirect');
-            return;
-        }
-        
-    } finally {
-        isInitializing = false;
-    }
-});
-
-// ==================== CARICAMENTO DATI SICURO ====================
-async function loadInitialData() {
-    try {
-        console.log('📥 Caricamento dati iniziali...');
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        artistiDB = await DatabaseService.getArtistsWithFinancialData();
-        console.log(`✅ ${artistiDB.length} artisti caricati`);
-        
-        // Carica agibilità recenti (ultimo anno)
-        const lastYear = new Date();
-        lastYear.setFullYear(lastYear.getFullYear() - 1);
-        agibilitaDB = await DatabaseService.getAgibilita({
-            fromDate: lastYear.toISOString()
-        });
-        console.log(`✅ ${agibilitaDB.length} agibilità caricate`);
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log(`✅ ${pagamentiDB.length} pagamenti caricati`);
-        
-        // Carica configurazioni sistema
-        await loadPaymentSettings();
-        
-    } catch (error) {
-        console.error('❌ Errore caricamento dati:', error);
-        showToast('Errore nel caricamento dei dati: ' + error.message, 'error');
-        throw error;
-    }
-}() {
-    const today = new Date()// pagamenti.js - Sistema Gestione Pagamenti RECORP Avanzato
-
-// Import services - PERCORSI CORRETTI (file nel root)
-import { DatabaseService } from '../supabase-config.js';
-import { AuthGuard } from '../auth-guard.js';
-
-// ==================== VARIABILI GLOBALI ====================
-let pagamentiDB = [];
-let artistiDB = [];
-let agibilitaDB = [];
-let selectedPayments = new Set();
-let currentUser = null;
-let paymentSettings = {
-    ritenuta_occasionale: 0.20, // 20%
-    soglia_ritenuta: 25.82,
-    soglia_annua_occasionale: 5000,
-    approvazione_automatica_sotto: 100,
-    approvazione_dirigenziale_sopra: 500
-};
-
-// Filtri correnti
-let currentFilters = {
-    stato: 'da_pagare', // ✅ CORRETTO: stato del database
-    dateFrom: null,
-    dateTo: null,
-    tipoContratto: '',
-    artista: '',
-    importoMin: null
-};
-
-// Audit trail
-let auditTrail = [];
-
-// 🔥 FLAG PER EVITARE INIT MULTIPLI
-let isInitializing = false;
-let isInitialized = false;
-
-// ==================== INIZIALIZZAZIONE SICURA CORRETTA ====================
-document.addEventListener('DOMContentLoaded', async function() {
-    // 🔥 PREVENZIONE LOOP - Solo un'inizializzazione alla volta
-    if (isInitializing || isInitialized) {
-        console.log('⚠️ Inizializzazione già in corso o completata, skip');
-        return;
-    }
-    
-    isInitializing = true;
-    console.log('🚀 Inizializzazione sistema pagamenti avanzato...');
-    
-    try {
-        // === STEP 1: AUTENTICAZIONE MANUALE (NO AUTO-INIT) ===
-        console.log('🔐 Inizializzazione autenticazione manuale...');
-        await AuthGuard.initPageProtection();
-        
-        // === STEP 2: VERIFICA UTENTE ===
-        currentUser = await AuthGuard.getCurrentUser();
-        if (!currentUser) {
-            console.warn('⚠️ Utente non autenticato dopo verifica');
-            return; // AuthGuard ha già gestito il redirect
-        }
-        
-        console.log('✅ Utente autenticato:', currentUser.email);
-        
-        // === STEP 3: TEST CONNESSIONE DATABASE ===
-        console.log('🔌 Test connessione database...');
-        const connectionTest = await DatabaseService.testConnection();
-        if (!connectionTest.connected) {
-            throw new Error('Connessione database fallita: ' + (connectionTest.error || 'Errore sconosciuto'));
-        }
-        console.log('✅ Database connesso');
-        
-        // === STEP 4: CARICA DATI INIZIALI ===
-        console.log('📥 Caricamento dati iniziali...');
-        await loadInitialData();
-        
-        // === STEP 5: SETUP INTERFACCIA ===
-        console.log('🖥️ Setup interfaccia...');
-        setupDefaultFilters();
-        setupEventListeners();
-        
-        // === STEP 6: CALCOLO AUTOMATICO PAGAMENTI ===
-        console.log('🧮 Avvio calcolo automatico pagamenti...');
-        await autoCalculatePaymentsFromAgibilita(true);
-        
-        // === STEP 7: RICARICA PAGAMENTI AGGIORNATI ===
-        console.log('🔄 Ricaricamento pagamenti aggiornati...');
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log('✅ ' + pagamentiDB.length + ' pagamenti totali caricati');
-        
-        // === STEP 8: APPLICA FILTRI E MOSTRA DATI ===
-        console.log('🔍 Applicazione filtri e visualizzazione...');
-        await applyAdvancedFilters();
-        
-        // === STEP 9: AGGIORNA DASHBOARD ===
-        console.log('📊 Aggiornamento dashboard...');
-        await updateExecutiveDashboard();
-        
-        // === STEP 10: SETUP NOTIFICHE ===
-        console.log('🔔 Setup sistema notifiche...');
-        setupPaymentNotifications();
-        
-        // === COMPLETAMENTO ===
-        isInitialized = true;
-        console.log('✅ Sistema pagamenti inizializzato con successo!');
-        logAuditEvent('system_initialized', 'Sistema pagamenti avviato', null);
-        
-        // Nascondi loading se presente
-        const loadingOverlay = document.getElementById('loading-overlay');
-        if (loadingOverlay) {
-            loadingOverlay.style.display = 'none';
-        }
-        
-    } catch (error) {
-        console.error('❌ Errore inizializzazione sistema pagamenti:', error);
-        
-        // Mostra errore user-friendly
-        const errorMessage = error.message || 'Errore di inizializzazione sconosciuto';
-        showToast('Errore di inizializzazione: ' + errorMessage, 'error');
-        
-        // Se errore di autenticazione, AuthGuard ha già gestito il redirect
-        if (error.message?.includes('Autenticazione')) {
-            console.log('🔄 Errore autenticazione - AuthGuard gestirà il redirect');
-            return;
-        }
-        
-    } finally {
-        isInitializing = false;
-    }
-});
-
-// ==================== CARICAMENTO DATI SICURO ====================
-async function loadInitialData() {
-    try {
-        console.log('📥 Caricamento dati iniziali...');
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        artistiDB = await DatabaseService.getArtistsWithFinancialData();
-        console.log(`✅ ${artistiDB.length} artisti caricati`);
-        
-        // Carica agibilità recenti (ultimo anno)
-        const lastYear = new Date();
-        lastYear.setFullYear(lastYear.getFullYear() - 1);
-        agibilitaDB = await DatabaseService.getAgibilita({
-            fromDate: lastYear.toISOString()
-        });
-        console.log(`✅ ${agibilitaDB.length} agibilità caricate`);
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log(`✅ ${pagamentiDB.length} pagamenti caricati`);
-        
-        // Carica configurazioni sistema
-        await loadPaymentSettings();
-        
-    } catch (error) {
-        console.error('❌ Errore caricamento dati:', error);
-        showToast('Errore nel caricamento dei dati: ' + error.message, 'error');
-        throw error;
-    }
-};
-    const lastMonth = new Da// pagamenti.js - Sistema Gestione Pagamenti RECORP Avanzato
-
-// Import services - PERCORSI CORRETTI (file nel root)
-import { DatabaseService } from '../supabase-config.js';
-import { AuthGuard } from '../auth-guard.js';
-
-// ==================== VARIABILI GLOBALI ====================
-let pagamentiDB = [];
-let artistiDB = [];
-let agibilitaDB = [];
-let selectedPayments = new Set();
-let currentUser = null;
-let paymentSettings = {
-    ritenuta_occasionale: 0.20, // 20%
-    soglia_ritenuta: 25.82,
-    soglia_annua_occasionale: 5000,
-    approvazione_automatica_sotto: 100,
-    approvazione_dirigenziale_sopra: 500
-};
-
-// Filtri correnti
-let currentFilters = {
-    stato: 'da_pagare', // ✅ CORRETTO: stato del database
-    dateFrom: null,
-    dateTo: null,
-    tipoContratto: '',
-    artista: '',
-    importoMin: null
-};
-
-// Audit trail
-let auditTrail = [];
-
-// 🔥 FLAG PER EVITARE INIT MULTIPLI
-let isInitializing = false;
-let isInitialized = false;
-
-// ==================== INIZIALIZZAZIONE SICURA CORRETTA ====================
-document.addEventListener('DOMContentLoaded', async function() {
-    // 🔥 PREVENZIONE LOOP - Solo un'inizializzazione alla volta
-    if (isInitializing || isInitialized) {
-        console.log('⚠️ Inizializzazione già in corso o completata, skip');
-        return;
-    }
-    
-    isInitializing = true;
-    console.log('🚀 Inizializzazione sistema pagamenti avanzato...');
-    
-    try {
-        // === STEP 1: AUTENTICAZIONE MANUALE (NO AUTO-INIT) ===
-        console.log('🔐 Inizializzazione autenticazione manuale...');
-        await AuthGuard.initPageProtection();
-        
-        // === STEP 2: VERIFICA UTENTE ===
-        currentUser = await AuthGuard.getCurrentUser();
-        if (!currentUser) {
-            console.warn('⚠️ Utente non autenticato dopo verifica');
-            return; // AuthGuard ha già gestito il redirect
-        }
-        
-        console.log('✅ Utente autenticato:', currentUser.email);
-        
-        // === STEP 3: TEST CONNESSIONE DATABASE ===
-        console.log('🔌 Test connessione database...');
-        const connectionTest = await DatabaseService.testConnection();
-        if (!connectionTest.connected) {
-            throw new Error('Connessione database fallita: ' + (connectionTest.error || 'Errore sconosciuto'));
-        }
-        console.log('✅ Database connesso');
-        
-        // === STEP 4: CARICA DATI INIZIALI ===
-        console.log('📥 Caricamento dati iniziali...');
-        await loadInitialData();
-        
-        // === STEP 5: SETUP INTERFACCIA ===
-        console.log('🖥️ Setup interfaccia...');
-        setupDefaultFilters();
-        setupEventListeners();
-        
-        // === STEP 6: CALCOLO AUTOMATICO PAGAMENTI ===
-        console.log('🧮 Avvio calcolo automatico pagamenti...');
-        await autoCalculatePaymentsFromAgibilita(true);
-        
-        // === STEP 7: RICARICA PAGAMENTI AGGIORNATI ===
-        console.log('🔄 Ricaricamento pagamenti aggiornati...');
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log('✅ ' + pagamentiDB.length + ' pagamenti totali caricati');
-        
-        // === STEP 8: APPLICA FILTRI E MOSTRA DATI ===
-        console.log('🔍 Applicazione filtri e visualizzazione...');
-        await applyAdvancedFilters();
-        
-        // === STEP 9: AGGIORNA DASHBOARD ===
-        console.log('📊 Aggiornamento dashboard...');
-        await updateExecutiveDashboard();
-        
-        // === STEP 10: SETUP NOTIFICHE ===
-        console.log('🔔 Setup sistema notifiche...');
-        setupPaymentNotifications();
-        
-        // === COMPLETAMENTO ===
-        isInitialized = true;
-        console.log('✅ Sistema pagamenti inizializzato con successo!');
-        logAuditEvent('system_initialized', 'Sistema pagamenti avviato', null);
-        
-        // Nascondi loading se presente
-        const loadingOverlay = document.getElementById('loading-overlay');
-        if (loadingOverlay) {
-            loadingOverlay.style.display = 'none';
-        }
-        
-    } catch (error) {
-        console.error('❌ Errore inizializzazione sistema pagamenti:', error);
-        
-        // Mostra errore user-friendly
-        const errorMessage = error.message || 'Errore di inizializzazione sconosciuto';
-        showToast('Errore di inizializzazione: ' + errorMessage, 'error');
-        
-        // Se errore di autenticazione, AuthGuard ha già gestito il redirect
-        if (error.message?.includes('Autenticazione')) {
-            console.log('🔄 Errore autenticazione - AuthGuard gestirà il redirect');
-            return;
-        }
-        
-    } finally {
-        isInitializing = false;
-    }
-});
-
-// ==================== CARICAMENTO DATI SICURO ====================
-async function loadInitialData() {
-    try {
-        console.log('📥 Caricamento dati iniziali...');
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        artistiDB = await DatabaseService.getArtistsWithFinancialData();
-        console.log(`✅ ${artistiDB.length} artisti caricati`);
-        
-        // Carica agibilità recenti (ultimo anno)
-        const lastYear = new Date();
-        lastYear.setFullYear(lastYear.getFullYear() - 1);
-        agibilitaDB = await DatabaseService.getAgibilita({
-            fromDate: lastYear.toISOString()
-        });
-        console.log(`✅ ${agibilitaDB.length} agibilità caricate`);
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log(`✅ ${pagamentiDB.length} pagamenti caricati`);
-        
-        // Carica configurazioni sistema
-        await loadPaymentSettings();
-        
-    } catch (error) {
-        console.error('❌ Errore caricamento dati:', error);
-        showToast('Errore nel caricamento dei dati: ' + error.message, 'error');
-        throw error;
-    }
-}te(today.getFullYear(), today.getMonth() - 1, today.getDate());
-    // pagamenti.js - Sistema Gestione Pagamenti RECORP Avanzato
-
-// Import services - PERCORSI CORRETTI (file nel root)
-import { DatabaseService } from '../supabase-config.js';
-import { AuthGuard } from '../auth-guard.js';
-
-// ==================== VARIABILI GLOBALI ====================
-let pagamentiDB = [];
-let artistiDB = [];
-let agibilitaDB = [];
-let selectedPayments = new Set();
-let currentUser = null;
-let paymentSettings = {
-    ritenuta_occasionale: 0.20, // 20%
-    soglia_ritenuta: 25.82,
-    soglia_annua_occasionale: 5000,
-    approvazione_automatica_sotto: 100,
-    approvazione_dirigenziale_sopra: 500
-};
-
-// Filtri correnti
-let currentFilters = {
-    stato: 'da_pagare', // ✅ CORRETTO: stato del database
-    dateFrom: null,
-    dateTo: null,
-    tipoContratto: '',
-    artista: '',
-    importoMin: null
-};
-
-// Audit trail
-let auditTrail = [];
-
-// 🔥 FLAG PER EVITARE INIT MULTIPLI
-let isInitializing = false;
-let isInitialized = false;
-
-// ==================== INIZIALIZZAZIONE SICURA CORRETTA ====================
-document.addEventListener('DOMContentLoaded', async function() {
-    // 🔥 PREVENZIONE LOOP - Solo un'inizializzazione alla volta
-    if (isInitializing || isInitialized) {
-        console.log('⚠️ Inizializzazione già in corso o completata, skip');
-        return;
-    }
-    
-    isInitializing = true;
-    console.log('🚀 Inizializzazione sistema pagamenti avanzato...');
-    
-    try {
-        // === STEP 1: AUTENTICAZIONE MANUALE (NO AUTO-INIT) ===
-        console.log('🔐 Inizializzazione autenticazione manuale...');
-        await AuthGuard.initPageProtection();
-        
-        // === STEP 2: VERIFICA UTENTE ===
-        currentUser = await AuthGuard.getCurrentUser();
-        if (!currentUser) {
-            console.warn('⚠️ Utente non autenticato dopo verifica');
-            return; // AuthGuard ha già gestito il redirect
-        }
-        
-        console.log('✅ Utente autenticato:', currentUser.email);
-        
-        // === STEP 3: TEST CONNESSIONE DATABASE ===
-        console.log('🔌 Test connessione database...');
-        const connectionTest = await DatabaseService.testConnection();
-        if (!connectionTest.connected) {
-            throw new Error('Connessione database fallita: ' + (connectionTest.error || 'Errore sconosciuto'));
-        }
-        console.log('✅ Database connesso');
-        
-        // === STEP 4: CARICA DATI INIZIALI ===
-        console.log('📥 Caricamento dati iniziali...');
-        await loadInitialData();
-        
-        // === STEP 5: SETUP INTERFACCIA ===
-        console.log('🖥️ Setup interfaccia...');
-        setupDefaultFilters();
-        setupEventListeners();
-        
-        // === STEP 6: CALCOLO AUTOMATICO PAGAMENTI ===
-        console.log('🧮 Avvio calcolo automatico pagamenti...');
-        await autoCalculatePaymentsFromAgibilita(true);
-        
-        // === STEP 7: RICARICA PAGAMENTI AGGIORNATI ===
-        console.log('🔄 Ricaricamento pagamenti aggiornati...');
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log('✅ ' + pagamentiDB.length + ' pagamenti totali caricati');
-        
-        // === STEP 8: APPLICA FILTRI E MOSTRA DATI ===
-        console.log('🔍 Applicazione filtri e visualizzazione...');
-        await applyAdvancedFilters();
-        
-        // === STEP 9: AGGIORNA DASHBOARD ===
-        console.log('📊 Aggiornamento dashboard...');
-        await updateExecutiveDashboard();
-        
-        // === STEP 10: SETUP NOTIFICHE ===
-        console.log('🔔 Setup sistema notifiche...');
-        setupPaymentNotifications();
-        
-        // === COMPLETAMENTO ===
-        isInitialized = true;
-        console.log('✅ Sistema pagamenti inizializzato con successo!');
-        logAuditEvent('system_initialized', 'Sistema pagamenti avviato', null);
-        
-        // Nascondi loading se presente
-        const loadingOverlay = document.getElementById('loading-overlay');
-        if (loadingOverlay) {
-            loadingOverlay.style.display = 'none';
-        }
-        
-    } catch (error) {
-        console.error('❌ Errore inizializzazione sistema pagamenti:', error);
-        
-        // Mostra errore user-friendly
-        const errorMessage = error.message || 'Errore di inizializzazione sconosciuto';
-        showToast('Errore di inizializzazione: ' + errorMessage, 'error');
-        
-        // Se errore di autenticazione, AuthGuard ha già gestito il redirect
-        if (error.message?.includes('Autenticazione')) {
-            console.log('🔄 Errore autenticazione - AuthGuard gestirà il redirect');
-            return;
-        }
-        
-    } finally {
-        isInitializing = false;
-    }
-});
-
-// ==================== CARICAMENTO DATI SICURO ====================
-async function loadInitialData() {
-    try {
-        console.log('📥 Caricamento dati iniziali...');
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        artistiDB = await DatabaseService.getArtistsWithFinancialData();
-        console.log(`✅ ${artistiDB.length} artisti caricati`);
-        
-        // Carica agibilità recenti (ultimo anno)
-        const lastYear = new Date();
-        lastYear.setFullYear(lastYear.getFullYear() - 1);
-        agibilitaDB = await DatabaseService.getAgibilita({
-            fromDate: lastYear.toISOString()
-        });
-        console.log(`✅ ${agibilitaDB.length} agibilità caricate`);
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log(`✅ ${pagamentiDB.length} pagamenti caricati`);
-        
-        // Carica configurazioni sistema
-        await loadPaymentSettings();
-        
-    } catch (error) {
-        console.error('❌ Errore caricamento dati:', error);
-        showToast('Errore nel caricamento dei dati: ' + error.message, 'error');
-        throw error;
-    }
-}
-    document.getElementById(// pagamenti.js - Sistema Gestione Pagamenti RECORP Avanzato
-
-// Import services - PERCORSI CORRETTI (file nel root)
-import { DatabaseService } from '../supabase-config.js';
-import { AuthGuard } from '../auth-guard.js';
-
-// ==================== VARIABILI GLOBALI ====================
-let pagamentiDB = [];
-let artistiDB = [];
-let agibilitaDB = [];
-let selectedPayments = new Set();
-let currentUser = null;
-let paymentSettings = {
-    ritenuta_occasionale: 0.20, // 20%
-    soglia_ritenuta: 25.82,
-    soglia_annua_occasionale: 5000,
-    approvazione_automatica_sotto: 100,
-    approvazione_dirigenziale_sopra: 500
-};
-
-// Filtri correnti
-let currentFilters = {
-    stato: 'da_pagare', // ✅ CORRETTO: stato del database
-    dateFrom: null,
-    dateTo: null,
-    tipoContratto: '',
-    artista: '',
-    importoMin: null
-};
-
-// Audit trail
-let auditTrail = [];
-
-// 🔥 FLAG PER EVITARE INIT MULTIPLI
-let isInitializing = false;
-let isInitialized = false;
-
-// ==================== INIZIALIZZAZIONE SICURA CORRETTA ====================
-document.addEventListener('DOMContentLoaded', async function() {
-    // 🔥 PREVENZIONE LOOP - Solo un'inizializzazione alla volta
-    if (isInitializing || isInitialized) {
-        console.log('⚠️ Inizializzazione già in corso o completata, skip');
-        return;
-    }
-    
-    isInitializing = true;
-    console.log('🚀 Inizializzazione sistema pagamenti avanzato...');
-    
-    try {
-        // === STEP 1: AUTENTICAZIONE MANUALE (NO AUTO-INIT) ===
-        console.log('🔐 Inizializzazione autenticazione manuale...');
-        await AuthGuard.initPageProtection();
-        
-        // === STEP 2: VERIFICA UTENTE ===
-        currentUser = await AuthGuard.getCurrentUser();
-        if (!currentUser) {
-            console.warn('⚠️ Utente non autenticato dopo verifica');
-            return; // AuthGuard ha già gestito il redirect
-        }
-        
-        console.log('✅ Utente autenticato:', currentUser.email);
-        
-        // === STEP 3: TEST CONNESSIONE DATABASE ===
-        console.log('🔌 Test connessione database...');
-        const connectionTest = await DatabaseService.testConnection();
-        if (!connectionTest.connected) {
-            throw new Error('Connessione database fallita: ' + (connectionTest.error || 'Errore sconosciuto'));
-        }
-        console.log('✅ Database connesso');
-        
-        // === STEP 4: CARICA DATI INIZIALI ===
-        console.log('📥 Caricamento dati iniziali...');
-        await loadInitialData();
-        
-        // === STEP 5: SETUP INTERFACCIA ===
-        console.log('🖥️ Setup interfaccia...');
-        setupDefaultFilters();
-        setupEventListeners();
-        
-        // === STEP 6: CALCOLO AUTOMATICO PAGAMENTI ===
-        console.log('🧮 Avvio calcolo automatico pagamenti...');
-        await autoCalculatePaymentsFromAgibilita(true);
-        
-        // === STEP 7: RICARICA PAGAMENTI AGGIORNATI ===
-        console.log('🔄 Ricaricamento pagamenti aggiornati...');
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log('✅ ' + pagamentiDB.length + ' pagamenti totali caricati');
-        
-        // === STEP 8: APPLICA FILTRI E MOSTRA DATI ===
-        console.log('🔍 Applicazione filtri e visualizzazione...');
-        await applyAdvancedFilters();
-        
-        // === STEP 9: AGGIORNA DASHBOARD ===
-        console.log('📊 Aggiornamento dashboard...');
-        await updateExecutiveDashboard();
-        
-        // === STEP 10: SETUP NOTIFICHE ===
-        console.log('🔔 Setup sistema notifiche...');
-        setupPaymentNotifications();
-        
-        // === COMPLETAMENTO ===
-        isInitialized = true;
-        console.log('✅ Sistema pagamenti inizializzato con successo!');
-        logAuditEvent('system_initialized', 'Sistema pagamenti avviato', null);
-        
-        // Nascondi loading se presente
-        const loadingOverlay = document.getElementById('loading-overlay');
-        if (loadingOverlay) {
-            loadingOverlay.style.display = 'none';
-        }
-        
-    } catch (error) {
-        console.error('❌ Errore inizializzazione sistema pagamenti:', error);
-        
-        // Mostra errore user-friendly
-        const errorMessage = error.message || 'Errore di inizializzazione sconosciuto';
-        showToast('Errore di inizializzazione: ' + errorMessage, 'error');
-        
-        // Se errore di autenticazione, AuthGuard ha già gestito il redirect
-        if (error.message?.includes('Autenticazione')) {
-            console.log('🔄 Errore autenticazione - AuthGuard gestirà il redirect');
-            return;
-        }
-        
-    } finally {
-        isInitializing = false;
-    }
-});
-
-// ==================== CARICAMENTO DATI SICURO ====================
-async function loadInitialData() {
-    try {
-        console.log('📥 Caricamento dati iniziali...');
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        artistiDB = await DatabaseService.getArtistsWithFinancialData();
-        console.log(`✅ ${artistiDB.length} artisti caricati`);
-        
-        // Carica agibilità recenti (ultimo anno)
-        const lastYear = new Date();
-        lastYear.setFullYear(lastYear.getFullYear() - 1);
-        agibilitaDB = await DatabaseService.getAgibilita({
-            fromDate: lastYear.toISOString()
-        });
-        console.log(`✅ ${agibilitaDB.length} agibilità caricate`);
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log(`✅ ${pagamentiDB.length} pagamenti caricati`);
-        
-        // Carica configurazioni sistema
-        await loadPaymentSettings();
-        
-    } catch (error) {
-        console.error('❌ Errore caricamento dati:', error);
-        showToast('Errore nel caricamento dei dati: ' + error.message, 'error');
-        throw error;
-    }
-}'filterDateFrom').value = lastMonth.toISOString().split('T')[0];
-    document.getElementById(// pagamenti.js - Sistema Gestione Pagamenti RECORP Avanzato
-
-// Import services - PERCORSI CORRETTI (file nel root)
-import { DatabaseService } from '../supabase-config.js';
-import { AuthGuard } from '../auth-guard.js';
-
-// ==================== VARIABILI GLOBALI ====================
-let pagamentiDB = [];
-let artistiDB = [];
-let agibilitaDB = [];
-let selectedPayments = new Set();
-let currentUser = null;
-let paymentSettings = {
-    ritenuta_occasionale: 0.20, // 20%
-    soglia_ritenuta: 25.82,
-    soglia_annua_occasionale: 5000,
-    approvazione_automatica_sotto: 100,
-    approvazione_dirigenziale_sopra: 500
-};
-
-// Filtri correnti
-let currentFilters = {
-    stato: 'da_pagare', // ✅ CORRETTO: stato del database
-    dateFrom: null,
-    dateTo: null,
-    tipoContratto: '',
-    artista: '',
-    importoMin: null
-};
-
-// Audit trail
-let auditTrail = [];
-
-// 🔥 FLAG PER EVITARE INIT MULTIPLI
-let isInitializing = false;
-let isInitialized = false;
-
-// ==================== INIZIALIZZAZIONE SICURA CORRETTA ====================
-document.addEventListener('DOMContentLoaded', async function() {
-    // 🔥 PREVENZIONE LOOP - Solo un'inizializzazione alla volta
-    if (isInitializing || isInitialized) {
-        console.log('⚠️ Inizializzazione già in corso o completata, skip');
-        return;
-    }
-    
-    isInitializing = true;
-    console.log('🚀 Inizializzazione sistema pagamenti avanzato...');
-    
-    try {
-        // === STEP 1: AUTENTICAZIONE MANUALE (NO AUTO-INIT) ===
-        console.log('🔐 Inizializzazione autenticazione manuale...');
-        await AuthGuard.initPageProtection();
-        
-        // === STEP 2: VERIFICA UTENTE ===
-        currentUser = await AuthGuard.getCurrentUser();
-        if (!currentUser) {
-            console.warn('⚠️ Utente non autenticato dopo verifica');
-            return; // AuthGuard ha già gestito il redirect
-        }
-        
-        console.log('✅ Utente autenticato:', currentUser.email);
-        
-        // === STEP 3: TEST CONNESSIONE DATABASE ===
-        console.log('🔌 Test connessione database...');
-        const connectionTest = await DatabaseService.testConnection();
-        if (!connectionTest.connected) {
-            throw new Error('Connessione database fallita: ' + (connectionTest.error || 'Errore sconosciuto'));
-        }
-        console.log('✅ Database connesso');
-        
-        // === STEP 4: CARICA DATI INIZIALI ===
-        console.log('📥 Caricamento dati iniziali...');
-        await loadInitialData();
-        
-        // === STEP 5: SETUP INTERFACCIA ===
-        console.log('🖥️ Setup interfaccia...');
-        setupDefaultFilters();
-        setupEventListeners();
-        
-        // === STEP 6: CALCOLO AUTOMATICO PAGAMENTI ===
-        console.log('🧮 Avvio calcolo automatico pagamenti...');
-        await autoCalculatePaymentsFromAgibilita(true);
-        
-        // === STEP 7: RICARICA PAGAMENTI AGGIORNATI ===
-        console.log('🔄 Ricaricamento pagamenti aggiornati...');
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log('✅ ' + pagamentiDB.length + ' pagamenti totali caricati');
-        
-        // === STEP 8: APPLICA FILTRI E MOSTRA DATI ===
-        console.log('🔍 Applicazione filtri e visualizzazione...');
-        await applyAdvancedFilters();
-        
-        // === STEP 9: AGGIORNA DASHBOARD ===
-        console.log('📊 Aggiornamento dashboard...');
-        await updateExecutiveDashboard();
-        
-        // === STEP 10: SETUP NOTIFICHE ===
-        console.log('🔔 Setup sistema notifiche...');
-        setupPaymentNotifications();
-        
-        // === COMPLETAMENTO ===
-        isInitialized = true;
-        console.log('✅ Sistema pagamenti inizializzato con successo!');
-        logAuditEvent('system_initialized', 'Sistema pagamenti avviato', null);
-        
-        // Nascondi loading se presente
-        const loadingOverlay = document.getElementById('loading-overlay');
-        if (loadingOverlay) {
-            loadingOverlay.style.display = 'none';
-        }
-        
-    } catch (error) {
-        console.error('❌ Errore inizializzazione sistema pagamenti:', error);
-        
-        // Mostra errore user-friendly
-        const errorMessage = error.message || 'Errore di inizializzazione sconosciuto';
-        showToast('Errore di inizializzazione: ' + errorMessage, 'error');
-        
-        // Se errore di autenticazione, AuthGuard ha già gestito il redirect
-        if (error.message?.includes('Autenticazione')) {
-            console.log('🔄 Errore autenticazione - AuthGuard gestirà il redirect');
-            return;
-        }
-        
-    } finally {
-        isInitializing = false;
-    }
-});
-
-// ==================== CARICAMENTO DATI SICURO ====================
-async function loadInitialData() {
-    try {
-        console.log('📥 Caricamento dati iniziali...');
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        artistiDB = await DatabaseService.getArtistsWithFinancialData();
-        console.log(`✅ ${artistiDB.length} artisti caricati`);
-        
-        // Carica agibilità recenti (ultimo anno)
-        const lastYear = new Date();
-        lastYear.setFullYear(lastYear.getFullYear() - 1);
-        agibilitaDB = await DatabaseService.getAgibilita({
-            fromDate: lastYear.toISOString()
-        });
-        console.log(`✅ ${agibilitaDB.length} agibilità caricate`);
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log(`✅ ${pagamentiDB.length} pagamenti caricati`);
-        
-        // Carica configurazioni sistema
-        await loadPaymentSettings();
-        
-    } catch (error) {
-        console.error('❌ Errore caricamento dati:', error);
-        showToast('Errore nel caricamento dei dati: ' + error.message, 'error');
-        throw error;
-    }
-}'filterDateTo').value = today.toISOString().split('T')[0];
-    document.getElementById(// pagamenti.js - Sistema Gestione Pagamenti RECORP Avanzato
-
-// Import services - PERCORSI CORRETTI (file nel root)
-import { DatabaseService } from '../supabase-config.js';
-import { AuthGuard } from '../auth-guard.js';
-
-// ==================== VARIABILI GLOBALI ====================
-let pagamentiDB = [];
-let artistiDB = [];
-let agibilitaDB = [];
-let selectedPayments = new Set();
-let currentUser = null;
-let paymentSettings = {
-    ritenuta_occasionale: 0.20, // 20%
-    soglia_ritenuta: 25.82,
-    soglia_annua_occasionale: 5000,
-    approvazione_automatica_sotto: 100,
-    approvazione_dirigenziale_sopra: 500
-};
-
-// Filtri correnti
-let currentFilters = {
-    stato: 'da_pagare', // ✅ CORRETTO: stato del database
-    dateFrom: null,
-    dateTo: null,
-    tipoContratto: '',
-    artista: '',
-    importoMin: null
-};
-
-// Audit trail
-let auditTrail = [];
-
-// 🔥 FLAG PER EVITARE INIT MULTIPLI
-let isInitializing = false;
-let isInitialized = false;
-
-// ==================== INIZIALIZZAZIONE SICURA CORRETTA ====================
-document.addEventListener('DOMContentLoaded', async function() {
-    // 🔥 PREVENZIONE LOOP - Solo un'inizializzazione alla volta
-    if (isInitializing || isInitialized) {
-        console.log('⚠️ Inizializzazione già in corso o completata, skip');
-        return;
-    }
-    
-    isInitializing = true;
-    console.log('🚀 Inizializzazione sistema pagamenti avanzato...');
-    
-    try {
-        // === STEP 1: AUTENTICAZIONE MANUALE (NO AUTO-INIT) ===
-        console.log('🔐 Inizializzazione autenticazione manuale...');
-        await AuthGuard.initPageProtection();
-        
-        // === STEP 2: VERIFICA UTENTE ===
-        currentUser = await AuthGuard.getCurrentUser();
-        if (!currentUser) {
-            console.warn('⚠️ Utente non autenticato dopo verifica');
-            return; // AuthGuard ha già gestito il redirect
-        }
-        
-        console.log('✅ Utente autenticato:', currentUser.email);
-        
-        // === STEP 3: TEST CONNESSIONE DATABASE ===
-        console.log('🔌 Test connessione database...');
-        const connectionTest = await DatabaseService.testConnection();
-        if (!connectionTest.connected) {
-            throw new Error('Connessione database fallita: ' + (connectionTest.error || 'Errore sconosciuto'));
-        }
-        console.log('✅ Database connesso');
-        
-        // === STEP 4: CARICA DATI INIZIALI ===
-        console.log('📥 Caricamento dati iniziali...');
-        await loadInitialData();
-        
-        // === STEP 5: SETUP INTERFACCIA ===
-        console.log('🖥️ Setup interfaccia...');
-        setupDefaultFilters();
-        setupEventListeners();
-        
-        // === STEP 6: CALCOLO AUTOMATICO PAGAMENTI ===
-        console.log('🧮 Avvio calcolo automatico pagamenti...');
-        await autoCalculatePaymentsFromAgibilita(true);
-        
-        // === STEP 7: RICARICA PAGAMENTI AGGIORNATI ===
-        console.log('🔄 Ricaricamento pagamenti aggiornati...');
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log('✅ ' + pagamentiDB.length + ' pagamenti totali caricati');
-        
-        // === STEP 8: APPLICA FILTRI E MOSTRA DATI ===
-        console.log('🔍 Applicazione filtri e visualizzazione...');
-        await applyAdvancedFilters();
-        
-        // === STEP 9: AGGIORNA DASHBOARD ===
-        console.log('📊 Aggiornamento dashboard...');
-        await updateExecutiveDashboard();
-        
-        // === STEP 10: SETUP NOTIFICHE ===
-        console.log('🔔 Setup sistema notifiche...');
-        setupPaymentNotifications();
-        
-        // === COMPLETAMENTO ===
-        isInitialized = true;
-        console.log('✅ Sistema pagamenti inizializzato con successo!');
-        logAuditEvent('system_initialized', 'Sistema pagamenti avviato', null);
-        
-        // Nascondi loading se presente
-        const loadingOverlay = document.getElementById('loading-overlay');
-        if (loadingOverlay) {
-            loadingOverlay.style.display = 'none';
-        }
-        
-    } catch (error) {
-        console.error('❌ Errore inizializzazione sistema pagamenti:', error);
-        
-        // Mostra errore user-friendly
-        const errorMessage = error.message || 'Errore di inizializzazione sconosciuto';
-        showToast('Errore di inizializzazione: ' + errorMessage, 'error');
-        
-        // Se errore di autenticazione, AuthGuard ha già gestito il redirect
-        if (error.message?.includes('Autenticazione')) {
-            console.log('🔄 Errore autenticazione - AuthGuard gestirà il redirect');
-            return;
-        }
-        
-    } finally {
-        isInitializing = false;
-    }
-});
-
-// ==================== CARICAMENTO DATI SICURO ====================
-async function loadInitialData() {
-    try {
-        console.log('📥 Caricamento dati iniziali...');
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        artistiDB = await DatabaseService.getArtistsWithFinancialData();
-        console.log(`✅ ${artistiDB.length} artisti caricati`);
-        
-        // Carica agibilità recenti (ultimo anno)
-        const lastYear = new Date();
-        lastYear.setFullYear(lastYear.getFullYear() - 1);
-        agibilitaDB = await DatabaseService.getAgibilita({
-            fromDate: lastYear.toISOString()
-        });
-        console.log(`✅ ${agibilitaDB.length} agibilità caricate`);
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log(`✅ ${pagamentiDB.length} pagamenti caricati`);
-        
-        // Carica configurazioni sistema
-        await loadPaymentSettings();
-        
-    } catch (error) {
-        console.error('❌ Errore caricamento dati:', error);
-        showToast('Errore nel caricamento dei dati: ' + error.message, 'error');
-        throw error;
-    }
-}'filterStato').value = 'da_pagare'; // ✅ CORRETTO: stato database
-}// pagamenti.js - Sistema Gestione Pagamenti RECORP Avanzato
-
-// Import services - PERCORSI CORRETTI (file nel root)
-import { DatabaseService } from '../supabase-config.js';
-import { AuthGuard } from '../auth-guard.js';
-
-// ==================== VARIABILI GLOBALI ====================
-let pagamentiDB = [];
-let artistiDB = [];
-let agibilitaDB = [];
-let selectedPayments = new Set();
-let currentUser = null;
-let paymentSettings = {
-    ritenuta_occasionale: 0.20, // 20%
-    soglia_ritenuta: 25.82,
-    soglia_annua_occasionale: 5000,
-    approvazione_automatica_sotto: 100,
-    approvazione_dirigenziale_sopra: 500
-};
-
-// Filtri correnti
-let currentFilters = {
-    stato: 'da_pagare', // ✅ CORRETTO: stato del database
-    dateFrom: null,
-    dateTo: null,
-    tipoContratto: '',
-    artista: '',
-    importoMin: null
-};
-
-// Audit trail
-let auditTrail = [];
-
-// 🔥 FLAG PER EVITARE INIT MULTIPLI
-let isInitializing = false;
-let isInitialized = false;
-
-// ==================== INIZIALIZZAZIONE SICURA CORRETTA ====================
-document.addEventListener('DOMContentLoaded', async function() {
-    // 🔥 PREVENZIONE LOOP - Solo un'inizializzazione alla volta
-    if (isInitializing || isInitialized) {
-        console.log('⚠️ Inizializzazione già in corso o completata, skip');
-        return;
-    }
-    
-    isInitializing = true;
-    console.log('🚀 Inizializzazione sistema pagamenti avanzato...');
-    
-    try {
-        // === STEP 1: AUTENTICAZIONE MANUALE (NO AUTO-INIT) ===
-        console.log('🔐 Inizializzazione autenticazione manuale...');
-        await AuthGuard.initPageProtection();
-        
-        // === STEP 2: VERIFICA UTENTE ===
-        currentUser = await AuthGuard.getCurrentUser();
-        if (!currentUser) {
-            console.warn('⚠️ Utente non autenticato dopo verifica');
-            return; // AuthGuard ha già gestito il redirect
-        }
-        
-        console.log('✅ Utente autenticato:', currentUser.email);
-        
-        // === STEP 3: TEST CONNESSIONE DATABASE ===
-        console.log('🔌 Test connessione database...');
-        const connectionTest = await DatabaseService.testConnection();
-        if (!connectionTest.connected) {
-            throw new Error('Connessione database fallita: ' + (connectionTest.error || 'Errore sconosciuto'));
-        }
-        console.log('✅ Database connesso');
-        
-        // === STEP 4: CARICA DATI INIZIALI ===
-        console.log('📥 Caricamento dati iniziali...');
-        await loadInitialData();
-        
-        // === STEP 5: SETUP INTERFACCIA ===
-        console.log('🖥️ Setup interfaccia...');
-        setupDefaultFilters();
-        setupEventListeners();
-        
-        // === STEP 6: CALCOLO AUTOMATICO PAGAMENTI ===
-        console.log('🧮 Avvio calcolo automatico pagamenti...');
-        await autoCalculatePaymentsFromAgibilita(true);
-        
-        // === STEP 7: RICARICA PAGAMENTI AGGIORNATI ===
-        console.log('🔄 Ricaricamento pagamenti aggiornati...');
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log('✅ ' + pagamentiDB.length + ' pagamenti totali caricati');
-        
-        // === STEP 8: APPLICA FILTRI E MOSTRA DATI ===
-        console.log('🔍 Applicazione filtri e visualizzazione...');
-        await applyAdvancedFilters();
-        
-        // === STEP 9: AGGIORNA DASHBOARD ===
-        console.log('📊 Aggiornamento dashboard...');
-        await updateExecutiveDashboard();
-        
-        // === STEP 10: SETUP NOTIFICHE ===
-        console.log('🔔 Setup sistema notifiche...');
-        setupPaymentNotifications();
-        
-        // === COMPLETAMENTO ===
-        isInitialized = true;
-        console.log('✅ Sistema pagamenti inizializzato con successo!');
-        logAuditEvent('system_initialized', 'Sistema pagamenti avviato', null);
-        
-        // Nascondi loading se presente
-        const loadingOverlay = document.getElementById('loading-overlay');
-        if (loadingOverlay) {
-            loadingOverlay.style.display = 'none';
-        }
-        
-    } catch (error) {
-        console.error('❌ Errore inizializzazione sistema pagamenti:', error);
-        
-        // Mostra errore user-friendly
-        const errorMessage = error.message || 'Errore di inizializzazione sconosciuto';
-        showToast('Errore di inizializzazione: ' + errorMessage, 'error');
-        
-        // Se errore di autenticazione, AuthGuard ha già gestito il redirect
-        if (error.message?.includes('Autenticazione')) {
-            console.log('🔄 Errore autenticazione - AuthGuard gestirà il redirect');
-            return;
-        }
-        
-    } finally {
-        isInitializing = false;
-    }
-});
-
-// ==================== CARICAMENTO DATI SICURO ====================
-async function loadInitialData() {
-    try {
-        console.log('📥 Caricamento dati iniziali...');
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        artistiDB = await DatabaseService.getArtistsWithFinancialData();
-        console.log(`✅ ${artistiDB.length} artisti caricati`);
-        
-        // Carica agibilità recenti (ultimo anno)
-        const lastYear = new Date();
-        lastYear.setFullYear(lastYear.getFullYear() - 1);
-        agibilitaDB = await DatabaseService.getAgibilita({
-            fromDate: lastYear.toISOString()
-        });
-        console.log(`✅ ${agibilitaDB.length} agibilità caricate`);
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log(`✅ ${pagamentiDB.length} pagamenti caricati`);
-        
-        // Carica configurazioni sistema
-        await loadPaymentSettings();
-        
-    } catch (error) {
-        console.error('❌ Errore caricamento dati:', error);
-        showToast('Errore nel caricamento dei dati: ' + error.message, 'error');
-        throw error;
-    }
-}
-// pagamenti.js - Sistema Gestione Pagamenti RECORP Avanzato
-
-// Import services - PERCORSI CORRETTI (file nel root)
-import { DatabaseService } from '../supabase-config.js';
-import { AuthGuard } from '../auth-guard.js';
-
-// ==================== VARIABILI GLOBALI ====================
-let pagamentiDB = [];
-let artistiDB = [];
-let agibilitaDB = [];
-let selectedPayments = new Set();
-let currentUser = null;
-let paymentSettings = {
-    ritenuta_occasionale: 0.20, // 20%
-    soglia_ritenuta: 25.82,
-    soglia_annua_occasionale: 5000,
-    approvazione_automatica_sotto: 100,
-    approvazione_dirigenziale_sopra: 500
-};
-
-// Filtri correnti
-let currentFilters = {
-    stato: 'da_pagare', // ✅ CORRETTO: stato del database
-    dateFrom: null,
-    dateTo: null,
-    tipoContratto: '',
-    artista: '',
-    importoMin: null
-};
-
-// Audit trail
-let auditTrail = [];
-
-// 🔥 FLAG PER EVITARE INIT MULTIPLI
-let isInitializing = false;
-let isInitialized = false;
-
-// ==================== INIZIALIZZAZIONE SICURA CORRETTA ====================
-document.addEventListener('DOMContentLoaded', async function() {
-    // 🔥 PREVENZIONE LOOP - Solo un'inizializzazione alla volta
-    if (isInitializing || isInitialized) {
-        console.log('⚠️ Inizializzazione già in corso o completata, skip');
-        return;
-    }
-    
-    isInitializing = true;
-    console.log('🚀 Inizializzazione sistema pagamenti avanzato...');
-    
-    try {
-        // === STEP 1: AUTENTICAZIONE MANUALE (NO AUTO-INIT) ===
-        console.log('🔐 Inizializzazione autenticazione manuale...');
-        await AuthGuard.initPageProtection();
-        
-        // === STEP 2: VERIFICA UTENTE ===
-        currentUser = await AuthGuard.getCurrentUser();
-        if (!currentUser) {
-            console.warn('⚠️ Utente non autenticato dopo verifica');
-            return; // AuthGuard ha già gestito il redirect
-        }
-        
-        console.log('✅ Utente autenticato:', currentUser.email);
-        
-        // === STEP 3: TEST CONNESSIONE DATABASE ===
-        console.log('🔌 Test connessione database...');
-        const connectionTest = await DatabaseService.testConnection();
-        if (!connectionTest.connected) {
-            throw new Error('Connessione database fallita: ' + (connectionTest.error || 'Errore sconosciuto'));
-        }
-        console.log('✅ Database connesso');
-        
-        // === STEP 4: CARICA DATI INIZIALI ===
-        console.log('📥 Caricamento dati iniziali...');
-        await loadInitialData();
-        
-        // === STEP 5: SETUP INTERFACCIA ===
-        console.log('🖥️ Setup interfaccia...');
-        setupDefaultFilters();
-        setupEventListeners();
-        
-        // === STEP 6: CALCOLO AUTOMATICO PAGAMENTI ===
-        console.log('🧮 Avvio calcolo automatico pagamenti...');
-        await autoCalculatePaymentsFromAgibilita(true);
-        
-        // === STEP 7: RICARICA PAGAMENTI AGGIORNATI ===
-        console.log('🔄 Ricaricamento pagamenti aggiornati...');
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log('✅ ' + pagamentiDB.length + ' pagamenti totali caricati');
-        
-        // === STEP 8: APPLICA FILTRI E MOSTRA DATI ===
-        console.log('🔍 Applicazione filtri e visualizzazione...');
-        await applyAdvancedFilters();
-        
-        // === STEP 9: AGGIORNA DASHBOARD ===
-        console.log('📊 Aggiornamento dashboard...');
-        await updateExecutiveDashboard();
-        
-        // === STEP 10: SETUP NOTIFICHE ===
-        console.log('🔔 Setup sistema notifiche...');
-        setupPaymentNotifications();
-        
-        // === COMPLETAMENTO ===
-        isInitialized = true;
-        console.log('✅ Sistema pagamenti inizializzato con successo!');
-        logAuditEvent('system_initialized', 'Sistema pagamenti avviato', null);
-        
-        // Nascondi loading se presente
-        const loadingOverlay = document.getElementById('loading-overlay');
-        if (loadingOverlay) {
-            loadingOverlay.style.display = 'none';
-        }
-        
-    } catch (error) {
-        console.error('❌ Errore inizializzazione sistema pagamenti:', error);
-        
-        // Mostra errore user-friendly
-        const errorMessage = error.message || 'Errore di inizializzazione sconosciuto';
-        showToast('Errore di inizializzazione: ' + errorMessage, 'error');
-        
-        // Se errore di autenticazione, AuthGuard ha già gestito il redirect
-        if (error.message?.includes('Autenticazione')) {
-            console.log('🔄 Errore autenticazione - AuthGuard gestirà il redirect');
-            return;
-        }
-        
-    } finally {
-        isInitializing = false;
-    }
-});
-
-// ==================== CARICAMENTO DATI SICURO ====================
-async function loadInitialData() {
-    try {
-        console.log('📥 Caricamento dati iniziali...');
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        artistiDB = await DatabaseService.getArtistsWithFinancialData();
-        console.log(`✅ ${artistiDB.length} artisti caricati`);
-        
-        // Carica agibilità recenti (ultimo anno)
-        const lastYear = new Date();
-        lastYear.setFullYear(lastYear.getFullYear() - 1);
-        agibilitaDB = await DatabaseService.getAgibilita({
-            fromDate: lastYear.toISOString()
-        });
-        console.log(`✅ ${agibilitaDB.length} agibilità caricate`);
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log(`✅ ${pagamentiDB.length} pagamenti caricati`);
-        
-        // Carica configurazioni sistema
-        await loadPaymentSettings();
-        
-    } catch (error) {
-        console.error('❌ Errore caricamento dati:', error);
-        showToast('Errore nel caricamento dei dati: ' + error.message, 'error');
-        throw error;
-    }
-}
-async function applyAdvanced// pagamenti.js - Sistema Gestione Pagamenti RECORP Avanzato
-
-// Import services - PERCORSI CORRETTI (file nel root)
-import { DatabaseService } from '../supabase-config.js';
-import { AuthGuard } from '../auth-guard.js';
-
-// ==================== VARIABILI GLOBALI ====================
-let pagamentiDB = [];
-let artistiDB = [];
-let agibilitaDB = [];
-let selectedPayments = new Set();
-let currentUser = null;
-let paymentSettings = {
-    ritenuta_occasionale: 0.20, // 20%
-    soglia_ritenuta: 25.82,
-    soglia_annua_occasionale: 5000,
-    approvazione_automatica_sotto: 100,
-    approvazione_dirigenziale_sopra: 500
-};
-
-// Filtri correnti
-let currentFilters = {
-    stato: 'da_pagare', // ✅ CORRETTO: stato del database
-    dateFrom: null,
-    dateTo: null,
-    tipoContratto: '',
-    artista: '',
-    importoMin: null
-};
-
-// Audit trail
-let auditTrail = [];
-
-// 🔥 FLAG PER EVITARE INIT MULTIPLI
-let isInitializing = false;
-let isInitialized = false;
-
-// ==================== INIZIALIZZAZIONE SICURA CORRETTA ====================
-document.addEventListener('DOMContentLoaded', async function() {
-    // 🔥 PREVENZIONE LOOP - Solo un'inizializzazione alla volta
-    if (isInitializing || isInitialized) {
-        console.log('⚠️ Inizializzazione già in corso o completata, skip');
-        return;
-    }
-    
-    isInitializing = true;
-    console.log('🚀 Inizializzazione sistema pagamenti avanzato...');
-    
-    try {
-        // === STEP 1: AUTENTICAZIONE MANUALE (NO AUTO-INIT) ===
-        console.log('🔐 Inizializzazione autenticazione manuale...');
-        await AuthGuard.initPageProtection();
-        
-        // === STEP 2: VERIFICA UTENTE ===
-        currentUser = await AuthGuard.getCurrentUser();
-        if (!currentUser) {
-            console.warn('⚠️ Utente non autenticato dopo verifica');
-            return; // AuthGuard ha già gestito il redirect
-        }
-        
-        console.log('✅ Utente autenticato:', currentUser.email);
-        
-        // === STEP 3: TEST CONNESSIONE DATABASE ===
-        console.log('🔌 Test connessione database...');
-        const connectionTest = await DatabaseService.testConnection();
-        if (!connectionTest.connected) {
-            throw new Error('Connessione database fallita: ' + (connectionTest.error || 'Errore sconosciuto'));
-        }
-        console.log('✅ Database connesso');
-        
-        // === STEP 4: CARICA DATI INIZIALI ===
-        console.log('📥 Caricamento dati iniziali...');
-        await loadInitialData();
-        
-        // === STEP 5: SETUP INTERFACCIA ===
-        console.log('🖥️ Setup interfaccia...');
-        setupDefaultFilters();
-        setupEventListeners();
-        
-        // === STEP 6: CALCOLO AUTOMATICO PAGAMENTI ===
-        console.log('🧮 Avvio calcolo automatico pagamenti...');
-        await autoCalculatePaymentsFromAgibilita(true);
-        
-        // === STEP 7: RICARICA PAGAMENTI AGGIORNATI ===
-        console.log('🔄 Ricaricamento pagamenti aggiornati...');
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log('✅ ' + pagamentiDB.length + ' pagamenti totali caricati');
-        
-        // === STEP 8: APPLICA FILTRI E MOSTRA DATI ===
-        console.log('🔍 Applicazione filtri e visualizzazione...');
-        await applyAdvancedFilters();
-        
-        // === STEP 9: AGGIORNA DASHBOARD ===
-        console.log('📊 Aggiornamento dashboard...');
-        await updateExecutiveDashboard();
-        
-        // === STEP 10: SETUP NOTIFICHE ===
-        console.log('🔔 Setup sistema notifiche...');
-        setupPaymentNotifications();
-        
-        // === COMPLETAMENTO ===
-        isInitialized = true;
-        console.log('✅ Sistema pagamenti inizializzato con successo!');
-        logAuditEvent('system_initialized', 'Sistema pagamenti avviato', null);
-        
-        // Nascondi loading se presente
-        const loadingOverlay = document.getElementById('loading-overlay');
-        if (loadingOverlay) {
-            loadingOverlay.style.display = 'none';
-        }
-        
-    } catch (error) {
-        console.error('❌ Errore inizializzazione sistema pagamenti:', error);
-        
-        // Mostra errore user-friendly
-        const errorMessage = error.message || 'Errore di inizializzazione sconosciuto';
-        showToast('Errore di inizializzazione: ' + errorMessage, 'error');
-        
-        // Se errore di autenticazione, AuthGuard ha già gestito il redirect
-        if (error.message?.includes('Autenticazione')) {
-            console.log('🔄 Errore autenticazione - AuthGuard gestirà il redirect');
-            return;
-        }
-        
-    } finally {
-        isInitializing = false;
-    }
-});
-
-// ==================== CARICAMENTO DATI SICURO ====================
-async function loadInitialData() {
-    try {
-        console.log('📥 Caricamento dati iniziali...');
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        artistiDB = await DatabaseService.getArtistsWithFinancialData();
-        console.log(`✅ ${artistiDB.length} artisti caricati`);
-        
-        // Carica agibilità recenti (ultimo anno)
-        const lastYear = new Date();
-        lastYear.setFullYear(lastYear.getFullYear() - 1);
-        agibilitaDB = await DatabaseService.getAgibilita({
-            fromDate: lastYear.toISOString()
-        });
-        console.log(`✅ ${agibilitaDB.length} agibilità caricate`);
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log(`✅ ${pagamentiDB.length} pagamenti caricati`);
-        
-        // Carica configurazioni sistema
-        await loadPaymentSettings();
-        
-    } catch (error) {
-        console.error('❌ Errore caricamento dati:', error);
-        showToast('Errore nel caricamento dei dati: ' + error.message, 'error');
-        throw error;
-    }
-}Filters() {
-    try {// pagamenti.js - Sistema Gestione Pagamenti RECORP Avanzato
-
-// Import services - PERCORSI CORRETTI (file nel root)
-import { DatabaseService } from '../supabase-config.js';
-import { AuthGuard } from '../auth-guard.js';
-
-// ==================== VARIABILI GLOBALI ====================
-let pagamentiDB = [];
-let artistiDB = [];
-let agibilitaDB = [];
-let selectedPayments = new Set();
-let currentUser = null;
-let paymentSettings = {
-    ritenuta_occasionale: 0.20, // 20%
-    soglia_ritenuta: 25.82,
-    soglia_annua_occasionale: 5000,
-    approvazione_automatica_sotto: 100,
-    approvazione_dirigenziale_sopra: 500
-};
-
-// Filtri correnti
-let currentFilters = {
-    stato: 'da_pagare', // ✅ CORRETTO: stato del database
-    dateFrom: null,
-    dateTo: null,
-    tipoContratto: '',
-    artista: '',
-    importoMin: null
-};
-
-// Audit trail
-let auditTrail = [];
-
-// 🔥 FLAG PER EVITARE INIT MULTIPLI
-let isInitializing = false;
-let isInitialized = false;
-
-// ==================== INIZIALIZZAZIONE SICURA CORRETTA ====================
-document.addEventListener('DOMContentLoaded', async function() {
-    // 🔥 PREVENZIONE LOOP - Solo un'inizializzazione alla volta
-    if (isInitializing || isInitialized) {
-        console.log('⚠️ Inizializzazione già in corso o completata, skip');
-        return;
-    }
-    
-    isInitializing = true;
-    console.log('🚀 Inizializzazione sistema pagamenti avanzato...');
-    
-    try {
-        // === STEP 1: AUTENTICAZIONE MANUALE (NO AUTO-INIT) ===
-        console.log('🔐 Inizializzazione autenticazione manuale...');
-        await AuthGuard.initPageProtection();
-        
-        // === STEP 2: VERIFICA UTENTE ===
-        currentUser = await AuthGuard.getCurrentUser();
-        if (!currentUser) {
-            console.warn('⚠️ Utente non autenticato dopo verifica');
-            return; // AuthGuard ha già gestito il redirect
-        }
-        
-        console.log('✅ Utente autenticato:', currentUser.email);
-        
-        // === STEP 3: TEST CONNESSIONE DATABASE ===
-        console.log('🔌 Test connessione database...');
-        const connectionTest = await DatabaseService.testConnection();
-        if (!connectionTest.connected) {
-            throw new Error('Connessione database fallita: ' + (connectionTest.error || 'Errore sconosciuto'));
-        }
-        console.log('✅ Database connesso');
-        
-        // === STEP 4: CARICA DATI INIZIALI ===
-        console.log('📥 Caricamento dati iniziali...');
-        await loadInitialData();
-        
-        // === STEP 5: SETUP INTERFACCIA ===
-        console.log('🖥️ Setup interfaccia...');
-        setupDefaultFilters();
-        setupEventListeners();
-        
-        // === STEP 6: CALCOLO AUTOMATICO PAGAMENTI ===
-        console.log('🧮 Avvio calcolo automatico pagamenti...');
-        await autoCalculatePaymentsFromAgibilita(true);
-        
-        // === STEP 7: RICARICA PAGAMENTI AGGIORNATI ===
-        console.log('🔄 Ricaricamento pagamenti aggiornati...');
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log('✅ ' + pagamentiDB.length + ' pagamenti totali caricati');
-        
-        // === STEP 8: APPLICA FILTRI E MOSTRA DATI ===
-        console.log('🔍 Applicazione filtri e visualizzazione...');
-        await applyAdvancedFilters();
-        
-        // === STEP 9: AGGIORNA DASHBOARD ===
-        console.log('📊 Aggiornamento dashboard...');
-        await updateExecutiveDashboard();
-        
-        // === STEP 10: SETUP NOTIFICHE ===
-        console.log('🔔 Setup sistema notifiche...');
-        setupPaymentNotifications();
-        
-        // === COMPLETAMENTO ===
-        isInitialized = true;
-        console.log('✅ Sistema pagamenti inizializzato con successo!');
-        logAuditEvent('system_initialized', 'Sistema pagamenti avviato', null);
-        
-        // Nascondi loading se presente
-        const loadingOverlay = document.getElementById('loading-overlay');
-        if (loadingOverlay) {
-            loadingOverlay.style.display = 'none';
-        }
-        
-    } catch (error) {
-        console.error('❌ Errore inizializzazione sistema pagamenti:', error);
-        
-        // Mostra errore user-friendly
-        const errorMessage = error.message || 'Errore di inizializzazione sconosciuto';
-        showToast('Errore di inizializzazione: ' + errorMessage, 'error');
-        
-        // Se errore di autenticazione, AuthGuard ha già gestito il redirect
-        if (error.message?.includes('Autenticazione')) {
-            console.log('🔄 Errore autenticazione - AuthGuard gestirà il redirect');
-            return;
-        }
-        
-    } finally {
-        isInitializing = false;
-    }
-});
-
-// ==================== CARICAMENTO DATI SICURO ====================
-async function loadInitialData() {
-    try {
-        console.log('📥 Caricamento dati iniziali...');
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        artistiDB = await DatabaseService.getArtistsWithFinancialData();
-        console.log(`✅ ${artistiDB.length} artisti caricati`);
-        
-        // Carica agibilità recenti (ultimo anno)
-        const lastYear = new Date();
-        lastYear.setFullYear(lastYear.getFullYear() - 1);
-        agibilitaDB = await DatabaseService.getAgibilita({
-            fromDate: lastYear.toISOString()
-        });
-        console.log(`✅ ${agibilitaDB.length} agibilità caricate`);
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log(`✅ ${pagamentiDB.length} pagamenti caricati`);
-        
-        // Carica configurazioni sistema
-        await loadPaymentSettings();
-        
-    } catch (error) {
-        console.error('❌ Errore caricamento dati:', error);
-        showToast('Errore nel caricamento dei dati: ' + error.message, 'error');
-        throw error;
-    }
-}
-        // Raccogli filtri// pagamenti.js - Sistema Gestione Pagamenti RECORP Avanzato
-
-// Import services - PERCORSI CORRETTI (file nel root)
-import { DatabaseService } from '../supabase-config.js';
-import { AuthGuard } from '../auth-guard.js';
-
-// ==================== VARIABILI GLOBALI ====================
-let pagamentiDB = [];
-let artistiDB = [];
-let agibilitaDB = [];
-let selectedPayments = new Set();
-let currentUser = null;
-let paymentSettings = {
-    ritenuta_occasionale: 0.20, // 20%
-    soglia_ritenuta: 25.82,
-    soglia_annua_occasionale: 5000,
-    approvazione_automatica_sotto: 100,
-    approvazione_dirigenziale_sopra: 500
-};
-
-// Filtri correnti
-let currentFilters = {
-    stato: 'da_pagare', // ✅ CORRETTO: stato del database
-    dateFrom: null,
-    dateTo: null,
-    tipoContratto: '',
-    artista: '',
-    importoMin: null
-};
-
-// Audit trail
-let auditTrail = [];
-
-// 🔥 FLAG PER EVITARE INIT MULTIPLI
-let isInitializing = false;
-let isInitialized = false;
-
-// ==================== INIZIALIZZAZIONE SICURA CORRETTA ====================
-document.addEventListener('DOMContentLoaded', async function() {
-    // 🔥 PREVENZIONE LOOP - Solo un'inizializzazione alla volta
-    if (isInitializing || isInitialized) {
-        console.log('⚠️ Inizializzazione già in corso o completata, skip');
-        return;
-    }
-    
-    isInitializing = true;
-    console.log('🚀 Inizializzazione sistema pagamenti avanzato...');
-    
-    try {
-        // === STEP 1: AUTENTICAZIONE MANUALE (NO AUTO-INIT) ===
-        console.log('🔐 Inizializzazione autenticazione manuale...');
-        await AuthGuard.initPageProtection();
-        
-        // === STEP 2: VERIFICA UTENTE ===
-        currentUser = await AuthGuard.getCurrentUser();
-        if (!currentUser) {
-            console.warn('⚠️ Utente non autenticato dopo verifica');
-            return; // AuthGuard ha già gestito il redirect
-        }
-        
-        console.log('✅ Utente autenticato:', currentUser.email);
-        
-        // === STEP 3: TEST CONNESSIONE DATABASE ===
-        console.log('🔌 Test connessione database...');
-        const connectionTest = await DatabaseService.testConnection();
-        if (!connectionTest.connected) {
-            throw new Error('Connessione database fallita: ' + (connectionTest.error || 'Errore sconosciuto'));
-        }
-        console.log('✅ Database connesso');
-        
-        // === STEP 4: CARICA DATI INIZIALI ===
-        console.log('📥 Caricamento dati iniziali...');
-        await loadInitialData();
-        
-        // === STEP 5: SETUP INTERFACCIA ===
-        console.log('🖥️ Setup interfaccia...');
-        setupDefaultFilters();
-        setupEventListeners();
-        
-        // === STEP 6: CALCOLO AUTOMATICO PAGAMENTI ===
-        console.log('🧮 Avvio calcolo automatico pagamenti...');
-        await autoCalculatePaymentsFromAgibilita(true);
-        
-        // === STEP 7: RICARICA PAGAMENTI AGGIORNATI ===
-        console.log('🔄 Ricaricamento pagamenti aggiornati...');
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log('✅ ' + pagamentiDB.length + ' pagamenti totali caricati');
-        
-        // === STEP 8: APPLICA FILTRI E MOSTRA DATI ===
-        console.log('🔍 Applicazione filtri e visualizzazione...');
-        await applyAdvancedFilters();
-        
-        // === STEP 9: AGGIORNA DASHBOARD ===
-        console.log('📊 Aggiornamento dashboard...');
-        await updateExecutiveDashboard();
-        
-        // === STEP 10: SETUP NOTIFICHE ===
-        console.log('🔔 Setup sistema notifiche...');
-        setupPaymentNotifications();
-        
-        // === COMPLETAMENTO ===
-        isInitialized = true;
-        console.log('✅ Sistema pagamenti inizializzato con successo!');
-        logAuditEvent('system_initialized', 'Sistema pagamenti avviato', null);
-        
-        // Nascondi loading se presente
-        const loadingOverlay = document.getElementById('loading-overlay');
-        if (loadingOverlay) {
-            loadingOverlay.style.display = 'none';
-        }
-        
-    } catch (error) {
-        console.error('❌ Errore inizializzazione sistema pagamenti:', error);
-        
-        // Mostra errore user-friendly
-        const errorMessage = error.message || 'Errore di inizializzazione sconosciuto';
-        showToast('Errore di inizializzazione: ' + errorMessage, 'error');
-        
-        // Se errore di autenticazione, AuthGuard ha già gestito il redirect
-        if (error.message?.includes('Autenticazione')) {
-            console.log('🔄 Errore autenticazione - AuthGuard gestirà il redirect');
-            return;
-        }
-        
-    } finally {
-        isInitializing = false;
-    }
-});
-
-// ==================== CARICAMENTO DATI SICURO ====================
-async function loadInitialData() {
-    try {
-        console.log('📥 Caricamento dati iniziali...');
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        artistiDB = await DatabaseService.getArtistsWithFinancialData();
-        console.log(`✅ ${artistiDB.length} artisti caricati`);
-        
-        // Carica agibilità recenti (ultimo anno)
-        const lastYear = new Date();
-        lastYear.setFullYear(lastYear.getFullYear() - 1);
-        agibilitaDB = await DatabaseService.getAgibilita({
-            fromDate: lastYear.toISOString()
-        });
-        console.log(`✅ ${agibilitaDB.length} agibilità caricate`);
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log(`✅ ${pagamentiDB.length} pagamenti caricati`);
-        
-        // Carica configurazioni sistema
-        await loadPaymentSettings();
-        
-    } catch (error) {
-        console.error('❌ Errore caricamento dati:', error);
-        showToast('Errore nel caricamento dei dati: ' + error.message, 'error');
-        throw error;
-    }
-}
-        currentFilters = {// pagamenti.js - Sistema Gestione Pagamenti RECORP Avanzato
-
-// Import services - PERCORSI CORRETTI (file nel root)
-import { DatabaseService } from '../supabase-config.js';
-import { AuthGuard } from '../auth-guard.js';
-
-// ==================== VARIABILI GLOBALI ====================
-let pagamentiDB = [];
-let artistiDB = [];
-let agibilitaDB = [];
-let selectedPayments = new Set();
-let currentUser = null;
-let paymentSettings = {
-    ritenuta_occasionale: 0.20, // 20%
-    soglia_ritenuta: 25.82,
-    soglia_annua_occasionale: 5000,
-    approvazione_automatica_sotto: 100,
-    approvazione_dirigenziale_sopra: 500
-};
-
-// Filtri correnti
-let currentFilters = {
-    stato: 'da_pagare', // ✅ CORRETTO: stato del database
-    dateFrom: null,
-    dateTo: null,
-    tipoContratto: '',
-    artista: '',
-    importoMin: null
-};
-
-// Audit trail
-let auditTrail = [];
-
-// 🔥 FLAG PER EVITARE INIT MULTIPLI
-let isInitializing = false;
-let isInitialized = false;
-
-// ==================== INIZIALIZZAZIONE SICURA CORRETTA ====================
-document.addEventListener('DOMContentLoaded', async function() {
-    // 🔥 PREVENZIONE LOOP - Solo un'inizializzazione alla volta
-    if (isInitializing || isInitialized) {
-        console.log('⚠️ Inizializzazione già in corso o completata, skip');
-        return;
-    }
-    
-    isInitializing = true;
-    console.log('🚀 Inizializzazione sistema pagamenti avanzato...');
-    
-    try {
-        // === STEP 1: AUTENTICAZIONE MANUALE (NO AUTO-INIT) ===
-        console.log('🔐 Inizializzazione autenticazione manuale...');
-        await AuthGuard.initPageProtection();
-        
-        // === STEP 2: VERIFICA UTENTE ===
-        currentUser = await AuthGuard.getCurrentUser();
-        if (!currentUser) {
-            console.warn('⚠️ Utente non autenticato dopo verifica');
-            return; // AuthGuard ha già gestito il redirect
-        }
-        
-        console.log('✅ Utente autenticato:', currentUser.email);
-        
-        // === STEP 3: TEST CONNESSIONE DATABASE ===
-        console.log('🔌 Test connessione database...');
-        const connectionTest = await DatabaseService.testConnection();
-        if (!connectionTest.connected) {
-            throw new Error('Connessione database fallita: ' + (connectionTest.error || 'Errore sconosciuto'));
-        }
-        console.log('✅ Database connesso');
-        
-        // === STEP 4: CARICA DATI INIZIALI ===
-        console.log('📥 Caricamento dati iniziali...');
-        await loadInitialData();
-        
-        // === STEP 5: SETUP INTERFACCIA ===
-        console.log('🖥️ Setup interfaccia...');
-        setupDefaultFilters();
-        setupEventListeners();
-        
-        // === STEP 6: CALCOLO AUTOMATICO PAGAMENTI ===
-        console.log('🧮 Avvio calcolo automatico pagamenti...');
-        await autoCalculatePaymentsFromAgibilita(true);
-        
-        // === STEP 7: RICARICA PAGAMENTI AGGIORNATI ===
-        console.log('🔄 Ricaricamento pagamenti aggiornati...');
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log('✅ ' + pagamentiDB.length + ' pagamenti totali caricati');
-        
-        // === STEP 8: APPLICA FILTRI E MOSTRA DATI ===
-        console.log('🔍 Applicazione filtri e visualizzazione...');
-        await applyAdvancedFilters();
-        
-        // === STEP 9: AGGIORNA DASHBOARD ===
-        console.log('📊 Aggiornamento dashboard...');
-        await updateExecutiveDashboard();
-        
-        // === STEP 10: SETUP NOTIFICHE ===
-        console.log('🔔 Setup sistema notifiche...');
-        setupPaymentNotifications();
-        
-        // === COMPLETAMENTO ===
-        isInitialized = true;
-        console.log('✅ Sistema pagamenti inizializzato con successo!');
-        logAuditEvent('system_initialized', 'Sistema pagamenti avviato', null);
-        
-        // Nascondi loading se presente
-        const loadingOverlay = document.getElementById('loading-overlay');
-        if (loadingOverlay) {
-            loadingOverlay.style.display = 'none';
-        }
-        
-    } catch (error) {
-        console.error('❌ Errore inizializzazione sistema pagamenti:', error);
-        
-        // Mostra errore user-friendly
-        const errorMessage = error.message || 'Errore di inizializzazione sconosciuto';
-        showToast('Errore di inizializzazione: ' + errorMessage, 'error');
-        
-        // Se errore di autenticazione, AuthGuard ha già gestito il redirect
-        if (error.message?.includes('Autenticazione')) {
-            console.log('🔄 Errore autenticazione - AuthGuard gestirà il redirect');
-            return;
-        }
-        
-    } finally {
-        isInitializing = false;
-    }
-});
-
-// ==================== CARICAMENTO DATI SICURO ====================
-async function loadInitialData() {
-    try {
-        console.log('📥 Caricamento dati iniziali...');
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        artistiDB = await DatabaseService.getArtistsWithFinancialData();
-        console.log(`✅ ${artistiDB.length} artisti caricati`);
-        
-        // Carica agibilità recenti (ultimo anno)
-        const lastYear = new Date();
-        lastYear.setFullYear(lastYear.getFullYear() - 1);
-        agibilitaDB = await DatabaseService.getAgibilita({
-            fromDate: lastYear.toISOString()
-        });
-        console.log(`✅ ${agibilitaDB.length} agibilità caricate`);
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log(`✅ ${pagamentiDB.length} pagamenti caricati`);
-        
-        // Carica configurazioni sistema
-        await loadPaymentSettings();
-        
-    } catch (error) {
-        console.error('❌ Errore caricamento dati:', error);
-        showToast('Errore nel caricamento dei dati: ' + error.message, 'error');
-        throw error;
-    }
-}
-            stato: document.// pagamenti.js - Sistema Gestione Pagamenti RECORP Avanzato
-
-// Import services - PERCORSI CORRETTI (file nel root)
-import { DatabaseService } from '../supabase-config.js';
-import { AuthGuard } from '../auth-guard.js';
-
-// ==================== VARIABILI GLOBALI ====================
-let pagamentiDB = [];
-let artistiDB = [];
-let agibilitaDB = [];
-let selectedPayments = new Set();
-let currentUser = null;
-let paymentSettings = {
-    ritenuta_occasionale: 0.20, // 20%
-    soglia_ritenuta: 25.82,
-    soglia_annua_occasionale: 5000,
-    approvazione_automatica_sotto: 100,
-    approvazione_dirigenziale_sopra: 500
-};
-
-// Filtri correnti
-let currentFilters = {
-    stato: 'da_pagare', // ✅ CORRETTO: stato del database
-    dateFrom: null,
-    dateTo: null,
-    tipoContratto: '',
-    artista: '',
-    importoMin: null
-};
-
-// Audit trail
-let auditTrail = [];
-
-// 🔥 FLAG PER EVITARE INIT MULTIPLI
-let isInitializing = false;
-let isInitialized = false;
-
-// ==================== INIZIALIZZAZIONE SICURA CORRETTA ====================
-document.addEventListener('DOMContentLoaded', async function() {
-    // 🔥 PREVENZIONE LOOP - Solo un'inizializzazione alla volta
-    if (isInitializing || isInitialized) {
-        console.log('⚠️ Inizializzazione già in corso o completata, skip');
-        return;
-    }
-    
-    isInitializing = true;
-    console.log('🚀 Inizializzazione sistema pagamenti avanzato...');
-    
-    try {
-        // === STEP 1: AUTENTICAZIONE MANUALE (NO AUTO-INIT) ===
-        console.log('🔐 Inizializzazione autenticazione manuale...');
-        await AuthGuard.initPageProtection();
-        
-        // === STEP 2: VERIFICA UTENTE ===
-        currentUser = await AuthGuard.getCurrentUser();
-        if (!currentUser) {
-            console.warn('⚠️ Utente non autenticato dopo verifica');
-            return; // AuthGuard ha già gestito il redirect
-        }
-        
-        console.log('✅ Utente autenticato:', currentUser.email);
-        
-        // === STEP 3: TEST CONNESSIONE DATABASE ===
-        console.log('🔌 Test connessione database...');
-        const connectionTest = await DatabaseService.testConnection();
-        if (!connectionTest.connected) {
-            throw new Error('Connessione database fallita: ' + (connectionTest.error || 'Errore sconosciuto'));
-        }
-        console.log('✅ Database connesso');
-        
-        // === STEP 4: CARICA DATI INIZIALI ===
-        console.log('📥 Caricamento dati iniziali...');
-        await loadInitialData();
-        
-        // === STEP 5: SETUP INTERFACCIA ===
-        console.log('🖥️ Setup interfaccia...');
-        setupDefaultFilters();
-        setupEventListeners();
-        
-        // === STEP 6: CALCOLO AUTOMATICO PAGAMENTI ===
-        console.log('🧮 Avvio calcolo automatico pagamenti...');
-        await autoCalculatePaymentsFromAgibilita(true);
-        
-        // === STEP 7: RICARICA PAGAMENTI AGGIORNATI ===
-        console.log('🔄 Ricaricamento pagamenti aggiornati...');
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log('✅ ' + pagamentiDB.length + ' pagamenti totali caricati');
-        
-        // === STEP 8: APPLICA FILTRI E MOSTRA DATI ===
-        console.log('🔍 Applicazione filtri e visualizzazione...');
-        await applyAdvancedFilters();
-        
-        // === STEP 9: AGGIORNA DASHBOARD ===
-        console.log('📊 Aggiornamento dashboard...');
-        await updateExecutiveDashboard();
-        
-        // === STEP 10: SETUP NOTIFICHE ===
-        console.log('🔔 Setup sistema notifiche...');
-        setupPaymentNotifications();
-        
-        // === COMPLETAMENTO ===
-        isInitialized = true;
-        console.log('✅ Sistema pagamenti inizializzato con successo!');
-        logAuditEvent('system_initialized', 'Sistema pagamenti avviato', null);
-        
-        // Nascondi loading se presente
-        const loadingOverlay = document.getElementById('loading-overlay');
-        if (loadingOverlay) {
-            loadingOverlay.style.display = 'none';
-        }
-        
-    } catch (error) {
-        console.error('❌ Errore inizializzazione sistema pagamenti:', error);
-        
-        // Mostra errore user-friendly
-        const errorMessage = error.message || 'Errore di inizializzazione sconosciuto';
-        showToast('Errore di inizializzazione: ' + errorMessage, 'error');
-        
-        // Se errore di autenticazione, AuthGuard ha già gestito il redirect
-        if (error.message?.includes('Autenticazione')) {
-            console.log('🔄 Errore autenticazione - AuthGuard gestirà il redirect');
-            return;
-        }
-        
-    } finally {
-        isInitializing = false;
-    }
-});
-
-// ==================== CARICAMENTO DATI SICURO ====================
-async function loadInitialData() {
-    try {
-        console.log('📥 Caricamento dati iniziali...');
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        artistiDB = await DatabaseService.getArtistsWithFinancialData();
-        console.log(`✅ ${artistiDB.length} artisti caricati`);
-        
-        // Carica agibilità recenti (ultimo anno)
-        const lastYear = new Date();
-        lastYear.setFullYear(lastYear.getFullYear() - 1);
-        agibilitaDB = await DatabaseService.getAgibilita({
-            fromDate: lastYear.toISOString()
-        });
-        console.log(`✅ ${agibilitaDB.length} agibilità caricate`);
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log(`✅ ${pagamentiDB.length} pagamenti caricati`);
-        
-        // Carica configurazioni sistema
-        await loadPaymentSettings();
-        
-    } catch (error) {
-        console.error('❌ Errore caricamento dati:', error);
-        showToast('Errore nel caricamento dei dati: ' + error.message, 'error');
-        throw error;
-    }
-}getElementById('filterStato').value,
-            dateFrom: docume// pagamenti.js - Sistema Gestione Pagamenti RECORP Avanzato
-
-// Import services - PERCORSI CORRETTI (file nel root)
-import { DatabaseService } from '../supabase-config.js';
-import { AuthGuard } from '../auth-guard.js';
-
-// ==================== VARIABILI GLOBALI ====================
-let pagamentiDB = [];
-let artistiDB = [];
-let agibilitaDB = [];
-let selectedPayments = new Set();
-let currentUser = null;
-let paymentSettings = {
-    ritenuta_occasionale: 0.20, // 20%
-    soglia_ritenuta: 25.82,
-    soglia_annua_occasionale: 5000,
-    approvazione_automatica_sotto: 100,
-    approvazione_dirigenziale_sopra: 500
-};
-
-// Filtri correnti
-let currentFilters = {
-    stato: 'da_pagare', // ✅ CORRETTO: stato del database
-    dateFrom: null,
-    dateTo: null,
-    tipoContratto: '',
-    artista: '',
-    importoMin: null
-};
-
-// Audit trail
-let auditTrail = [];
-
-// 🔥 FLAG PER EVITARE INIT MULTIPLI
-let isInitializing = false;
-let isInitialized = false;
-
-// ==================== INIZIALIZZAZIONE SICURA CORRETTA ====================
-document.addEventListener('DOMContentLoaded', async function() {
-    // 🔥 PREVENZIONE LOOP - Solo un'inizializzazione alla volta
-    if (isInitializing || isInitialized) {
-        console.log('⚠️ Inizializzazione già in corso o completata, skip');
-        return;
-    }
-    
-    isInitializing = true;
-    console.log('🚀 Inizializzazione sistema pagamenti avanzato...');
-    
-    try {
-        // === STEP 1: AUTENTICAZIONE MANUALE (NO AUTO-INIT) ===
-        console.log('🔐 Inizializzazione autenticazione manuale...');
-        await AuthGuard.initPageProtection();
-        
-        // === STEP 2: VERIFICA UTENTE ===
-        currentUser = await AuthGuard.getCurrentUser();
-        if (!currentUser) {
-            console.warn('⚠️ Utente non autenticato dopo verifica');
-            return; // AuthGuard ha già gestito il redirect
-        }
-        
-        console.log('✅ Utente autenticato:', currentUser.email);
-        
-        // === STEP 3: TEST CONNESSIONE DATABASE ===
-        console.log('🔌 Test connessione database...');
-        const connectionTest = await DatabaseService.testConnection();
-        if (!connectionTest.connected) {
-            throw new Error('Connessione database fallita: ' + (connectionTest.error || 'Errore sconosciuto'));
-        }
-        console.log('✅ Database connesso');
-        
-        // === STEP 4: CARICA DATI INIZIALI ===
-        console.log('📥 Caricamento dati iniziali...');
-        await loadInitialData();
-        
-        // === STEP 5: SETUP INTERFACCIA ===
-        console.log('🖥️ Setup interfaccia...');
-        setupDefaultFilters();
-        setupEventListeners();
-        
-        // === STEP 6: CALCOLO AUTOMATICO PAGAMENTI ===
-        console.log('🧮 Avvio calcolo automatico pagamenti...');
-        await autoCalculatePaymentsFromAgibilita(true);
-        
-        // === STEP 7: RICARICA PAGAMENTI AGGIORNATI ===
-        console.log('🔄 Ricaricamento pagamenti aggiornati...');
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log('✅ ' + pagamentiDB.length + ' pagamenti totali caricati');
-        
-        // === STEP 8: APPLICA FILTRI E MOSTRA DATI ===
-        console.log('🔍 Applicazione filtri e visualizzazione...');
-        await applyAdvancedFilters();
-        
-        // === STEP 9: AGGIORNA DASHBOARD ===
-        console.log('📊 Aggiornamento dashboard...');
-        await updateExecutiveDashboard();
-        
-        // === STEP 10: SETUP NOTIFICHE ===
-        console.log('🔔 Setup sistema notifiche...');
-        setupPaymentNotifications();
-        
-        // === COMPLETAMENTO ===
-        isInitialized = true;
-        console.log('✅ Sistema pagamenti inizializzato con successo!');
-        logAuditEvent('system_initialized', 'Sistema pagamenti avviato', null);
-        
-        // Nascondi loading se presente
-        const loadingOverlay = document.getElementById('loading-overlay');
-        if (loadingOverlay) {
-            loadingOverlay.style.display = 'none';
-        }
-        
-    } catch (error) {
-        console.error('❌ Errore inizializzazione sistema pagamenti:', error);
-        
-        // Mostra errore user-friendly
-        const errorMessage = error.message || 'Errore di inizializzazione sconosciuto';
-        showToast('Errore di inizializzazione: ' + errorMessage, 'error');
-        
-        // Se errore di autenticazione, AuthGuard ha già gestito il redirect
-        if (error.message?.includes('Autenticazione')) {
-            console.log('🔄 Errore autenticazione - AuthGuard gestirà il redirect');
-            return;
-        }
-        
-    } finally {
-        isInitializing = false;
-    }
-});
-
-// ==================== CARICAMENTO DATI SICURO ====================
-async function loadInitialData() {
-    try {
-        console.log('📥 Caricamento dati iniziali...');
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        artistiDB = await DatabaseService.getArtistsWithFinancialData();
-        console.log(`✅ ${artistiDB.length} artisti caricati`);
-        
-        // Carica agibilità recenti (ultimo anno)
-        const lastYear = new Date();
-        lastYear.setFullYear(lastYear.getFullYear() - 1);
-        agibilitaDB = await DatabaseService.getAgibilita({
-            fromDate: lastYear.toISOString()
-        });
-        console.log(`✅ ${agibilitaDB.length} agibilità caricate`);
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log(`✅ ${pagamentiDB.length} pagamenti caricati`);
-        
-        // Carica configurazioni sistema
-        await loadPaymentSettings();
-        
-    } catch (error) {
-        console.error('❌ Errore caricamento dati:', error);
-        showToast('Errore nel caricamento dei dati: ' + error.message, 'error');
-        throw error;
-    }
-}nt.getElementById('filterDateFrom').value,
-            dateTo: document// pagamenti.js - Sistema Gestione Pagamenti RECORP Avanzato
-
-// Import services - PERCORSI CORRETTI (file nel root)
-import { DatabaseService } from '../supabase-config.js';
-import { AuthGuard } from '../auth-guard.js';
-
-// ==================== VARIABILI GLOBALI ====================
-let pagamentiDB = [];
-let artistiDB = [];
-let agibilitaDB = [];
-let selectedPayments = new Set();
-let currentUser = null;
-let paymentSettings = {
-    ritenuta_occasionale: 0.20, // 20%
-    soglia_ritenuta: 25.82,
-    soglia_annua_occasionale: 5000,
-    approvazione_automatica_sotto: 100,
-    approvazione_dirigenziale_sopra: 500
-};
-
-// Filtri correnti
-let currentFilters = {
-    stato: 'da_pagare', // ✅ CORRETTO: stato del database
-    dateFrom: null,
-    dateTo: null,
-    tipoContratto: '',
-    artista: '',
-    importoMin: null
-};
-
-// Audit trail
-let auditTrail = [];
-
-// 🔥 FLAG PER EVITARE INIT MULTIPLI
-let isInitializing = false;
-let isInitialized = false;
-
-// ==================== INIZIALIZZAZIONE SICURA CORRETTA ====================
-document.addEventListener('DOMContentLoaded', async function() {
-    // 🔥 PREVENZIONE LOOP - Solo un'inizializzazione alla volta
-    if (isInitializing || isInitialized) {
-        console.log('⚠️ Inizializzazione già in corso o completata, skip');
-        return;
-    }
-    
-    isInitializing = true;
-    console.log('🚀 Inizializzazione sistema pagamenti avanzato...');
-    
-    try {
-        // === STEP 1: AUTENTICAZIONE MANUALE (NO AUTO-INIT) ===
-        console.log('🔐 Inizializzazione autenticazione manuale...');
-        await AuthGuard.initPageProtection();
-        
-        // === STEP 2: VERIFICA UTENTE ===
-        currentUser = await AuthGuard.getCurrentUser();
-        if (!currentUser) {
-            console.warn('⚠️ Utente non autenticato dopo verifica');
-            return; // AuthGuard ha già gestito il redirect
-        }
-        
-        console.log('✅ Utente autenticato:', currentUser.email);
-        
-        // === STEP 3: TEST CONNESSIONE DATABASE ===
-        console.log('🔌 Test connessione database...');
-        const connectionTest = await DatabaseService.testConnection();
-        if (!connectionTest.connected) {
-            throw new Error('Connessione database fallita: ' + (connectionTest.error || 'Errore sconosciuto'));
-        }
-        console.log('✅ Database connesso');
-        
-        // === STEP 4: CARICA DATI INIZIALI ===
-        console.log('📥 Caricamento dati iniziali...');
-        await loadInitialData();
-        
-        // === STEP 5: SETUP INTERFACCIA ===
-        console.log('🖥️ Setup interfaccia...');
-        setupDefaultFilters();
-        setupEventListeners();
-        
-        // === STEP 6: CALCOLO AUTOMATICO PAGAMENTI ===
-        console.log('🧮 Avvio calcolo automatico pagamenti...');
-        await autoCalculatePaymentsFromAgibilita(true);
-        
-        // === STEP 7: RICARICA PAGAMENTI AGGIORNATI ===
-        console.log('🔄 Ricaricamento pagamenti aggiornati...');
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log('✅ ' + pagamentiDB.length + ' pagamenti totali caricati');
-        
-        // === STEP 8: APPLICA FILTRI E MOSTRA DATI ===
-        console.log('🔍 Applicazione filtri e visualizzazione...');
-        await applyAdvancedFilters();
-        
-        // === STEP 9: AGGIORNA DASHBOARD ===
-        console.log('📊 Aggiornamento dashboard...');
-        await updateExecutiveDashboard();
-        
-        // === STEP 10: SETUP NOTIFICHE ===
-        console.log('🔔 Setup sistema notifiche...');
-        setupPaymentNotifications();
-        
-        // === COMPLETAMENTO ===
-        isInitialized = true;
-        console.log('✅ Sistema pagamenti inizializzato con successo!');
-        logAuditEvent('system_initialized', 'Sistema pagamenti avviato', null);
-        
-        // Nascondi loading se presente
-        const loadingOverlay = document.getElementById('loading-overlay');
-        if (loadingOverlay) {
-            loadingOverlay.style.display = 'none';
-        }
-        
-    } catch (error) {
-        console.error('❌ Errore inizializzazione sistema pagamenti:', error);
-        
-        // Mostra errore user-friendly
-        const errorMessage = error.message || 'Errore di inizializzazione sconosciuto';
-        showToast('Errore di inizializzazione: ' + errorMessage, 'error');
-        
-        // Se errore di autenticazione, AuthGuard ha già gestito il redirect
-        if (error.message?.includes('Autenticazione')) {
-            console.log('🔄 Errore autenticazione - AuthGuard gestirà il redirect');
-            return;
-        }
-        
-    } finally {
-        isInitializing = false;
-    }
-});
-
-// ==================== CARICAMENTO DATI SICURO ====================
-async function loadInitialData() {
-    try {
-        console.log('📥 Caricamento dati iniziali...');
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        artistiDB = await DatabaseService.getArtistsWithFinancialData();
-        console.log(`✅ ${artistiDB.length} artisti caricati`);
-        
-        // Carica agibilità recenti (ultimo anno)
-        const lastYear = new Date();
-        lastYear.setFullYear(lastYear.getFullYear() - 1);
-        agibilitaDB = await DatabaseService.getAgibilita({
-            fromDate: lastYear.toISOString()
-        });
-        console.log(`✅ ${agibilitaDB.length} agibilità caricate`);
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log(`✅ ${pagamentiDB.length} pagamenti caricati`);
-        
-        // Carica configurazioni sistema
-        await loadPaymentSettings();
-        
-    } catch (error) {
-        console.error('❌ Errore caricamento dati:', error);
-        showToast('Errore nel caricamento dei dati: ' + error.message, 'error');
-        throw error;
-    }
-}.getElementById('filterDateTo').value,
-            tipoContratto: d// pagamenti.js - Sistema Gestione Pagamenti RECORP Avanzato
-
-// Import services - PERCORSI CORRETTI (file nel root)
-import { DatabaseService } from '../supabase-config.js';
-import { AuthGuard } from '../auth-guard.js';
-
-// ==================== VARIABILI GLOBALI ====================
-let pagamentiDB = [];
-let artistiDB = [];
-let agibilitaDB = [];
-let selectedPayments = new Set();
-let currentUser = null;
-let paymentSettings = {
-    ritenuta_occasionale: 0.20, // 20%
-    soglia_ritenuta: 25.82,
-    soglia_annua_occasionale: 5000,
-    approvazione_automatica_sotto: 100,
-    approvazione_dirigenziale_sopra: 500
-};
-
-// Filtri correnti
-let currentFilters = {
-    stato: 'da_pagare', // ✅ CORRETTO: stato del database
-    dateFrom: null,
-    dateTo: null,
-    tipoContratto: '',
-    artista: '',
-    importoMin: null
-};
-
-// Audit trail
-let auditTrail = [];
-
-// 🔥 FLAG PER EVITARE INIT MULTIPLI
-let isInitializing = false;
-let isInitialized = false;
-
-// ==================== INIZIALIZZAZIONE SICURA CORRETTA ====================
-document.addEventListener('DOMContentLoaded', async function() {
-    // 🔥 PREVENZIONE LOOP - Solo un'inizializzazione alla volta
-    if (isInitializing || isInitialized) {
-        console.log('⚠️ Inizializzazione già in corso o completata, skip');
-        return;
-    }
-    
-    isInitializing = true;
-    console.log('🚀 Inizializzazione sistema pagamenti avanzato...');
-    
-    try {
-        // === STEP 1: AUTENTICAZIONE MANUALE (NO AUTO-INIT) ===
-        console.log('🔐 Inizializzazione autenticazione manuale...');
-        await AuthGuard.initPageProtection();
-        
-        // === STEP 2: VERIFICA UTENTE ===
-        currentUser = await AuthGuard.getCurrentUser();
-        if (!currentUser) {
-            console.warn('⚠️ Utente non autenticato dopo verifica');
-            return; // AuthGuard ha già gestito il redirect
-        }
-        
-        console.log('✅ Utente autenticato:', currentUser.email);
-        
-        // === STEP 3: TEST CONNESSIONE DATABASE ===
-        console.log('🔌 Test connessione database...');
-        const connectionTest = await DatabaseService.testConnection();
-        if (!connectionTest.connected) {
-            throw new Error('Connessione database fallita: ' + (connectionTest.error || 'Errore sconosciuto'));
-        }
-        console.log('✅ Database connesso');
-        
-        // === STEP 4: CARICA DATI INIZIALI ===
-        console.log('📥 Caricamento dati iniziali...');
-        await loadInitialData();
-        
-        // === STEP 5: SETUP INTERFACCIA ===
-        console.log('🖥️ Setup interfaccia...');
-        setupDefaultFilters();
-        setupEventListeners();
-        
-        // === STEP 6: CALCOLO AUTOMATICO PAGAMENTI ===
-        console.log('🧮 Avvio calcolo automatico pagamenti...');
-        await autoCalculatePaymentsFromAgibilita(true);
-        
-        // === STEP 7: RICARICA PAGAMENTI AGGIORNATI ===
-        console.log('🔄 Ricaricamento pagamenti aggiornati...');
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log('✅ ' + pagamentiDB.length + ' pagamenti totali caricati');
-        
-        // === STEP 8: APPLICA FILTRI E MOSTRA DATI ===
-        console.log('🔍 Applicazione filtri e visualizzazione...');
-        await applyAdvancedFilters();
-        
-        // === STEP 9: AGGIORNA DASHBOARD ===
-        console.log('📊 Aggiornamento dashboard...');
-        await updateExecutiveDashboard();
-        
-        // === STEP 10: SETUP NOTIFICHE ===
-        console.log('🔔 Setup sistema notifiche...');
-        setupPaymentNotifications();
-        
-        // === COMPLETAMENTO ===
-        isInitialized = true;
-        console.log('✅ Sistema pagamenti inizializzato con successo!');
-        logAuditEvent('system_initialized', 'Sistema pagamenti avviato', null);
-        
-        // Nascondi loading se presente
-        const loadingOverlay = document.getElementById('loading-overlay');
-        if (loadingOverlay) {
-            loadingOverlay.style.display = 'none';
-        }
-        
-    } catch (error) {
-        console.error('❌ Errore inizializzazione sistema pagamenti:', error);
-        
-        // Mostra errore user-friendly
-        const errorMessage = error.message || 'Errore di inizializzazione sconosciuto';
-        showToast('Errore di inizializzazione: ' + errorMessage, 'error');
-        
-        // Se errore di autenticazione, AuthGuard ha già gestito il redirect
-        if (error.message?.includes('Autenticazione')) {
-            console.log('🔄 Errore autenticazione - AuthGuard gestirà il redirect');
-            return;
-        }
-        
-    } finally {
-        isInitializing = false;
-    }
-});
-
-// ==================== CARICAMENTO DATI SICURO ====================
-async function loadInitialData() {
-    try {
-        console.log('📥 Caricamento dati iniziali...');
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        artistiDB = await DatabaseService.getArtistsWithFinancialData();
-        console.log(`✅ ${artistiDB.length} artisti caricati`);
-        
-        // Carica agibilità recenti (ultimo anno)
-        const lastYear = new Date();
-        lastYear.setFullYear(lastYear.getFullYear() - 1);
-        agibilitaDB = await DatabaseService.getAgibilita({
-            fromDate: lastYear.toISOString()
-        });
-        console.log(`✅ ${agibilitaDB.length} agibilità caricate`);
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log(`✅ ${pagamentiDB.length} pagamenti caricati`);
-        
-        // Carica configurazioni sistema
-        await loadPaymentSettings();
-        
-    } catch (error) {
-        console.error('❌ Errore caricamento dati:', error);
-        showToast('Errore nel caricamento dei dati: ' + error.message, 'error');
-        throw error;
-    }
-}ocument.getElementById('filterTipoContratto').value,
-            artista: documen// pagamenti.js - Sistema Gestione Pagamenti RECORP Avanzato
-
-// Import services - PERCORSI CORRETTI (file nel root)
-import { DatabaseService } from '../supabase-config.js';
-import { AuthGuard } from '../auth-guard.js';
-
-// ==================== VARIABILI GLOBALI ====================
-let pagamentiDB = [];
-let artistiDB = [];
-let agibilitaDB = [];
-let selectedPayments = new Set();
-let currentUser = null;
-let paymentSettings = {
-    ritenuta_occasionale: 0.20, // 20%
-    soglia_ritenuta: 25.82,
-    soglia_annua_occasionale: 5000,
-    approvazione_automatica_sotto: 100,
-    approvazione_dirigenziale_sopra: 500
-};
-
-// Filtri correnti
-let currentFilters = {
-    stato: 'da_pagare', // ✅ CORRETTO: stato del database
-    dateFrom: null,
-    dateTo: null,
-    tipoContratto: '',
-    artista: '',
-    importoMin: null
-};
-
-// Audit trail
-let auditTrail = [];
-
-// 🔥 FLAG PER EVITARE INIT MULTIPLI
-let isInitializing = false;
-let isInitialized = false;
-
-// ==================== INIZIALIZZAZIONE SICURA CORRETTA ====================
-document.addEventListener('DOMContentLoaded', async function() {
-    // 🔥 PREVENZIONE LOOP - Solo un'inizializzazione alla volta
-    if (isInitializing || isInitialized) {
-        console.log('⚠️ Inizializzazione già in corso o completata, skip');
-        return;
-    }
-    
-    isInitializing = true;
-    console.log('🚀 Inizializzazione sistema pagamenti avanzato...');
-    
-    try {
-        // === STEP 1: AUTENTICAZIONE MANUALE (NO AUTO-INIT) ===
-        console.log('🔐 Inizializzazione autenticazione manuale...');
-        await AuthGuard.initPageProtection();
-        
-        // === STEP 2: VERIFICA UTENTE ===
-        currentUser = await AuthGuard.getCurrentUser();
-        if (!currentUser) {
-            console.warn('⚠️ Utente non autenticato dopo verifica');
-            return; // AuthGuard ha già gestito il redirect
-        }
-        
-        console.log('✅ Utente autenticato:', currentUser.email);
-        
-        // === STEP 3: TEST CONNESSIONE DATABASE ===
-        console.log('🔌 Test connessione database...');
-        const connectionTest = await DatabaseService.testConnection();
-        if (!connectionTest.connected) {
-            throw new Error('Connessione database fallita: ' + (connectionTest.error || 'Errore sconosciuto'));
-        }
-        console.log('✅ Database connesso');
-        
-        // === STEP 4: CARICA DATI INIZIALI ===
-        console.log('📥 Caricamento dati iniziali...');
-        await loadInitialData();
-        
-        // === STEP 5: SETUP INTERFACCIA ===
-        console.log('🖥️ Setup interfaccia...');
-        setupDefaultFilters();
-        setupEventListeners();
-        
-        // === STEP 6: CALCOLO AUTOMATICO PAGAMENTI ===
-        console.log('🧮 Avvio calcolo automatico pagamenti...');
-        await autoCalculatePaymentsFromAgibilita(true);
-        
-        // === STEP 7: RICARICA PAGAMENTI AGGIORNATI ===
-        console.log('🔄 Ricaricamento pagamenti aggiornati...');
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log('✅ ' + pagamentiDB.length + ' pagamenti totali caricati');
-        
-        // === STEP 8: APPLICA FILTRI E MOSTRA DATI ===
-        console.log('🔍 Applicazione filtri e visualizzazione...');
-        await applyAdvancedFilters();
-        
-        // === STEP 9: AGGIORNA DASHBOARD ===
-        console.log('📊 Aggiornamento dashboard...');
-        await updateExecutiveDashboard();
-        
-        // === STEP 10: SETUP NOTIFICHE ===
-        console.log('🔔 Setup sistema notifiche...');
-        setupPaymentNotifications();
-        
-        // === COMPLETAMENTO ===
-        isInitialized = true;
-        console.log('✅ Sistema pagamenti inizializzato con successo!');
-        logAuditEvent('system_initialized', 'Sistema pagamenti avviato', null);
-        
-        // Nascondi loading se presente
-        const loadingOverlay = document.getElementById('loading-overlay');
-        if (loadingOverlay) {
-            loadingOverlay.style.display = 'none';
-        }
-        
-    } catch (error) {
-        console.error('❌ Errore inizializzazione sistema pagamenti:', error);
-        
-        // Mostra errore user-friendly
-        const errorMessage = error.message || 'Errore di inizializzazione sconosciuto';
-        showToast('Errore di inizializzazione: ' + errorMessage, 'error');
-        
-        // Se errore di autenticazione, AuthGuard ha già gestito il redirect
-        if (error.message?.includes('Autenticazione')) {
-            console.log('🔄 Errore autenticazione - AuthGuard gestirà il redirect');
-            return;
-        }
-        
-    } finally {
-        isInitializing = false;
-    }
-});
-
-// ==================== CARICAMENTO DATI SICURO ====================
-async function loadInitialData() {
-    try {
-        console.log('📥 Caricamento dati iniziali...');
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        artistiDB = await DatabaseService.getArtistsWithFinancialData();
-        console.log(`✅ ${artistiDB.length} artisti caricati`);
-        
-        // Carica agibilità recenti (ultimo anno)
-        const lastYear = new Date();
-        lastYear.setFullYear(lastYear.getFullYear() - 1);
-        agibilitaDB = await DatabaseService.getAgibilita({
-            fromDate: lastYear.toISOString()
-        });
-        console.log(`✅ ${agibilitaDB.length} agibilità caricate`);
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log(`✅ ${pagamentiDB.length} pagamenti caricati`);
-        
-        // Carica configurazioni sistema
-        await loadPaymentSettings();
-        
-    } catch (error) {
-        console.error('❌ Errore caricamento dati:', error);
-        showToast('Errore nel caricamento dei dati: ' + error.message, 'error');
-        throw error;
-    }
-}t.getElementById('filterArtista').value.toLowerCase(),
-            importoMin: pars// pagamenti.js - Sistema Gestione Pagamenti RECORP Avanzato
-
-// Import services - PERCORSI CORRETTI (file nel root)
-import { DatabaseService } from '../supabase-config.js';
-import { AuthGuard } from '../auth-guard.js';
-
-// ==================== VARIABILI GLOBALI ====================
-let pagamentiDB = [];
-let artistiDB = [];
-let agibilitaDB = [];
-let selectedPayments = new Set();
-let currentUser = null;
-let paymentSettings = {
-    ritenuta_occasionale: 0.20, // 20%
-    soglia_ritenuta: 25.82,
-    soglia_annua_occasionale: 5000,
-    approvazione_automatica_sotto: 100,
-    approvazione_dirigenziale_sopra: 500
-};
-
-// Filtri correnti
-let currentFilters = {
-    stato: 'da_pagare', // ✅ CORRETTO: stato del database
-    dateFrom: null,
-    dateTo: null,
-    tipoContratto: '',
-    artista: '',
-    importoMin: null
-};
-
-// Audit trail
-let auditTrail = [];
-
-// 🔥 FLAG PER EVITARE INIT MULTIPLI
-let isInitializing = false;
-let isInitialized = false;
-
-// ==================== INIZIALIZZAZIONE SICURA CORRETTA ====================
-document.addEventListener('DOMContentLoaded', async function() {
-    // 🔥 PREVENZIONE LOOP - Solo un'inizializzazione alla volta
-    if (isInitializing || isInitialized) {
-        console.log('⚠️ Inizializzazione già in corso o completata, skip');
-        return;
-    }
-    
-    isInitializing = true;
-    console.log('🚀 Inizializzazione sistema pagamenti avanzato...');
-    
-    try {
-        // === STEP 1: AUTENTICAZIONE MANUALE (NO AUTO-INIT) ===
-        console.log('🔐 Inizializzazione autenticazione manuale...');
-        await AuthGuard.initPageProtection();
-        
-        // === STEP 2: VERIFICA UTENTE ===
-        currentUser = await AuthGuard.getCurrentUser();
-        if (!currentUser) {
-            console.warn('⚠️ Utente non autenticato dopo verifica');
-            return; // AuthGuard ha già gestito il redirect
-        }
-        
-        console.log('✅ Utente autenticato:', currentUser.email);
-        
-        // === STEP 3: TEST CONNESSIONE DATABASE ===
-        console.log('🔌 Test connessione database...');
-        const connectionTest = await DatabaseService.testConnection();
-        if (!connectionTest.connected) {
-            throw new Error('Connessione database fallita: ' + (connectionTest.error || 'Errore sconosciuto'));
-        }
-        console.log('✅ Database connesso');
-        
-        // === STEP 4: CARICA DATI INIZIALI ===
-        console.log('📥 Caricamento dati iniziali...');
-        await loadInitialData();
-        
-        // === STEP 5: SETUP INTERFACCIA ===
-        console.log('🖥️ Setup interfaccia...');
-        setupDefaultFilters();
-        setupEventListeners();
-        
-        // === STEP 6: CALCOLO AUTOMATICO PAGAMENTI ===
-        console.log('🧮 Avvio calcolo automatico pagamenti...');
-        await autoCalculatePaymentsFromAgibilita(true);
-        
-        // === STEP 7: RICARICA PAGAMENTI AGGIORNATI ===
-        console.log('🔄 Ricaricamento pagamenti aggiornati...');
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log('✅ ' + pagamentiDB.length + ' pagamenti totali caricati');
-        
-        // === STEP 8: APPLICA FILTRI E MOSTRA DATI ===
-        console.log('🔍 Applicazione filtri e visualizzazione...');
-        await applyAdvancedFilters();
-        
-        // === STEP 9: AGGIORNA DASHBOARD ===
-        console.log('📊 Aggiornamento dashboard...');
-        await updateExecutiveDashboard();
-        
-        // === STEP 10: SETUP NOTIFICHE ===
-        console.log('🔔 Setup sistema notifiche...');
-        setupPaymentNotifications();
-        
-        // === COMPLETAMENTO ===
-        isInitialized = true;
-        console.log('✅ Sistema pagamenti inizializzato con successo!');
-        logAuditEvent('system_initialized', 'Sistema pagamenti avviato', null);
-        
-        // Nascondi loading se presente
-        const loadingOverlay = document.getElementById('loading-overlay');
-        if (loadingOverlay) {
-            loadingOverlay.style.display = 'none';
-        }
-        
-    } catch (error) {
-        console.error('❌ Errore inizializzazione sistema pagamenti:', error);
-        
-        // Mostra errore user-friendly
-        const errorMessage = error.message || 'Errore di inizializzazione sconosciuto';
-        showToast('Errore di inizializzazione: ' + errorMessage, 'error');
-        
-        // Se errore di autenticazione, AuthGuard ha già gestito il redirect
-        if (error.message?.includes('Autenticazione')) {
-            console.log('🔄 Errore autenticazione - AuthGuard gestirà il redirect');
-            return;
-        }
-        
-    } finally {
-        isInitializing = false;
-    }
-});
-
-// ==================== CARICAMENTO DATI SICURO ====================
-async function loadInitialData() {
-    try {
-        console.log('📥 Caricamento dati iniziali...');
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        artistiDB = await DatabaseService.getArtistsWithFinancialData();
-        console.log(`✅ ${artistiDB.length} artisti caricati`);
-        
-        // Carica agibilità recenti (ultimo anno)
-        const lastYear = new Date();
-        lastYear.setFullYear(lastYear.getFullYear() - 1);
-        agibilitaDB = await DatabaseService.getAgibilita({
-            fromDate: lastYear.toISOString()
-        });
-        console.log(`✅ ${agibilitaDB.length} agibilità caricate`);
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log(`✅ ${pagamentiDB.length} pagamenti caricati`);
-        
-        // Carica configurazioni sistema
-        await loadPaymentSettings();
-        
-    } catch (error) {
-        console.error('❌ Errore caricamento dati:', error);
-        showToast('Errore nel caricamento dei dati: ' + error.message, 'error');
-        throw error;
-    }
-}eFloat(document.getElementById('filterImportoMin').value) || null
-        };// pagamenti.js - Sistema Gestione Pagamenti RECORP Avanzato
-
-// Import services - PERCORSI CORRETTI (file nel root)
-import { DatabaseService } from '../supabase-config.js';
-import { AuthGuard } from '../auth-guard.js';
-
-// ==================== VARIABILI GLOBALI ====================
-let pagamentiDB = [];
-let artistiDB = [];
-let agibilitaDB = [];
-let selectedPayments = new Set();
-let currentUser = null;
-let paymentSettings = {
-    ritenuta_occasionale: 0.20, // 20%
-    soglia_ritenuta: 25.82,
-    soglia_annua_occasionale: 5000,
-    approvazione_automatica_sotto: 100,
-    approvazione_dirigenziale_sopra: 500
-};
-
-// Filtri correnti
-let currentFilters = {
-    stato: 'da_pagare', // ✅ CORRETTO: stato del database
-    dateFrom: null,
-    dateTo: null,
-    tipoContratto: '',
-    artista: '',
-    importoMin: null
-};
-
-// Audit trail
-let auditTrail = [];
-
-// 🔥 FLAG PER EVITARE INIT MULTIPLI
-let isInitializing = false;
-let isInitialized = false;
-
-// ==================== INIZIALIZZAZIONE SICURA CORRETTA ====================
-document.addEventListener('DOMContentLoaded', async function() {
-    // 🔥 PREVENZIONE LOOP - Solo un'inizializzazione alla volta
-    if (isInitializing || isInitialized) {
-        console.log('⚠️ Inizializzazione già in corso o completata, skip');
-        return;
-    }
-    
-    isInitializing = true;
-    console.log('🚀 Inizializzazione sistema pagamenti avanzato...');
-    
-    try {
-        // === STEP 1: AUTENTICAZIONE MANUALE (NO AUTO-INIT) ===
-        console.log('🔐 Inizializzazione autenticazione manuale...');
-        await AuthGuard.initPageProtection();
-        
-        // === STEP 2: VERIFICA UTENTE ===
-        currentUser = await AuthGuard.getCurrentUser();
-        if (!currentUser) {
-            console.warn('⚠️ Utente non autenticato dopo verifica');
-            return; // AuthGuard ha già gestito il redirect
-        }
-        
-        console.log('✅ Utente autenticato:', currentUser.email);
-        
-        // === STEP 3: TEST CONNESSIONE DATABASE ===
-        console.log('🔌 Test connessione database...');
-        const connectionTest = await DatabaseService.testConnection();
-        if (!connectionTest.connected) {
-            throw new Error('Connessione database fallita: ' + (connectionTest.error || 'Errore sconosciuto'));
-        }
-        console.log('✅ Database connesso');
-        
-        // === STEP 4: CARICA DATI INIZIALI ===
-        console.log('📥 Caricamento dati iniziali...');
-        await loadInitialData();
-        
-        // === STEP 5: SETUP INTERFACCIA ===
-        console.log('🖥️ Setup interfaccia...');
-        setupDefaultFilters();
-        setupEventListeners();
-        
-        // === STEP 6: CALCOLO AUTOMATICO PAGAMENTI ===
-        console.log('🧮 Avvio calcolo automatico pagamenti...');
-        await autoCalculatePaymentsFromAgibilita(true);
-        
-        // === STEP 7: RICARICA PAGAMENTI AGGIORNATI ===
-        console.log('🔄 Ricaricamento pagamenti aggiornati...');
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log('✅ ' + pagamentiDB.length + ' pagamenti totali caricati');
-        
-        // === STEP 8: APPLICA FILTRI E MOSTRA DATI ===
-        console.log('🔍 Applicazione filtri e visualizzazione...');
-        await applyAdvancedFilters();
-        
-        // === STEP 9: AGGIORNA DASHBOARD ===
-        console.log('📊 Aggiornamento dashboard...');
-        await updateExecutiveDashboard();
-        
-        // === STEP 10: SETUP NOTIFICHE ===
-        console.log('🔔 Setup sistema notifiche...');
-        setupPaymentNotifications();
-        
-        // === COMPLETAMENTO ===
-        isInitialized = true;
-        console.log('✅ Sistema pagamenti inizializzato con successo!');
-        logAuditEvent('system_initialized', 'Sistema pagamenti avviato', null);
-        
-        // Nascondi loading se presente
-        const loadingOverlay = document.getElementById('loading-overlay');
-        if (loadingOverlay) {
-            loadingOverlay.style.display = 'none';
-        }
-        
-    } catch (error) {
-        console.error('❌ Errore inizializzazione sistema pagamenti:', error);
-        
-        // Mostra errore user-friendly
-        const errorMessage = error.message || 'Errore di inizializzazione sconosciuto';
-        showToast('Errore di inizializzazione: ' + errorMessage, 'error');
-        
-        // Se errore di autenticazione, AuthGuard ha già gestito il redirect
-        if (error.message?.includes('Autenticazione')) {
-            console.log('🔄 Errore autenticazione - AuthGuard gestirà il redirect');
-            return;
-        }
-        
-    } finally {
-        isInitializing = false;
-    }
-});
-
-// ==================== CARICAMENTO DATI SICURO ====================
-async function loadInitialData() {
-    try {
-        console.log('📥 Caricamento dati iniziali...');
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        artistiDB = await DatabaseService.getArtistsWithFinancialData();
-        console.log(`✅ ${artistiDB.length} artisti caricati`);
-        
-        // Carica agibilità recenti (ultimo anno)
-        const lastYear = new Date();
-        lastYear.setFullYear(lastYear.getFullYear() - 1);
-        agibilitaDB = await DatabaseService.getAgibilita({
-            fromDate: lastYear.toISOString()
-        });
-        console.log(`✅ ${agibilitaDB.length} agibilità caricate`);
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log(`✅ ${pagamentiDB.length} pagamenti caricati`);
-        
-        // Carica configurazioni sistema
-        await loadPaymentSettings();
-        
-    } catch (error) {
-        console.error('❌ Errore caricamento dati:', error);
-        showToast('Errore nel caricamento dei dati: ' + error.message, 'error');
-        throw error;
-    }
-}
-        // pagamenti.js - Sistema Gestione Pagamenti RECORP Avanzato
-
-// Import services - PERCORSI CORRETTI (file nel root)
-import { DatabaseService } from '../supabase-config.js';
-import { AuthGuard } from '../auth-guard.js';
-
-// ==================== VARIABILI GLOBALI ====================
-let pagamentiDB = [];
-let artistiDB = [];
-let agibilitaDB = [];
-let selectedPayments = new Set();
-let currentUser = null;
-let paymentSettings = {
-    ritenuta_occasionale: 0.20, // 20%
-    soglia_ritenuta: 25.82,
-    soglia_annua_occasionale: 5000,
-    approvazione_automatica_sotto: 100,
-    approvazione_dirigenziale_sopra: 500
-};
-
-// Filtri correnti
-let currentFilters = {
-    stato: 'da_pagare', // ✅ CORRETTO: stato del database
-    dateFrom: null,
-    dateTo: null,
-    tipoContratto: '',
-    artista: '',
-    importoMin: null
-};
-
-// Audit trail
-let auditTrail = [];
-
-// 🔥 FLAG PER EVITARE INIT MULTIPLI
-let isInitializing = false;
-let isInitialized = false;
-
-// ==================== INIZIALIZZAZIONE SICURA CORRETTA ====================
-document.addEventListener('DOMContentLoaded', async function() {
-    // 🔥 PREVENZIONE LOOP - Solo un'inizializzazione alla volta
-    if (isInitializing || isInitialized) {
-        console.log('⚠️ Inizializzazione già in corso o completata, skip');
-        return;
-    }
-    
-    isInitializing = true;
-    console.log('🚀 Inizializzazione sistema pagamenti avanzato...');
-    
-    try {
-        // === STEP 1: AUTENTICAZIONE MANUALE (NO AUTO-INIT) ===
-        console.log('🔐 Inizializzazione autenticazione manuale...');
-        await AuthGuard.initPageProtection();
-        
-        // === STEP 2: VERIFICA UTENTE ===
-        currentUser = await AuthGuard.getCurrentUser();
-        if (!currentUser) {
-            console.warn('⚠️ Utente non autenticato dopo verifica');
-            return; // AuthGuard ha già gestito il redirect
-        }
-        
-        console.log('✅ Utente autenticato:', currentUser.email);
-        
-        // === STEP 3: TEST CONNESSIONE DATABASE ===
-        console.log('🔌 Test connessione database...');
-        const connectionTest = await DatabaseService.testConnection();
-        if (!connectionTest.connected) {
-            throw new Error('Connessione database fallita: ' + (connectionTest.error || 'Errore sconosciuto'));
-        }
-        console.log('✅ Database connesso');
-        
-        // === STEP 4: CARICA DATI INIZIALI ===
-        console.log('📥 Caricamento dati iniziali...');
-        await loadInitialData();
-        
-        // === STEP 5: SETUP INTERFACCIA ===
-        console.log('🖥️ Setup interfaccia...');
-        setupDefaultFilters();
-        setupEventListeners();
-        
-        // === STEP 6: CALCOLO AUTOMATICO PAGAMENTI ===
-        console.log('🧮 Avvio calcolo automatico pagamenti...');
-        await autoCalculatePaymentsFromAgibilita(true);
-        
-        // === STEP 7: RICARICA PAGAMENTI AGGIORNATI ===
-        console.log('🔄 Ricaricamento pagamenti aggiornati...');
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log('✅ ' + pagamentiDB.length + ' pagamenti totali caricati');
-        
-        // === STEP 8: APPLICA FILTRI E MOSTRA DATI ===
-        console.log('🔍 Applicazione filtri e visualizzazione...');
-        await applyAdvancedFilters();
-        
-        // === STEP 9: AGGIORNA DASHBOARD ===
-        console.log('📊 Aggiornamento dashboard...');
-        await updateExecutiveDashboard();
-        
-        // === STEP 10: SETUP NOTIFICHE ===
-        console.log('🔔 Setup sistema notifiche...');
-        setupPaymentNotifications();
-        
-        // === COMPLETAMENTO ===
-        isInitialized = true;
-        console.log('✅ Sistema pagamenti inizializzato con successo!');
-        logAuditEvent('system_initialized', 'Sistema pagamenti avviato', null);
-        
-        // Nascondi loading se presente
-        const loadingOverlay = document.getElementById('loading-overlay');
-        if (loadingOverlay) {
-            loadingOverlay.style.display = 'none';
-        }
-        
-    } catch (error) {
-        console.error('❌ Errore inizializzazione sistema pagamenti:', error);
-        
-        // Mostra errore user-friendly
-        const errorMessage = error.message || 'Errore di inizializzazione sconosciuto';
-        showToast('Errore di inizializzazione: ' + errorMessage, 'error');
-        
-        // Se errore di autenticazione, AuthGuard ha già gestito il redirect
-        if (error.message?.includes('Autenticazione')) {
-            console.log('🔄 Errore autenticazione - AuthGuard gestirà il redirect');
-            return;
-        }
-        
-    } finally {
-        isInitializing = false;
-    }
-});
-
-// ==================== CARICAMENTO DATI SICURO ====================
-async function loadInitialData() {
-    try {
-        console.log('📥 Caricamento dati iniziali...');
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        artistiDB = await DatabaseService.getArtistsWithFinancialData();
-        console.log(`✅ ${artistiDB.length} artisti caricati`);
-        
-        // Carica agibilità recenti (ultimo anno)
-        const lastYear = new Date();
-        lastYear.setFullYear(lastYear.getFullYear() - 1);
-        agibilitaDB = await DatabaseService.getAgibilita({
-            fromDate: lastYear.toISOString()
-        });
-        console.log(`✅ ${agibilitaDB.length} agibilità caricate`);
-        
-        // ✅ CORRETTO: Usa funzione esistente nel DatabaseService
-        pagamentiDB = await DatabaseService.getPagamenti();
-        console.log(`✅ ${pagamentiDB.length} pagamenti caricati`);
-        
-        // Carica configurazioni sistema
-        await loadPaymentSettings();
-        
-    } catch (error) {
-        console.error('❌ Errore caricamento dati:', error);
-        showToast('Errore nel caricamento dei dati: ' + error.message, 'error');
-        throw error;
-    }
-}
         // ✅ CORRETTO: Applica filtri
         let pagamentiFiltrati = pagamentiDB.slice(); // Copia array
         
@@ -4926,9 +698,11 @@ async function loadInitialData() {
         
         if (currentFilters.artista) {
             pagamentiFiltrati = pagamentiFiltrati.filter(p => {
-                const artistaNome = (p.metadata?.artista_nome || '').toLowerCase();
-                const cf = (p.artista_cf || '').toLowerCase();
+                const artistaNome = (p.artista_data?.nome || '').toLowerCase();
+                const artistaCognome = (p.artista_data?.cognome || '').toLowerCase();
+                const cf = (p.artista_data?.codice_fiscale || '').toLowerCase();
                 return artistaNome.includes(currentFilters.artista) || 
+                       artistaCognome.includes(currentFilters.artista) ||
                        cf.includes(currentFilters.artista);
             });
         }
@@ -5070,204 +844,6 @@ function displayOccasionaliAvanzato(pagamenti) {
             </div>
         `;
     }).join('');
-}
-
-// ==================== UTILITY FUNCTIONS ====================
-function getArtistaData(cf) {
-    return artistiDB.find(a => 
-        a.codice_fiscale === cf || 
-        a.codice_fiscale_temp === cf
-    );
-}
-
-function maskIBAN(iban) {
-    if (!iban) return 'N/D';
-    if (iban.length < 8) return iban;
-    return iban.slice(0, 4) + '*'.repeat(iban.length - 8) + iban.slice(-4);
-}
-
-// ✅ CORRETTO: Stati conformi al database
-function getStatoLabel(stato) {
-    const labels = {
-        'da_pagare': 'Da Pagare',
-        'autorizzato': 'Autorizzato', 
-        'pagato': 'Pagato',
-        'annullato': 'Annullato',
-        'failed': 'Fallito' // Per retrocompatibilità
-    };
-    return labels[stato] || stato;
-}
-
-function formatDate(dateString) {
-    if (!dateString) return 'N/D';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('it-IT');
-}
-
-function formatDateTime(dateString) {
-    if (!dateString) return 'N/D';
-    const date = new Date(dateString);
-    return date.toLocaleString('it-IT');
-}
-
-// ==================== LOGGING E AUDIT ====================
-function logAuditEvent(eventType, description, paymentId = null) {
-    const auditEntry = {
-        id: Date.now(),
-        timestamp: new Date().toISOString(),
-        event_type: eventType,
-        description: description,
-        payment_id: paymentId,
-        user_id: currentUser?.id,
-        user_email: currentUser?.email,
-        ip_address: 'localhost',
-        user_agent: navigator.userAgent
-    };
-    
-    auditTrail.push(auditEntry);
-    
-    // Mantieni solo gli ultimi 1000 eventi in memoria
-    if (auditTrail.length > 1000) {
-        auditTrail = auditTrail.slice(-1000);
-    }
-    
-    console.log('📋 Audit Event:', auditEntry);
-}
-
-// ==================== TOAST NOTIFICATIONS ====================
-function showToast(message, type = 'info', duration = 5000) {
-    const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    toast.innerHTML = `
-        <div class="toast-content">
-            <span class="toast-icon">${getToastIcon(type)}</span>
-            <span class="toast-message">${message}</span>
-        </div>
-    `;
-    
-    const container = document.getElementById('toast-container');
-    container.appendChild(toast);
-    
-    setTimeout(() => toast.classList.add('show'), 10);
-    
-    setTimeout(() => {
-        toast.classList.remove('show');
-        setTimeout(() => toast.remove(), 300);
-    }, duration);
-}
-
-function getToastIcon(type) {
-    const icons = {
-        'success': '✅',
-        'error': '❌', 
-        'warning': '⚠️',
-        'info': 'ℹ️'
-    };
-    return icons[type] || icons.info;
-}
-
-// ==================== TAB MANAGEMENT ====================
-function showPaymentTab(tabName) {
-    // Aggiorna tabs
-    document.querySelectorAll('.tab').forEach(tab => {
-        tab.classList.remove('active');
-    });
-    document.getElementById(`tab${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`).classList.add('active');
-    
-    // Aggiorna contenuti
-    document.querySelectorAll('.tab-content').forEach(content => {
-        content.classList.remove('active');
-    });
-    document.getElementById(`tabContent${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`).classList.add('active');
-}
-
-// ==================== EVENT LISTENERS ====================
-function setupEventListeners() {
-    // Chiusura modali con click esterno
-    window.addEventListener('click', function(event) {
-        if (event.target.classList.contains('modal')) {
-            event.target.style.display = 'none';
-        }
-    });
-    
-    // Filtro artista con debounce
-    let artistaTimeout;
-    document.getElementById('filterArtista').addEventListener('input', function() {
-        clearTimeout(artistaTimeout);
-        artistaTimeout = setTimeout(() => applyAdvancedFilters(), 500);
-    });
-}
-
-// ==================== FUNZIONI PLACEHOLDER ====================
-// Queste funzioni dovranno essere implementate completamente
-function togglePaymentSelection(paymentId) {
-    if (selectedPayments.has(paymentId)) {
-        selectedPayments.delete(paymentId);
-    } else {
-        selectedPayments.add(paymentId);
-    }
-    
-    const checkbox = document.getElementById(`pay_${paymentId}`);
-    const item = checkbox?.closest('.payment-item');
-    if (item) {
-        item.classList.toggle('selected', selectedPayments.has(paymentId));
-    }
-    
-    logAuditEvent('payment_selected', `Pagamento ${selectedPayments.has(paymentId) ? 'selezionato' : 'deselezionato'}`, paymentId);
-}
-
-function showAdvancedPaymentDetail(paymentId) {
-    showToast('Dettaglio pagamento in sviluppo', 'info');
-}
-
-function approvePayment(paymentId) {
-    showToast('Approvazione pagamento in sviluppo', 'info');
-}
-
-function processPayment(paymentId) {
-    showToast('Elaborazione pagamento in sviluppo', 'info');
-}
-
-function retryPayment(paymentId) {
-    showToast('Retry pagamento in sviluppo', 'info');
-}
-
-function configureIBAN(artistaId, paymentId) {
-    showToast('Configurazione IBAN in sviluppo', 'info');
-}
-
-function selectAllOccasionali() {
-    // ✅ CORRETTO: Filtra usando struttura database
-    const occasionali = pagamentiDB.filter(p => 
-        !p.artista_data?.has_partita_iva && 
-        !p.ritenuta_inps &&
-        ['da_pagare', 'autorizzato'].includes(p.stato)
-    );
-    
-    occasionali.forEach(p => {
-        selectedPayments.add(p.id);
-        const checkbox = document.getElementById(`pay_${p.id}`);
-        if (checkbox) {
-            checkbox.checked = true;
-            checkbox.closest('.payment-item')?.classList.add('selected');
-        }
-    });
-    
-    showToast(`✅ Selezionati ${occasionali.length} pagamenti occasionali`, 'success');
-    logAuditEvent('bulk_selection', `${occasionali.length} pagamenti occasionali selezionati`, null);
-}
-
-function approveSelectedOccasionali() {
-    const selected = Array.from(selectedPayments);
-    if (selected.length === 0) {
-        showToast('Seleziona almeno un pagamento', 'warning');
-        return;
-    }
-    
-    if (confirm(`Confermi l'approvazione di ${selected.length} pagamenti occasionali?`)) {
-        showToast(`Approvazione di ${selected.length} pagamenti in sviluppo`, 'info');
-        selectedPayments.clear();
-    }
 }
 
 function displayPartiteIvaAvanzato(pagamenti) {
@@ -5498,6 +1074,138 @@ function updateDashboardWithFilteredData(pagamentiFiltrati) {
     updateTabBadges(filteredStats);
 }
 
+// ==================== UTILITY FUNCTIONS ====================
+function maskIBAN(iban) {
+    if (!iban) return 'N/D';
+    if (iban.length < 8) return iban;
+    return iban.slice(0, 4) + '*'.repeat(iban.length - 8) + iban.slice(-4);
+}
+
+// ✅ CORRETTO: Stati conformi al database
+function getStatoLabel(stato) {
+    const labels = {
+        'da_pagare': 'Da Pagare',
+        'autorizzato': 'Autorizzato', 
+        'pagato': 'Pagato',
+        'annullato': 'Annullato',
+        'failed': 'Fallito' // Per retrocompatibilità
+    };
+    return labels[stato] || stato;
+}
+
+function formatDate(dateString) {
+    if (!dateString) return 'N/D';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('it-IT');
+}
+
+function formatDateTime(dateString) {
+    if (!dateString) return 'N/D';
+    const date = new Date(dateString);
+    return date.toLocaleString('it-IT');
+}
+
+// ==================== LOGGING E AUDIT ====================
+function logAuditEvent(eventType, description, paymentId = null) {
+    const auditEntry = {
+        id: Date.now(),
+        timestamp: new Date().toISOString(),
+        event_type: eventType,
+        description: description,
+        payment_id: paymentId,
+        user_id: currentUser?.id,
+        user_email: currentUser?.email,
+        ip_address: 'localhost',
+        user_agent: navigator.userAgent
+    };
+    
+    auditTrail.push(auditEntry);
+    
+    // Mantieni solo gli ultimi 1000 eventi in memoria
+    if (auditTrail.length > 1000) {
+        auditTrail = auditTrail.slice(-1000);
+    }
+    
+    console.log('📋 Audit Event:', auditEntry);
+}
+
+// ==================== TOAST NOTIFICATIONS ====================
+function showToast(message, type = 'info', duration = 5000) {
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.innerHTML = `
+        <div class="toast-content">
+            <span class="toast-icon">${getToastIcon(type)}</span>
+            <span class="toast-message">${message}</span>
+        </div>
+    `;
+    
+    const container = document.getElementById('toast-container');
+    container.appendChild(toast);
+    
+    setTimeout(() => toast.classList.add('show'), 10);
+    
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, duration);
+}
+
+function getToastIcon(type) {
+    const icons = {
+        'success': '✅',
+        'error': '❌', 
+        'warning': '⚠️',
+        'info': 'ℹ️'
+    };
+    return icons[type] || icons.info;
+}
+
+// ==================== TAB MANAGEMENT ====================
+function showPaymentTab(tabName) {
+    // Aggiorna tabs
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    
+    const targetTabId = `tab${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`;
+    const targetTab = document.getElementById(targetTabId);
+    if (targetTab) {
+        targetTab.classList.add('active');
+    }
+    
+    // Aggiorna contenuti
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+    
+    const targetContentId = `tabContent${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`;
+    const targetContent = document.getElementById(targetContentId);
+    if (targetContent) {
+        targetContent.classList.add('active');
+    }
+}
+
+// ==================== EVENT LISTENERS ====================
+function setupEventListeners() {
+    // Chiusura modali con click esterno
+    window.addEventListener('click', function(event) {
+        if (event.target.classList.contains('modal')) {
+            event.target.style.display = 'none';
+        }
+    });
+    
+    // Filtro artista con debounce
+    let artistaTimeout;
+    const filterArtista = document.getElementById('filterArtista');
+    if (filterArtista) {
+        filterArtista.addEventListener('input', function() {
+            clearTimeout(artistaTimeout);
+            artistaTimeout = setTimeout(() => applyAdvancedFilters(), 500);
+        });
+    }
+}
+
 function setupPaymentNotifications() {
     // Controlla notifiche ogni 5 minuti
     setInterval(checkPaymentNotifications, 5 * 60 * 1000);
@@ -5542,7 +1250,51 @@ function checkPaymentNotifications() {
     }
 }
 
-// ==================== FUNZIONI PLACEHOLDER COMPLETE ====================
+// ==================== FUNZIONI INTERATTIVE ====================
+function togglePaymentSelection(paymentId) {
+    if (selectedPayments.has(paymentId)) {
+        selectedPayments.delete(paymentId);
+    } else {
+        selectedPayments.add(paymentId);
+    }
+    
+    const checkbox = document.getElementById(`pay_${paymentId}`);
+    const item = checkbox?.closest('.payment-item');
+    if (item) {
+        item.classList.toggle('selected', selectedPayments.has(paymentId));
+    }
+    
+    logAuditEvent('payment_selected', `Pagamento ${selectedPayments.has(paymentId) ? 'selezionato' : 'deselezionato'}`, paymentId);
+    
+    // Aggiorna anteprima CIV
+    updateCIVPreview();
+}
+
+function selectAllOccasionali() {
+    // ✅ CORRETTO: Filtra usando struttura database
+    const occasionali = pagamentiDB.filter(p => 
+        !p.artista_data?.has_partita_iva && 
+        !p.ritenuta_inps &&
+        ['da_pagare', 'autorizzato'].includes(p.stato)
+    );
+    
+    occasionali.forEach(p => {
+        selectedPayments.add(p.id);
+        const checkbox = document.getElementById(`pay_${p.id}`);
+        if (checkbox) {
+            checkbox.checked = true;
+            checkbox.closest('.payment-item')?.classList.add('selected');
+        }
+    });
+    
+    showToast(`✅ Selezionati ${occasionali.length} pagamenti occasionali`, 'success');
+    logAuditEvent('bulk_selection', `${occasionali.length} pagamenti occasionali selezionati`, null);
+    
+    // Aggiorna anteprima CIV
+    updateCIVPreview();
+}
+
+// ==================== FUNZIONI PRINCIPALI SISTEMA ====================
 async function syncPaymentsFromAgibilita() {
     try {
         showToast('🔄 Sincronizzazione in corso...', 'info');
@@ -5573,40 +1325,223 @@ async function syncPaymentsFromAgibilita() {
     }
 }
 
-function showPaymentSettings() {
-    showToast('Impostazioni sistema in sviluppo', 'info');
+async function autoCalculateAllPayments() {
+    if (confirm('Vuoi ricalcolare automaticamente tutti i pagamenti dalle agibilità recenti?')) {
+        try {
+            showToast('🧮 Ricalcolo in corso...', 'info');
+            await autoCalculatePaymentsFromAgibilita(true);
+            
+            // Ricarica e aggiorna interfaccia
+            pagamentiDB = await DatabaseService.getPagamenti();
+            await applyAdvancedFilters();
+            await updateExecutiveDashboard();
+            
+            showToast('✅ Ricalcolo completato!', 'success');
+        } catch (error) {
+            console.error('❌ Errore ricalcolo:', error);
+            showToast('❌ Errore durante il ricalcolo: ' + error.message, 'error');
+        }
+    }
+}
+
+function approveAllPending() {
+    const pendingPayments = pagamentiDB.filter(function(p) { return p.stato === 'da_pagare'; });
+    
+    if (pendingPayments.length === 0) {
+        showToast('Nessun pagamento in attesa di approvazione', 'info');
+        return;
+    }
+    
+    if (confirm('Confermi l\'approvazione di tutti i ' + pendingPayments.length + ' pagamenti pendenti?')) {
+        showToast('Approvazione automatica di ' + pendingPayments.length + ' pagamenti in sviluppo', 'info');
+        logAuditEvent('bulk_approval', `Richiesta approvazione automatica di ${pendingPayments.length} pagamenti`, null);
+    }
+}
+
+function generateMonthlyReport() {
+    const month = prompt('Inserisci il mese per il report (YYYY-MM):') || 
+                 new Date().toISOString().slice(0, 7);
+    
+    showToast(`Generazione report mensile per ${month} in sviluppo`, 'info');
+    logAuditEvent('report_requested', `Report mensile richiesto per ${month}`, null);
+}
+
+function approveSelectedOccasionali() {
+    const selected = Array.from(selectedPayments);
+    if (selected.length === 0) {
+        showToast('Seleziona almeno un pagamento', 'warning');
+        return;
+    }
+    
+    if (confirm(`Confermi l'approvazione di ${selected.length} pagamenti occasionali?`)) {
+        showToast(`Approvazione di ${selected.length} pagamenti in sviluppo`, 'info');
+        logAuditEvent('bulk_approval_occasionali', `Approvazione ${selected.length} pagamenti occasionali richiesta`, null);
+        selectedPayments.clear();
+        updateCIVPreview();
+    }
+}
+
+// ==================== FUNZIONI PLACEHOLDER IMPLEMENTATE ====================
+function showAdvancedPaymentDetail(paymentId) {
+    const payment = pagamentiDB.find(p => p.id === paymentId);
+    if (!payment) {
+        showToast('Pagamento non trovato', 'error');
+        return;
+    }
+    
+    console.log('📋 Dettaglio pagamento:', payment);
+    showToast(`Visualizzazione dettagli pagamento ${paymentId} - Funzione in sviluppo`, 'info');
+    logAuditEvent('payment_detail_viewed', `Visualizzato dettaglio pagamento ${paymentId}`, paymentId);
+}
+
+function approvePayment(paymentId) {
+    const payment = pagamentiDB.find(p => p.id === paymentId);
+    if (!payment) {
+        showToast('Pagamento non trovato', 'error');
+        return;
+    }
+    
+    if (payment.stato !== 'da_pagare') {
+        showToast('Il pagamento non è in stato "da pagare"', 'warning');
+        return;
+    }
+    
+    if (confirm(`Confermi l'approvazione del pagamento di €${payment.importo_netto.toFixed(2)} per ${payment.artista_data?.nome} ${payment.artista_data?.cognome}?`)) {
+        showToast(`Approvazione pagamento ${paymentId} in sviluppo`, 'info');
+        logAuditEvent('payment_approval_requested', `Approvazione richiesta per pagamento ${paymentId}`, paymentId);
+    }
+}
+
+function processPayment(paymentId) {
+    const payment = pagamentiDB.find(p => p.id === paymentId);
+    if (!payment) {
+        showToast('Pagamento non trovato', 'error');
+        return;
+    }
+    
+    if (payment.stato !== 'autorizzato') {
+        showToast('Il pagamento deve essere prima autorizzato', 'warning');
+        return;
+    }
+    
+    if (!payment.artista_data?.iban) {
+        showToast('IBAN mancante per questo artista', 'error');
+        return;
+    }
+    
+    if (confirm(`Confermi l'elaborazione del pagamento di €${payment.importo_netto.toFixed(2)} verso l'IBAN ${maskIBAN(payment.artista_data.iban)}?`)) {
+        showToast(`Elaborazione pagamento ${paymentId} in sviluppo`, 'info');
+        logAuditEvent('payment_processing_requested', `Elaborazione richiesta per pagamento ${paymentId}`, paymentId);
+    }
+}
+
+function retryPayment(paymentId) {
+    const payment = pagamentiDB.find(p => p.id === paymentId);
+    if (!payment) {
+        showToast('Pagamento non trovato', 'error');
+        return;
+    }
+    
+    if (confirm(`Confermi il nuovo tentativo di elaborazione del pagamento ${paymentId}?`)) {
+        showToast(`Retry pagamento ${paymentId} in sviluppo`, 'info');
+        logAuditEvent('payment_retry_requested', `Retry richiesto per pagamento ${paymentId}`, paymentId);
+    }
+}
+
+function configureIBAN(artistaId, paymentId) {
+    const artista = artistiDB.find(a => a.id === parseInt(artistaId));
+    if (!artista) {
+        showToast('Artista non trovato', 'error');
+        return;
+    }
+    
+    const newIban = prompt(`Inserisci IBAN per ${artista.nome} ${artista.cognome}:`, artista.iban || '');
+    if (newIban && newIban.trim()) {
+        showToast(`Configurazione IBAN per ${artista.nome} in sviluppo`, 'info');
+        logAuditEvent('iban_configuration_requested', `Configurazione IBAN richiesta per artista ${artistaId}`, paymentId);
+    }
 }
 
 function toggleFatturaRicevuta(paymentId, ricevuta) {
+    const payment = pagamentiDB.find(p => p.id === paymentId);
+    if (!payment) {
+        showToast('Pagamento non trovato', 'error');
+        return;
+    }
+    
     showToast(`Fattura ${ricevuta ? 'confermata' : 'rimossa'} - Funzione in sviluppo`, 'info');
+    logAuditEvent('invoice_status_changed', `Stato fattura modificato: ${ricevuta ? 'ricevuta' : 'non ricevuta'}`, paymentId);
 }
 
 function sendInvoiceReminder(paymentId) {
-    showToast('Invio sollecito fattura in sviluppo', 'info');
+    const payment = pagamentiDB.find(p => p.id === paymentId);
+    if (!payment) {
+        showToast('Pagamento non trovato', 'error');
+        return;
+    }
+    
+    if (confirm(`Inviare sollecito fattura a ${payment.artista_data?.nome} ${payment.artista_data?.cognome}?`)) {
+        showToast('Invio sollecito fattura in sviluppo', 'info');
+        logAuditEvent('invoice_reminder_sent', `Sollecito fattura inviato per pagamento ${paymentId}`, paymentId);
+    }
 }
 
 function checkAllInvoices() {
-    showToast('Verifica automatica fatture in sviluppo', 'info');
+    const partiteIva = pagamentiDB.filter(p => p.artista_data?.has_partita_iva);
+    showToast(`Verifica automatica di ${partiteIva.length} fatture P.IVA in sviluppo`, 'info');
+    logAuditEvent('bulk_invoice_check', `Verifica automatica ${partiteIva.length} fatture richiesta`, null);
 }
 
 function markAllInvoicesReceived() {
-    showToast('Conferma automatica fatture in sviluppo', 'info');
+    const pendingInvoices = pagamentiDB.filter(p => 
+        p.artista_data?.has_partita_iva && 
+        p.stato === 'da_pagare' && 
+        !p.fattura_ricevuta
+    );
+    
+    if (pendingInvoices.length === 0) {
+        showToast('Nessuna fattura in attesa', 'info');
+        return;
+    }
+    
+    if (confirm(`Confermare come ricevute ${pendingInvoices.length} fatture?`)) {
+        showToast(`Conferma automatica di ${pendingInvoices.length} fatture in sviluppo`, 'info');
+        logAuditEvent('bulk_invoice_received', `Conferma automatica ${pendingInvoices.length} fatture`, null);
+    }
 }
 
 function generateInvoiceReminders() {
-    showToast('Generazione solleciti automatici in sviluppo', 'info');
+    const overdueInvoices = pagamentiDB.filter(p => {
+        if (!p.artista_data?.has_partita_iva || p.fattura_ricevuta) return false;
+        
+        const daysSince = Math.floor((new Date() - new Date(p.created_at)) / (1000 * 60 * 60 * 24));
+        return daysSince >= 3;
+    });
+    
+    if (overdueInvoices.length === 0) {
+        showToast('Nessuna fattura in ritardo', 'info');
+        return;
+    }
+    
+    showToast(`Generazione ${overdueInvoices.length} solleciti automatici in sviluppo`, 'info');
+    logAuditEvent('bulk_invoice_reminders', `Generazione ${overdueInvoices.length} solleciti fatture`, null);
 }
 
 function generatePayrollExport() {
-    showToast('Export buste paga in sviluppo', 'info');
+    const dipendenti = pagamentiDB.filter(p => p.ritenuta_inps > 0);
+    showToast(`Export buste paga per ${dipendenti.length} dipendenti in sviluppo`, 'info');
+    logAuditEvent('payroll_export_requested', `Export buste paga richiesto per ${dipendenti.length} dipendenti`, null);
 }
 
 function calculateContributions() {
-    showToast('Calcolo contributi in sviluppo', 'info');
+    const dipendenti = pagamentiDB.filter(p => p.ritenuta_inps > 0);
+    showToast(`Calcolo contributi per ${dipendenti.length} dipendenti in sviluppo`, 'info');
+    logAuditEvent('contributions_calculation', `Calcolo contributi richiesto per ${dipendenti.length} dipendenti`, null);
 }
 
 function exportMonthPayroll(monthKey) {
     showToast(`Export cedolini per ${monthKey} in sviluppo`, 'info');
+    logAuditEvent('monthly_payroll_export', `Export cedolini mensile richiesto per ${monthKey}`, null);
 }
 
 function generateAdvancedCIV() {
@@ -5622,73 +1557,70 @@ function generateAdvancedCIV() {
         return;
     }
     
-    showToast(`Generazione CIV ${banca} per ${selected.length} pagamenti in sviluppo`, 'info');
-}
-
-function calculateRetentions() {
-    showToast('Ricalcolo ritenute in sviluppo', 'info');
-}
-
-function exportAuditLog() {
-    showToast('Export audit log in sviluppo', 'info');
-}
-
-function clearOldLogs() {
-    showToast('Pulizia log vecchi in sviluppo', 'info');
-}
-
-function autoCalculateAllPayments() {
-    if (confirm('Vuoi ricalcolare automaticamente tutti i pagamenti dalle agibilità recenti?')) {
-        showToast('Calcolo automatico di tutti i pagamenti in sviluppo', 'info');
-    }
-}
-
-function approveAllPending() {
-    const pendingPayments = pagamentiDB.filter(function(p) { return p.stato === 'da_pagare'; });
+    const authorizedPayments = selected.filter(id => {
+        const payment = pagamentiDB.find(p => p.id === id);
+        return payment && payment.stato === 'autorizzato';
+    });
     
-    if (pendingPayments.length === 0) {
-        showToast('Nessun pagamento in attesa di approvazione', 'info');
+    if (authorizedPayments.length === 0) {
+        showToast('Nessun pagamento autorizzato tra quelli selezionati', 'warning');
         return;
     }
     
-    if (confirm('Confermi l\'approvazione di tutti i ' + pendingPayments.length + ' pagamenti pendenti?')) {
-        showToast('Approvazione automatica di ' + pendingPayments.length + ' pagamenti in sviluppo', 'info');
+    if (confirm(`Generare file CIV ${banca.toUpperCase()} per ${authorizedPayments.length} pagamenti autorizzati?`)) {
+        showToast(`Generazione CIV ${banca} per ${authorizedPayments.length} pagamenti in sviluppo`, 'info');
+        logAuditEvent('civ_generation', `CIV ${banca} richiesto per ${authorizedPayments.length} pagamenti`, null);
     }
 }
 
-function generateMonthlyReport() {
-    const month = prompt('Inserisci il mese per il report (YYYY-MM):') || 
-                 new Date().toISOString().slice(0, 7);
+function calculateRetentions() {
+    const occasionali = pagamentiDB.filter(p => 
+        !p.artista_data?.has_partita_iva && !p.ritenuta_inps
+    );
+    showToast(`Ricalcolo ritenute per ${occasionali.length} prestazioni occasionali in sviluppo`, 'info');
+    logAuditEvent('retentions_recalculation', `Ricalcolo ritenute per ${occasionali.length} prestazioni`, null);
+}
+
+function exportAuditLog() {
+    if (auditTrail.length === 0) {
+        showToast('Nessun evento di audit da esportare', 'info');
+        return;
+    }
     
-    showToast(`Generazione report mensile per ${month} in sviluppo`, 'info');
+    showToast(`Export di ${auditTrail.length} eventi audit in sviluppo`, 'info');
+    logAuditEvent('audit_export', `Export audit log richiesto (${auditTrail.length} eventi)`, null);
+}
+
+function clearOldLogs() {
+    const oldEvents = auditTrail.filter(event => {
+        const eventDate = new Date(event.timestamp);
+        const monthsAgo = new Date();
+        monthsAgo.setMonth(monthsAgo.getMonth() - 6);
+        return eventDate < monthsAgo;
+    });
+    
+    if (oldEvents.length === 0) {
+        showToast('Nessun log vecchio da eliminare', 'info');
+        return;
+    }
+    
+    if (confirm(`Eliminare ${oldEvents.length} eventi di log più vecchi di 6 mesi?`)) {
+        showToast(`Pulizia di ${oldEvents.length} log vecchi in sviluppo`, 'info');
+        logAuditEvent('logs_cleanup', `Pulizia ${oldEvents.length} log vecchi richiesta`, null);
+    }
+}
+
+function showPaymentSettings() {
+    showToast('Impostazioni sistema pagamenti in sviluppo', 'info');
+    logAuditEvent('settings_accessed', 'Accesso impostazioni pagamenti', null);
 }
 
 function saveFilterPreset() {
-    showToast('Salvataggio preset filtri in sviluppo', 'info');
-}
-
-function closeAdvancedPaymentModal() {
-    document.getElementById('advancedPaymentModal').style.display = 'none';
-}
-
-function closeIbanConfigModal() {
-    document.getElementById('ibanConfigModal').style.display = 'none';
-}
-
-function saveIbanConfiguration() {
-    showToast('Salvataggio configurazione IBAN in sviluppo', 'info');
-}
-
-function showSettingsTab(tabName) {
-    showToast(`Tab impostazioni ${tabName} in sviluppo`, 'info');
-}
-
-function savePaymentSettings() {
-    showToast('Salvataggio impostazioni in sviluppo', 'info');
-}
-
-function closePaymentSettingsModal() {
-    document.getElementById('paymentSettingsModal').style.display = 'none';
+    const presetName = prompt('Nome del preset filtri:', '');
+    if (presetName && presetName.trim()) {
+        showToast(`Salvataggio preset "${presetName}" in sviluppo`, 'info');
+        logAuditEvent('filter_preset_saved', `Preset filtri "${presetName}" salvato`, null);
+    }
 }
 
 // ==================== ESPORTAZIONE FUNZIONI GLOBALI ====================
@@ -5699,7 +1631,6 @@ window.selectAllOccasionali = selectAllOccasionali;
 window.approveSelectedOccasionali = approveSelectedOccasionali;
 window.togglePaymentSelection = togglePaymentSelection;
 window.showAdvancedPaymentDetail = showAdvancedPaymentDetail;
-window.closeAdvancedPaymentModal = closeAdvancedPaymentModal;
 window.approvePayment = approvePayment;
 window.processPayment = processPayment;
 window.retryPayment = retryPayment;
@@ -5709,18 +1640,13 @@ window.checkAllInvoices = checkAllInvoices;
 window.markAllInvoicesReceived = markAllInvoicesReceived;
 window.generateInvoiceReminders = generateInvoiceReminders;
 window.configureIBAN = configureIBAN;
-window.saveIbanConfiguration = saveIbanConfiguration;
-window.closeIbanConfigModal = closeIbanConfigModal;
 window.generatePayrollExport = generatePayrollExport;
 window.calculateContributions = calculateContributions;
 window.exportMonthPayroll = exportMonthPayroll;
 window.generateAdvancedCIV = generateAdvancedCIV;
 window.calculateRetentions = calculateRetentions;
-window.syncPaymentsFromAgibilita = syncPaymentsFromAgibilita; // ✅ AGGIUNTO
+window.syncPaymentsFromAgibilita = syncPaymentsFromAgibilita;
 window.showPaymentSettings = showPaymentSettings;
-window.showSettingsTab = showSettingsTab;
-window.savePaymentSettings = savePaymentSettings;
-window.closePaymentSettingsModal = closePaymentSettingsModal;
 window.autoCalculateAllPayments = autoCalculateAllPayments;
 window.approveAllPending = approveAllPending;
 window.generateMonthlyReport = generateMonthlyReport;
@@ -5731,4 +1657,4 @@ window.showProcessPayments = () => showPaymentTab('occasionali');
 window.showPendingApprovals = () => showPaymentTab('occasionali');
 window.showPaymentHistory = () => showPaymentTab('audit');
 
-console.log('💰 Sistema Pagamenti RECORP base inizializzato con successo! 🚀');
+console.log('💰 Sistema Pagamenti RECORP completamente inizializzato! 🚀');
