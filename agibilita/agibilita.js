@@ -2273,9 +2273,17 @@ async function startNewAgibilita() {
 
 function showEditAgibilita() {
     console.log('Showing edit agibilità');
+    
+    // Nascondi altre sezioni
+    document.querySelectorAll('.step-section').forEach(section => {
+        section.style.display = 'none';
+        section.classList.remove('active');
+    });
+    
     const editListSection = document.getElementById('editListSection');
     if (editListSection) {
         editListSection.style.display = 'block';
+        editListSection.classList.add('active');
         showExistingAgibilita();
     }
 }
@@ -2288,9 +2296,17 @@ function showBozzeAgibilita() {
 // ✅ NUOVO: Mostra sezione bozze/richieste con tabs
 function showBozzeRichieste() {
     console.log('🎯 Showing bozze/richieste with tabs');
+    
+    // Nascondi altre sezioni
+    document.querySelectorAll('.step-section').forEach(section => {
+        section.style.display = 'none';
+        section.classList.remove('active');
+    });
+    
     const section = document.getElementById('bozzeRichiesteSection');
     if (section) {
         section.style.display = 'block';
+        section.classList.add('active');
         loadBozzeRichiesteData();
     }
 }
