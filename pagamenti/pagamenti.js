@@ -1831,21 +1831,44 @@ async function updateExecutiveDashboard() {
     try {
         console.log('📊 Aggiornamento dashboard executivo coordinato...');
         
+        // ✅ PREVENZIONE LOOP: Verifica che pagamentiDB sia disponibile
+        if (!pagamentiDB || !Array.isArray(pagamentiDB)) {
+            console.warn('⚠️ pagamentiDB non ancora inizializzato, skip aggiornamento dashboard');
+            return;
+        }
+        
         const stats = calculateExecutiveStats();
         
+        // ✅ SICUREZZA: Verifica elementi DOM esistano
+        const totaleDaPagareEl = document.getElementById('totaleDaPagare');
+        const numeroArtistiEl = document.getElementById('numeroArtisti');
+        const pagamentiMeseEl = document.getElementById('pagamentiMese');
+        const ritenuteApplicateEl = document.getElementById('ritenuteApplicate');
+        
+        if (!totaleDaPagareEl || !numeroArtistiEl || !pagamentiMeseEl || !ritenuteApplicateEl) {
+            console.warn('⚠️ Elementi dashboard non trovati, DOM non ancora pronto');
+            return;
+        }
+        
         // Aggiorna contatori principali
-        document.getElementById('totaleDaPagare').textContent = `€${stats.totaleDaPagare.toLocaleString('it-IT', {minimumFractionDigits: 2})}`;
-        document.getElementById('numeroArtisti').textContent = stats.numeroArtisti;
-        document.getElementById('pagamentiMese').textContent = `€${stats.pagamentiMese.toLocaleString('it-IT', {minimumFractionDigits: 2})}`;
-        document.getElementById('ritenuteApplicate').textContent = `€${stats.ritenuteApplicate.toLocaleString('it-IT', {minimumFractionDigits: 2})}`;
+        totaleDaPagareEl.textContent = `€${stats.totaleDaPagare.toLocaleString('it-IT', {minimumFractionDigits: 2})}`;
+        numeroArtistiEl.textContent = stats.numeroArtisti;
+        pagamentiMeseEl.textContent = `€${stats.pagamentiMese.toLocaleString('it-IT', {minimumFractionDigits: 2})}`;
+        ritenuteApplicateEl.textContent = `€${stats.ritenuteApplicate.toLocaleString('it-IT', {minimumFractionDigits: 2})}`;
         
         // ✅ NUOVO: Gestione card pagamenti in elaborazione
         const processingCard = document.getElementById('processingCard');
         if (stats.inElaborazione > 0) {
             if (processingCard) {
                 processingCard.style.display = 'block';
-                document.getElementById('totaleInElaborazione').textContent = `€${stats.totaleInElaborazione.toLocaleString('it-IT', {minimumFractionDigits: 2})}`;
-                document.getElementById('trendElaborazione').textContent = `${stats.inElaborazione} pagamenti in attesa conferma`;
+                const totaleInElaborazioneEl = document.getElementById('totaleInElaborazione');
+                const trendElaborazioneEl = document.getElementById('trendElaborazione');
+                if (totaleInElaborazioneEl) {
+                    totaleInElaborazioneEl.textContent = `€${stats.totaleInElaborazione.toLocaleString('it-IT', {minimumFractionDigits: 2})}`;
+                }
+                if (trendElaborazioneEl) {
+                    trendElaborazioneEl.textContent = `${stats.inElaborazione} pagamenti in attesa conferma`;
+                }
             } else {
                 // Crea card dinamicamente se non esiste
                 createProcessingCard(stats);
@@ -1867,6 +1890,7 @@ async function updateExecutiveDashboard() {
         
     } catch (error) {
         console.error('❌ Errore aggiornamento dashboard:', error);
+        // Non rilanciare l'errore per evitare loop
     }
 }
 
