@@ -56,6 +56,7 @@ function exportGlobalFunctions() {
     window.startNewAgibilita = startNewAgibilita;
     window.showEditAgibilita = showEditAgibilita;
     window.showBozzeAgibilita = showBozzeAgibilita;
+    window.showBozzeRichieste = showBozzeRichieste; // ✅ AGGIUNTO
     window.showAddArtistModal = showAddArtistModal;
     window.closeModal = closeModal;
     window.searchArtists = searchArtists;
@@ -88,10 +89,8 @@ function exportGlobalFunctions() {
     window.loadBozza = loadBozza;
     window.deleteBozza = deleteBozza;
     window.forceUnlock = forceUnlock;
-    // ✅ RIMOSSO: showCalendarView, changeCalendarMonth, closeCalendarModal (calendario rimosso)
     
     // ✅ NUOVO: Funzioni per richieste esterne
-    window.showBozzeRichieste = showBozzeRichieste;
     window.showContentTab = showContentTab;
     window.applyFilters = applyFilters;
     window.loadRichiesta = loadRichiesta;
@@ -114,14 +113,19 @@ function exportGlobalFunctions() {
             loadCAP(citta);
         }
     };
+    
+    console.log('✅ Funzioni globali esportate:', Object.keys(window).filter(k => k.includes('Agibilita') || k.includes('Artist') || k.includes('Bozz')));
 }
 
-// Esporta le funzioni immediatamente
+// ✅ ESPORTA IMMEDIATAMENTE (prima di DOMContentLoaded)
 exportGlobalFunctions();
 
 // ==================== INIZIALIZZAZIONE SEMPLIFICATA ====================
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('🚀 Inizializzazione sistema agibilità con richieste esterne...');
+    
+    // ✅ RIESPORTA FUNZIONI PER SICUREZZA
+    exportGlobalFunctions();
     
     try {
         // === OTTIENI USER SESSION DA AUTHGUARD ===
@@ -1991,7 +1995,11 @@ function editAgibilita(codice) {
    }
 
    updateArtistsList();
-   document.getElementById('editListSection').style.display = 'none';
+   const editListSection = document.getElementById('editListSection');
+   if (editListSection) {
+       editListSection.style.display = 'none';
+       editListSection.classList.remove('active');
+   }
    showSection('step1');
    startAutosave();
 }
@@ -2044,8 +2052,24 @@ function clearAllForms() {
    const globalSearch = document.getElementById('globalInvoiceSearch');
    if (globalSearch) globalSearch.remove();
 
-   document.getElementById('editListSection').style.display = 'none';
-   document.getElementById('bozzeRichiesteSection').style.display = 'none';
+   // Nascondi sezioni speciali
+   const editListSection = document.getElementById('editListSection');
+   if (editListSection) {
+       editListSection.style.display = 'none';
+       editListSection.classList.remove('active');
+   }
+   
+   const bozzeRichiesteSection = document.getElementById('bozzeRichiesteSection');
+   if (bozzeRichiesteSection) {
+       bozzeRichiesteSection.style.display = 'none';
+       bozzeRichiesteSection.classList.remove('active');
+   }
+   
+   const bozzeSection = document.getElementById('bozzeSection');
+   if (bozzeSection) {
+       bozzeSection.style.display = 'none';
+       bozzeSection.classList.remove('active');
+   }
    
    const dateInfo = document.getElementById('dateInfo');
    if (dateInfo) dateInfo.style.display = 'none';
@@ -2186,7 +2210,7 @@ function getToastIcon(type) {
     return icons[type] || icons.info;
 }
 
-// ==================== FUNZIONI NAVIGAZIONE ====================
+// ==================== FUNZIONI NAVIGAZIONE (CORRETTE) ====================
 function showSection(sectionId) {
     console.log('🎯 Showing section:', sectionId);
     
@@ -2194,6 +2218,16 @@ function showSection(sectionId) {
     document.querySelectorAll('.step-section').forEach(section => {
         section.classList.remove('active');
         section.style.display = 'none';
+    });
+    
+    // Nascondi anche sezioni speciali che potrebbero interferire
+    const specialSections = ['editListSection', 'bozzeRichiesteSection', 'bozzeSection'];
+    specialSections.forEach(sectionName => {
+        const section = document.getElementById(sectionName);
+        if (section) {
+            section.style.display = 'none';
+            section.classList.remove('active');
+        }
     });
     
     // Aggiungi active alla sezione target
@@ -2647,7 +2681,11 @@ async function loadRichiesta(richiestaId) {
         currentRichiestaId = richiestaId;
         
         // Vai al primo step
-        document.getElementById('bozzeRichiesteSection').style.display = 'none';
+        const bozzeRichiesteSection = document.getElementById('bozzeRichiesteSection');
+        if (bozzeRichiesteSection) {
+            bozzeRichiesteSection.style.display = 'none';
+            bozzeRichiesteSection.classList.remove('active');
+        }
         showSection('step1');
         
         showToast('Richiesta caricata per elaborazione', 'success');
@@ -2988,6 +3026,7 @@ async function loadBozza(bozzaId) {
         
         // Nascondi sezione bozze e mostra step1
         document.getElementById('bozzeRichiesteSection').style.display = 'none';
+        document.getElementById('bozzeRichiesteSection').classList.remove('active');
         showSection('step1');
         
         // Inizia autosalvataggio e controllo lock
