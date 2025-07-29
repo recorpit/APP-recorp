@@ -9,6 +9,165 @@
     <link rel="stylesheet" href="../assets/style.css">
     <link rel="stylesheet" href="pagamenti-styles.css">
     
+    <!-- 🔥 CSS BACKUP INLINE se il file non si carica -->
+    <style>
+        /* Stili critici per pagamenti */
+        .payment-tabs {
+            display: flex;
+            background: var(--bg-card, #fff);
+            border-bottom: 1px solid var(--border-color, #e2e8f0);
+            margin-bottom: 2rem;
+        }
+        
+        .tab {
+            padding: 1rem 2rem;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .tab:hover {
+            background: var(--bg-primary, #f8f9fa);
+        }
+        
+        .tab.active {
+            border-bottom-color: var(--primary, #007bff);
+            background: var(--bg-primary, #f8f9fa);
+        }
+        
+        .tab-badge {
+            background: var(--primary, #007bff);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .payment-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 3rem 2rem;
+            background: var(--bg-primary, #f8f9fa);
+            border-radius: 8px;
+            color: var(--text-secondary, #6c757d);
+            font-style: italic;
+        }
+        
+        .loading-spinner {
+            width: 30px;
+            height: 30px;
+            border: 3px solid var(--border-color, #e2e8f0);
+            border-top: 3px solid var(--primary, #007bff);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .system-status {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: var(--bg-card, #fff);
+            border-radius: 8px;
+            border: 1px solid var(--border-color, #e2e8f0);
+        }
+        
+        .filters-section {
+            background: var(--bg-card, #fff);
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+            border: 1px solid var(--border-color, #e2e8f0);
+        }
+        
+        .filters-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .filter-group label {
+            font-weight: 500;
+            color: var(--text-primary, #212529);
+        }
+        
+        .civ-preview {
+            background: var(--bg-card, #fff);
+            padding: 1.5rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-color, #e2e8f0);
+            margin-top: 1rem;
+        }
+        
+        .civ-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color, #e2e8f0);
+        }
+        
+        .summary-item {
+            text-align: center;
+        }
+        
+        .summary-label {
+            display: block;
+            font-size: 0.9rem;
+            color: var(--text-secondary, #6c757d);
+            margin-bottom: 0.25rem;
+        }
+        
+        .summary-value {
+            display: block;
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--text-primary, #212529);
+        }
+        
+        .summary-item.total .summary-value {
+            color: var(--success, #28a745);
+            font-size: 1.4rem;
+        }
+    </style>
+    
     <!-- 🔥 CARICA SUPABASE VIA CDN PRIMA DI TUTTO -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
@@ -671,6 +830,18 @@
         // ==================== INIZIALIZZAZIONE ====================
         document.addEventListener('DOMContentLoaded', function() {
             console.log('🚀 DOM caricato, avvio inizializzazione sicura...');
+            
+            // 🔧 DEBUG CSS
+            const links = document.querySelectorAll('link[rel="stylesheet"]');
+            links.forEach((link, index) => {
+                console.log(`CSS ${index + 1}: ${link.href}`);
+                link.addEventListener('load', () => {
+                    console.log(`✅ CSS caricato: ${link.href}`);
+                });
+                link.addEventListener('error', () => {
+                    console.error(`❌ CSS non caricato: ${link.href}`);
+                });
+            });
             
             // Aggiungi delay per assicurare che tutto sia caricato
             setTimeout(initializeSystem, 100);
