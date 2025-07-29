@@ -2149,7 +2149,18 @@ function setupEventListeners() {
    });
 }
 
-console.log('🎭 Sistema agibilità v6.0 - Con richieste esterne e senza timer! 🚀');: Carica richieste esterne
+console.log('🎭 Sistema agibilità v6.0 - Con richieste esterne e senza timer! 🚀');
+
+// ✅ DEBUG: Verifica funzioni esportate
+console.log('🔍 Funzioni startNewAgibilita disponibile:', typeof window.startNewAgibilita);
+console.log('🔍 Funzioni showEditAgibilita disponibile:', typeof window.showEditAgibilita);
+console.log('🔍 Funzioni showBozzeRichieste disponibile:', typeof window.showBozzeRichieste);
+
+// ✅ FALLBACK: Re-esporta funzioni se necessario
+if (typeof window.startNewAgibilita === 'undefined') {
+    console.warn('⚠️ Funzioni non esportate correttamente, forzo esportazione...');
+    exportGlobalFunctions();
+}: Carica richieste esterne
         try {
             richiesteDB = await DatabaseService.getRichiesteEsterne();
             console.log(`✅ ${richiesteDB.length} richieste esterne caricate`);
