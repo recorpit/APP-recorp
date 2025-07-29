@@ -89,6 +89,9 @@ function exportGlobalFunctions() {
     window.loadBozza = loadBozza;
     window.deleteBozza = deleteBozza;
     window.forceUnlock = forceUnlock;
+    window.showCalendarView = showCalendarView; // ✅ AGGIUNTO per compatibilità HTML
+    window.changeCalendarMonth = changeCalendarMonth; // ✅ AGGIUNTO
+    window.closeCalendarModal = closeCalendarModal; // ✅ AGGIUNTO
     
     // ✅ NUOVO: Funzioni per richieste esterne
     window.showContentTab = showContentTab;
@@ -198,6 +201,13 @@ document.addEventListener('DOMContentLoaded', async function() {
         }, 100);
         
         console.log('✅ Sistema agibilità inizializzato con successo!');
+        
+        // ✅ FORZA ESPORTAZIONE FINALE DOPO COMPLETO CARICAMENTO
+        setTimeout(() => {
+            exportGlobalFunctions();
+            console.log('🔄 Funzioni re-esportate dopo caricamento completo');
+            console.log('🎯 startNewAgibilita ora è:', typeof window.startNewAgibilita);
+        }, 500);
         
     } catch (error) {
         console.error('❌ Errore inizializzazione sistema agibilità:', error);
@@ -328,6 +338,21 @@ async function initializeAgibilitaSystem() {
     } catch (error) {
         console.error('❌ Errore aggiornamento statistiche:', error);
     }
+}
+
+// ==================== FUNZIONI CALENDARIO (COMPATIBILITÀ HTML) ====================
+function showCalendarView() {
+    console.log('📅 Calendario disabilitato - reindirizzamento a bozze/richieste');
+    showBozzeRichieste();
+}
+
+function changeCalendarMonth(delta) {
+    console.log('📅 Funzione calendario disabilitata');
+}
+
+function closeCalendarModal() {
+    const modal = document.getElementById('calendar-modal');
+    if (modal) modal.style.display = 'none';
 }
 
 // ==================== KEYBOARD SHORTCUTS ====================
@@ -2152,15 +2177,33 @@ function setupEventListeners() {
 console.log('🎭 Sistema agibilità v6.0 - Con richieste esterne e senza timer! 🚀');
 
 // ✅ DEBUG: Verifica funzioni esportate
-console.log('🔍 Funzioni startNewAgibilita disponibile:', typeof window.startNewAgibilita);
-console.log('🔍 Funzioni showEditAgibilita disponibile:', typeof window.showEditAgibilita);
-console.log('🔍 Funzioni showBozzeRichieste disponibile:', typeof window.showBozzeRichieste);
+setTimeout(() => {
+    console.log('🔍 Funzioni startNewAgibilita disponibile:', typeof window.startNewAgibilita);
+    console.log('🔍 Funzioni showEditAgibilita disponibile:', typeof window.showEditAgibilita);
+    console.log('🔍 Funzioni showBozzeAgibilita disponibile:', typeof window.showBozzeAgibilita);
+    console.log('🔍 Funzioni showBozzeRichieste disponibile:', typeof window.showBozzeRichieste);
+    console.log('🔍 Funzioni showCalendarView disponibile:', typeof window.showCalendarView);
+    
+    // Lista tutte le funzioni window che iniziano con nomi specifici
+    const agibilitaFunctions = Object.keys(window).filter(key => 
+        key.includes('Agibilita') || key.includes('Artist') || key.includes('Bozz') || 
+        key.includes('Calendar') || key.includes('goTo') || key.includes('show')
+    );
+    console.log('🎯 Funzioni agibilità esportate:', agibilitaFunctions);
+}, 1000);
 
 // ✅ FALLBACK: Re-esporta funzioni se necessario
-if (typeof window.startNewAgibilita === 'undefined') {
-    console.warn('⚠️ Funzioni non esportate correttamente, forzo esportazione...');
-    exportGlobalFunctions();
-}: Carica richieste esterne
+setTimeout(() => {
+    if (typeof window.startNewAgibilita === 'undefined') {
+        console.warn('⚠️ Funzioni non esportate correttamente, forzo esportazione...');
+        exportGlobalFunctions();
+        
+        // Verifica di nuovo dopo il fallback
+        setTimeout(() => {
+            console.log('🔄 Dopo fallback - startNewAgibilita:', typeof window.startNewAgibilita);
+        }, 500);
+    }
+}, 2000);: Carica richieste esterne
         try {
             richiesteDB = await DatabaseService.getRichiesteEsterne();
             console.log(`✅ ${richiesteDB.length} richieste esterne caricate`);
@@ -2335,6 +2378,7 @@ function showEditAgibilita() {
 
 // ✅ MODIFICATO: Funzione legacy per compatibilità
 function showBozzeAgibilita() {
+    console.log('📋 Reindirizzamento da showBozzeAgibilita a showBozzeRichieste');
     showBozzeRichieste();
 }
 
