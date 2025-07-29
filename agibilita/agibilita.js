@@ -1,4 +1,4 @@
-// agibilita.js - Sistema Gestione Agibilità RECORP con Protezione Auth
+// agibilita.js - Sistema Gestione Agibilità RECORP con Richieste Esterne
 
 // Import Supabase DatabaseService e AuthGuard
 import { DatabaseService } from '../supabase-config.js';
@@ -11,9 +11,8 @@ let agibilitaData = {
     codiceAgibilita: null,
     numeroRiservato: null,
     reservationId: null,
-    reservationExpires: null,
-    numeroProgressivo: null,
-    warningTimer: null
+    numeroProgressivo: null
+    // ✅ RIMOSSO: reservationExpires, warningTimer (timer eliminati)
 };
 
 // Database - caricati da Supabase
@@ -22,6 +21,7 @@ let agibilitaDB = [];
 let venuesDB = [];
 let invoiceDB = [];
 let bozzeDB = [];
+let richiesteDB = []; // ✅ NUOVO: Database richieste esterne
 
 // Variabili per tracciare conferme compensi
 let compensiConfermati = new Set();
@@ -32,16 +32,27 @@ let lockCheckTimer = null;
 let currentLock = null;
 let currentBozzaId = null;
 
-// User session da AuthGuard (MODIFICATO)
+// ✅ NUOVO: Variabili per gestione richieste
+let currentRichiestaId = null;
+let currentContentTab = 'bozze';
+let appliedFilters = {
+    status: '',
+    author: '',
+    search: ''
+};
+
+// User session da AuthGuard (MODIFICATO con nome per autore)
 let userSession = {
     id: null,
-    email: null, // ← Ora viene da Supabase Auth
+    email: null,
+    name: null, // ✅ AGGIUNTO: Nome per autore bozze
     workstation: null,
-    userId: null // ← User ID Supabase
+    userId: null
 };
 
 // ==================== ESPORTA FUNZIONI GLOBALI SUBITO ====================
 function exportGlobalFunctions() {
+    // Funzioni esistenti
     window.startNewAgibilita = startNewAgibilita;
     window.showEditAgibilita = showEditAgibilita;
     window.showBozzeAgibilita = showBozzeAgibilita;
@@ -77,9 +88,20 @@ function exportGlobalFunctions() {
     window.loadBozza = loadBozza;
     window.deleteBozza = deleteBozza;
     window.forceUnlock = forceUnlock;
-    window.showCalendarView = showCalendarView;
-    window.changeCalendarMonth = changeCalendarMonth;
-    window.closeCalendarModal = closeCalendarModal;
+    // ✅ RIMOSSO: showCalendarView, changeCalendarMonth, closeCalendarModal (calendario rimosso)
+    
+    // ✅ NUOVO: Funzioni per richieste esterne
+    window.showBozzeRichieste = showBozzeRichieste;
+    window.showContentTab = showContentTab;
+    window.applyFilters = applyFilters;
+    window.loadRichiesta = loadRichiesta;
+    window.deleteRichiesta = deleteRichiesta;
+    window.archiveRichiesta = archiveRichiesta;
+    window.updateRichiestaStatus = updateRichiestaStatus;
+    window.createRichiestaFromBozza = createRichiestaFromBozza;
+    window.viewRichiestaDetails = viewRichiestaDetails;
+    window.duplicateRichiestaAsNew = duplicateRichiestaAsNew;
+    
     window.loadCitiesForProvince = function() {
         const provincia = document.getElementById('provincia').value;
         if (provincia) {
@@ -97,12 +119,12 @@ function exportGlobalFunctions() {
 // Esporta le funzioni immediatamente
 exportGlobalFunctions();
 
-// ==================== INIZIALIZZAZIONE SEMPLIFICATA (SENZA AUTH RIDONDANTE) ====================
+// ==================== INIZIALIZZAZIONE SEMPLIFICATA ====================
 document.addEventListener('DOMContentLoaded', async function() {
-    console.log('🚀 Inizializzazione sistema agibilità...');
+    console.log('🚀 Inizializzazione sistema agibilità con richieste esterne...');
     
     try {
-        // === OTTIENI USER SESSION DA AUTHGUARD (GIÀ ATTIVO) ===
+        // === OTTIENI USER SESSION DA AUTHGUARD ===
         const user = await AuthGuard.getCurrentUser();
         if (user) {
             // Genera workstation ID univoco
@@ -116,12 +138,14 @@ document.addEventListener('DOMContentLoaded', async function() {
             userSession = {
                 id: sessionId,
                 email: user.email,
+                name: user.user_metadata?.full_name || user.email.split('@')[0], // ✅ AGGIUNTO: Nome per autore
                 workstation: workstationId,
                 userId: user.id || 'unknown'
             };
             
             console.log('✅ Sessione utente ottenuta da AuthGuard:', {
                 email: userSession.email,
+                name: userSession.name, // ✅ NUOVO
                 workstation: userSession.workstation
             });
         } else {
@@ -159,7 +183,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (window.showAuthenticatedContent) {
             window.showAuthenticatedContent();
         } else {
-            // Fallback: aggiungi classe direttamente
             document.body.classList.add('authenticated');
             console.log('✅ Classe authenticated aggiunta (fallback)');
         }
@@ -175,7 +198,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     } catch (error) {
         console.error('❌ Errore inizializzazione sistema agibilità:', error);
         showToast('Errore di inizializzazione: ' + error.message, 'error');
-        // AuthGuard gestisce eventuali problemi di autenticazione
     }
 });
 
@@ -221,6 +243,7 @@ async function initializeInterface() {
         showToast('Errore inizializzazione interfaccia: ' + error.message, 'warning');
     }
 }
+
 function autocompletaDataFine() {
     const dataInizioInput = document.getElementById('dataInizio');
     const dataFineInput = document.getElementById('dataFine');
@@ -235,9 +258,7 @@ function autocompletaDataFine() {
     }
 }
 
-// ==================== RESTO DEL CODICE ORIGINALE (MANTENUTO) ====================
-
-// Inizializzazione sistema agibilità con Supabase
+// ==================== INIZIALIZZAZIONE SISTEMA ====================
 async function initializeAgibilitaSystem() {
     try {
         console.log('📥 Caricamento dati da Supabase...');
@@ -254,7 +275,7 @@ async function initializeAgibilitaSystem() {
         venuesDB = await DatabaseService.getVenues();
         console.log(`✅ ${venuesDB.length} venues caricati`);
         
-        // Carica tutti i dati di fatturazione
+        // Carica dati fatturazione
         invoiceDB = await DatabaseService.getAllInvoiceData();
         console.log(`✅ ${invoiceDB.length} dati fatturazione caricati`);
         
@@ -262,612 +283,9 @@ async function initializeAgibilitaSystem() {
         bozzeDB = await DatabaseService.getBozze();
         console.log(`✅ ${bozzeDB.length} bozze caricate`);
         
-        console.log('🎉 Sistema agibilità inizializzato con Supabase!');
-        return true;
-        
-    } catch (error) {
-        console.error('❌ Errore inizializzazione sistema agibilità:', error);
-        showToast('Errore nel caricamento dei dati: ' + error.message, 'error');
-        return false;
-    }
-}
-
-// ==================== SISTEMA NOTIFICHE TOAST ====================
-function showToast(message, type = 'info', duration = 3000) {
-    const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    toast.innerHTML = `
-        <div class="toast-content">
-            <span class="toast-icon">${getToastIcon(type)}</span>
-            <span class="toast-message">${message}</span>
-        </div>
-    `;
-    
-    const container = document.getElementById('toast-container') || createToastContainer();
-    container.appendChild(toast);
-    
-    // Animazione entrata
-    setTimeout(() => toast.classList.add('show'), 10);
-    
-    // Rimozione automatica
-    setTimeout(() => {
-        toast.classList.remove('show');
-        setTimeout(() => toast.remove(), 300);
-    }, duration);
-}
-
-function createToastContainer() {
-    const container = document.createElement('div');
-    container.id = 'toast-container';
-    container.className = 'toast-container';
-    document.body.appendChild(container);
-    return container;
-}
-
-function getToastIcon(type) {
-    const icons = {
-        'success': '✅',
-        'error': '❌',
-        'warning': '⚠️',
-        'info': 'ℹ️'
-    };
-    return icons[type] || icons.info;
-}
-
-// ==================== FUNZIONI NAVIGAZIONE (CORRETTE) ====================
-function showSection(sectionId) {
-    console.log('🎯 Showing section:', sectionId);
-    
-    // Rimuovi active da tutte le sezioni
-    document.querySelectorAll('.step-section').forEach(section => {
-        section.classList.remove('active');
-        section.style.display = 'none'; // ← AGGIUNTO: Nascondi esplicitamente
-    });
-    
-    // Aggiungi active alla sezione target
-    const targetSection = document.getElementById(sectionId);
-    if (targetSection) {
-        targetSection.classList.add('active');
-        targetSection.style.display = 'block'; // ← AGGIUNTO: Mostra esplicitamente
-        
-        console.log('✅ Sezione attivata:', sectionId, targetSection);
-        
-        // Aggiorna progress bar
-        updateProgressBar();
-        
-        // Scroll top
-        window.scrollTo(0, 0);
-    } else {
-        console.error('❌ Sezione non trovata:', sectionId);
-    }
-}
-
-// ==================== FUNZIONE PRINCIPALE MODIFICATA: startNewAgibilita() ====================
-async function startNewAgibilita() {
-    console.log('🆕 Avvio nuova agibilità con numerazione thread-safe');
-    
-    try {
-        // Mostra loader
-        showToast('🔢 Riservazione numero agibilità...', 'info');
-        
-        // === NUOVA LOGICA: RISERVAZIONE THREAD-SAFE ===
-        const reservation = await DatabaseService.reserveAgibilitaNumberSafe();
-        
-        // Reset dati agibilità
-        agibilitaData.isModifica = false;
-        agibilitaData.codiceAgibilita = null;
-        
-        // === DATI NUMERAZIONE RISERVATA ===
-        agibilitaData.numeroRiservato = reservation.codice;           // es: "AG-2025-042"
-        agibilitaData.reservationId = reservation.reservation_id;     // ID per conferma/rilascio
-        agibilitaData.reservationExpires = reservation.expires_at;    // Scadenza (30 min)
-        agibilitaData.numeroProgressivo = reservation.numero_progressivo; // 42
-        
-        // Reset selezioni
-        selectedArtists = [];
-        compensiConfermati.clear();
-        clearAllForms();
-        
-        // === FEEDBACK UTENTE ===
-        showToast(`✅ Numero riservato: ${reservation.codice}`, 'success', 4000);
-        
-        // === TIMER SCADENZA ===
-        // Avviso a 25 minuti (5 minuti prima della scadenza)
-        const warningTimer = setTimeout(() => {
-            showToast('⏰ Attenzione: numero agibilità scade tra 5 minuti!', 'warning', 8000);
-        }, 25 * 60 * 1000);
-        
-        // Salva timer per eventuale clear
-        agibilitaData.warningTimer = warningTimer;
-        
-        // === MOSTRA NUMERO RISERVATO NELL'UI ===
-        updateReservedNumberDisplay(reservation.codice, reservation.expires_at);
-        
-        // === AUTOSALVATAGGIO ===
-        startAutosave(); // Ora le bozze includeranno il numero riservato
-        
-        // === NAVIGAZIONE ===
-        showSection('step1');
-        
-        console.log('✅ Nuova agibilità avviata:', {
-            codice: reservation.codice,
-            scadenza: reservation.expires_at,
-            reservationId: reservation.reservation_id
-        });
-        
-    } catch (error) {
-        console.error('❌ Errore avvio nuova agibilità:', error);
-        showToast('Errore nella prenotazione del numero agibilità: ' + error.message, 'error');
-        
-        // Fallback: continua senza numero riservato
-        agibilitaData.isModifica = false;
-        agibilitaData.codiceAgibilita = null;
-        agibilitaData.numeroRiservato = null;
-        
-        selectedArtists = [];
-        compensiConfermati.clear();
-        clearAllForms();
-        showSection('step1');
-    }
-}
-
-// ==================== FUNZIONI DI SUPPORTO NUMERAZIONE ====================
-// Mostra il numero riservato nell'interfaccia
-function updateReservedNumberDisplay(codice, expiresAt) {
-    // Cerca un elemento per mostrare il numero riservato
-    const reservedDisplay = document.getElementById('reservedNumberDisplay');
-    const breadcrumb = document.querySelector('.breadcrumb-container h2');
-    
-    if (reservedDisplay) {
-        reservedDisplay.innerHTML = `
-            <div class="reserved-number-badge">
-                <span class="numero">📋 ${codice}</span>
-                <span class="scadenza">⏰ Scade: ${formatTime(expiresAt)}</span>
-            </div>
-        `;
-        reservedDisplay.style.display = 'block';
-    }
-    
-    // Aggiorna anche il breadcrumb se presente
-    if (breadcrumb) {
-        breadcrumb.innerHTML = `Nuova Agibilità <small class="text-muted">• ${codice}</small>`;
-    }
-}
-
-// Formatta ora di scadenza
-function formatTime(isoString) {
-    const date = new Date(isoString);
-    return date.toLocaleTimeString('it-IT', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
-    });
-}
-
-function showEditAgibilita() {
-    console.log('Showing edit agibilità');
-    const editListSection = document.getElementById('editListSection');
-    if (editListSection) {
-        editListSection.style.display = 'block';
-        showExistingAgibilita();
-    }
-}
-
-// NUOVA FUNZIONE: Mostra bozze
-function showBozzeAgibilita() {
-    console.log('Showing bozze');
-    const bozzeSection = document.getElementById('bozzeSection');
-    if (bozzeSection) {
-        bozzeSection.style.display = 'block';
-        showExistingBozze();
-    }
-}
-
-// ==================== GESTIONE BOZZE ====================
-async function showExistingBozze() {
-    const listDiv = document.getElementById('bozzeList');
-    if (!listDiv) return;
-    
-    // Ricarica bozze dal database
-    bozzeDB = await DatabaseService.getBozze();
-    
-    if (bozzeDB.length === 0) {
-        listDiv.innerHTML = '<p class="no-data-message">Nessuna bozza trovata</p>';
-        return;
-    }
-    
-    const bozzeHTML = bozzeDB.map(bozza => {
-        const isLocked = bozza.locked_by && bozza.locked_until > new Date().toISOString();
-        const lockInfo = isLocked ? `🔒 In modifica da ${bozza.locked_by_name}` : '';
-        const completamento = calculateCompletamento(bozza.data);
-        
-        return `
-            <div class="bozza-item ${isLocked ? 'locked' : ''}">
-                <div class="bozza-info">
-                    <div class="bozza-header">
-                        <span class="bozza-code">[BOZZA-${bozza.id}]</span>
-                        <span class="bozza-date">Salvata: ${new Date(bozza.updated_at).toLocaleString('it-IT')}</span>
-                    </div>
-                    <div class="bozza-progress">
-                        <div class="progress-bar-mini">
-                            <div class="progress-fill" style="width: ${completamento}%"></div>
-                        </div>
-                        <span class="progress-text">${completamento}% completo</span>
-                    </div>
-                    ${bozza.data.locale ? `<div class="bozza-location">📍 ${bozza.data.locale.descrizione || 'Locale non specificato'}</div>` : ''}
-                    ${bozza.data.artisti && bozza.data.artisti.length > 0 ? `<div class="bozza-artists">🎭 ${bozza.data.artisti.length} artisti</div>` : ''}
-                    ${lockInfo ? `<div class="lock-info">${lockInfo}</div>` : ''}
-                </div>
-                <div class="bozza-actions">
-                    ${isLocked ? 
-                        `<button class="btn btn-secondary btn-sm" onclick="forceUnlock(${bozza.id})">🔓 Sblocca</button>` :
-                        `<button class="btn btn-primary btn-sm" onclick="loadBozza(${bozza.id})">📝 Riprendi</button>`
-                    }
-                    <button class="btn btn-danger btn-sm" onclick="deleteBozza(${bozza.id})">🗑️ Elimina</button>
-                </div>
-            </div>
-        `;
-    }).join('');
-    
-    listDiv.innerHTML = bozzeHTML;
-}
-
-// Calcola percentuale completamento bozza
-function calculateCompletamento(bozzaData) {
-    let campiTotali = 0;
-    let campiCompilati = 0;
-    
-    // Controlla artisti
-    if (bozzaData.artisti && bozzaData.artisti.length > 0) {
-        campiCompilati += 2;
-    }
-    campiTotali += 2;
-    
-    // Controlla date
-    if (bozzaData.dataInizio) campiCompilati++;
-    if (bozzaData.dataFine) campiCompilati++;
-    campiTotali += 2;
-    
-    // Controlla locale
-    if (bozzaData.locale) {
-        if (bozzaData.locale.descrizione) campiCompilati++;
-        if (bozzaData.locale.indirizzo) campiCompilati++;
-        if (bozzaData.locale.citta) campiCompilati++;
-        if (bozzaData.locale.cap) campiCompilati++;
-        if (bozzaData.locale.provincia) campiCompilati++;
-    }
-    campiTotali += 5;
-    
-    // Controlla fatturazione
-    if (bozzaData.fatturazione) {
-        if (bozzaData.fatturazione.ragioneSociale) campiCompilati++;
-        if (bozzaData.fatturazione.indirizzo) campiCompilati++;
-        if (bozzaData.fatturazione.citta) campiCompilati++;
-        if (bozzaData.fatturazione.cap) campiCompilati++;
-        if (bozzaData.fatturazione.provincia) campiCompilati++;
-    }
-    campiTotali += 5;
-    
-    return Math.round((campiCompilati / campiTotali) * 100);
-}
-
-// Carica bozza
-async function loadBozza(bozzaId) {
-    try {
-        // Verifica lock
-        const lockResult = await DatabaseService.lockBozza(bozzaId, userSession);
-        
-        if (!lockResult.success) {
-            showToast(`Bozza bloccata da ${lockResult.locked_by}`, 'warning');
-            return;
-        }
-        
-        // Carica dati bozza
-        const bozza = bozzeDB.find(b => b.id === bozzaId);
-        if (!bozza) {
-            showToast('Bozza non trovata', 'error');
-            return;
-        }
-        
-        currentBozzaId = bozzaId;
-        currentLock = lockResult.lock;
-        
-        // Ripristina dati
-        restoreBozzaData(bozza.data);
-        
-        // Nascondi sezione bozze e mostra step1
-        document.getElementById('bozzeSection').style.display = 'none';
-        showSection('step1');
-        
-        // Inizia autosalvataggio e controllo lock
-        startAutosave();
-        startLockCheck();
-        
-        showToast('Bozza caricata con successo', 'success');
-        
-    } catch (error) {
-        console.error('Errore caricamento bozza:', error);
-        showToast('Errore nel caricamento della bozza', 'error');
-    }
-}
-
-// Ripristina dati da bozza
-function restoreBozzaData(data) {
-    // Ripristina agibilità data
-    if (data.agibilitaData) {
-        agibilitaData = data.agibilitaData;
-    }
-    
-    // Ripristina artisti
-    if (data.artisti) {
-        selectedArtists = data.artisti;
-        updateArtistsList();
-    }
-    
-    // Ripristina date
-    if (data.dataInizio) document.getElementById('dataInizio').value = data.dataInizio;
-    if (data.dataFine) document.getElementById('dataFine').value = data.dataFine;
-    
-    // Ripristina locale
-    if (data.locale) {
-        if (data.locale.descrizione) document.getElementById('descrizioneLocale').value = data.locale.descrizione;
-        if (data.locale.indirizzo) document.getElementById('indirizzo').value = data.locale.indirizzo;
-        if (data.locale.provincia) {
-            document.getElementById('provincia').value = data.locale.provincia;
-            loadCitta(data.locale.provincia);
-            
-            setTimeout(() => {
-                if (data.locale.citta) {
-                    document.getElementById('citta').value = data.locale.citta;
-                    loadCAP(data.locale.citta);
-                    
-                    setTimeout(() => {
-                        if (data.locale.cap) document.getElementById('cap').value = data.locale.cap;
-                    }, 100);
-                }
-            }, 100);
-        }
-    }
-    
-    // Ripristina fatturazione
-    if (data.fatturazione) {
-        Object.keys(data.fatturazione).forEach(key => {
-            const element = document.getElementById(key);
-            if (element) element.value = data.fatturazione[key];
-        });
-    }
-}
-
-// Elimina bozza
-async function deleteBozza(bozzaId) {
-    if (!confirm('Sei sicuro di voler eliminare questa bozza?')) return;
-    
-    try {
-        await DatabaseService.deleteBozza(bozzaId);
-        showToast('Bozza eliminata', 'success');
-        showExistingBozze();
-    } catch (error) {
-        console.error('Errore eliminazione bozza:', error);
-        showToast('Errore nell\'eliminazione della bozza', 'error');
-    }
-}
-
-// Forza sblocco
-async function forceUnlock(bozzaId) {
-    if (!confirm('Vuoi forzare lo sblocco di questa bozza?')) return;
-    
-    try {
-        await DatabaseService.unlockBozza(bozzaId);
-        showToast('Bozza sbloccata', 'success');
-        showExistingBozze();
-    } catch (error) {
-        console.error('Errore sblocco bozza:', error);
-        showToast('Errore nello sblocco della bozza', 'error');
-    }
-}
-
-// ==================== AUTOSALVATAGGIO MODIFICATO ====================
-function startAutosave() {
-    // Cancella timer esistente
-    if (autosaveTimer) clearInterval(autosaveTimer);
-    
-    // Salva ogni minuto
-    autosaveTimer = setInterval(async () => {
-        if (shouldAutosave()) {
-            await performAutosave();
-        }
-    }, 60000); // 1 minuto
-}
-
-function shouldAutosave() {
-    return currentBozzaId || agibilitaData.numeroRiservato;
-}
-
-// MODIFICA autosave per includere numero riservato
-async function performAutosave() {
-    if (!shouldAutosave()) return;
-    
-    try {
-        const bozzaData = {
-            ...collectCurrentData(),
-            // === INCLUDI DATI NUMERAZIONE ===
-            numeroRiservato: agibilitaData.numeroRiservato,
-            reservationId: agibilitaData.reservationId,
-            reservationExpires: agibilitaData.reservationExpires
-        };
-        
-        if (currentBozzaId) {
-            // Aggiorna bozza esistente
-            await DatabaseService.updateBozza(currentBozzaId, bozzaData, userSession);
-        } else {
-            // Crea nuova bozza CON numero riservato
-            const newBozza = await DatabaseService.createBozzaWithReservedNumber(bozzaData, userSession);
-            currentBozzaId = newBozza.id;
-        }
-        
-        updateAutosaveIndicator('saved');
-        console.log('💾 Autosave completato (con numero riservato)');
-        
-    } catch (error) {
-        console.error('❌ Errore autosave:', error);
-        updateAutosaveIndicator('error');
-    }
-}
-
-function updateAutosaveIndicator(state) {
-    const indicator = document.getElementById('autosave-indicator') || createAutosaveIndicator();
-    
-    if (state === 'saved') {
-        indicator.textContent = '💾 Salvato automaticamente';
-        indicator.className = 'autosave-indicator success';
-    } else if (state === 'error') {
-        indicator.textContent = '⚠️ Errore salvataggio';
-        indicator.className = 'autosave-indicator error';
-    }
-    
-    indicator.classList.add('show');
-    setTimeout(() => indicator.classList.remove('show'), 2000);
-}
-
-function stopAutosave() {
-    if (autosaveTimer) {
-        clearInterval(autosaveTimer);
-        autosaveTimer = null;
-    }
-}
-
-// Salva bozza manuale
-async function saveBozza(isAutosave = false) {
-    try {
-        const bozzaData = collectCurrentData();
-        
-        if (currentBozzaId) {
-            // Aggiorna bozza esistente
-            await DatabaseService.updateBozza(currentBozzaId, bozzaData);
-        } else {
-            // Crea nuova bozza
-            const result = await DatabaseService.createBozza(bozzaData, userSession);
-            currentBozzaId = result.id;
-        }
-        
-        if (!isAutosave) {
-            showToast('Bozza salvata con successo', 'success');
-        } else {
-            // Mostra indicatore discreto per autosave
-            showAutosaveIndicator();
-        }
-        
-    } catch (error) {
-        console.error('Errore salvataggio bozza:', error);
-        showToast('Errore nel salvataggio della bozza', 'error');
-    }
-}
-
-// Mostra indicatore autosave
-function showAutosaveIndicator() {
-    const indicator = document.getElementById('autosave-indicator') || createAutosaveIndicator();
-    indicator.classList.add('show');
-    setTimeout(() => indicator.classList.remove('show'), 2000);
-}
-
-function createAutosaveIndicator() {
-    const indicator = document.createElement('div');
-    indicator.id = 'autosave-indicator';
-    indicator.className = 'autosave-indicator';
-    indicator.innerHTML = '💾 Salvato automaticamente';
-    document.body.appendChild(indicator);
-    return indicator;
-}
-
-// Raccogli dati correnti
-function collectCurrentData() {
-    const cittaSelect = document.getElementById('citta');
-    const selectedOption = cittaSelect ? cittaSelect.options[cittaSelect.selectedIndex] : null;
-    const cittaNome = selectedOption ? selectedOption.textContent : '';
-    
-    return {
-        agibilitaData: agibilitaData,
-        artisti: selectedArtists,
-        dataInizio: document.getElementById('dataInizio')?.value || '',
-        dataFine: document.getElementById('dataFine')?.value || '',
-        locale: {
-            descrizione: document.getElementById('descrizioneLocale')?.value || '',
-            indirizzo: document.getElementById('indirizzo')?.value || '',
-            citta: document.getElementById('citta')?.value || '',
-            cittaNome: cittaNome,
-            cap: document.getElementById('cap')?.value || '',
-            provincia: document.getElementById('provincia')?.value || ''
-        },
-        fatturazione: {
-            ragioneSociale: document.getElementById('ragioneSociale')?.value || '',
-            piva: document.getElementById('piva')?.value || '',
-            codiceFiscale: document.getElementById('codiceFiscale')?.value || '',
-            indirizzo: document.getElementById('indirizzoFatturazione')?.value || '',
-            citta: document.getElementById('cittaFatturazione')?.value || '',
-            cap: document.getElementById('capFatturazione')?.value || '',
-            provincia: document.getElementById('provinciaFatturazione')?.value || '',
-            codiceSDI: document.getElementById('codiceSDI')?.value || '',
-            pec: document.getElementById('pecFatturazione')?.value || ''
-        }
-    };
-}
-
-// ==================== GESTIONE LOCK ====================
-function startLockCheck() {
-    // Cancella timer esistente
-    if (lockCheckTimer) clearInterval(lockCheckTimer);
-    
-    // Controlla lock ogni 5 minuti
-    lockCheckTimer = setInterval(async () => {
-        if (currentLock && currentBozzaId) {
-            try {
-                await DatabaseService.renewLock(currentBozzaId, currentLock);
-            } catch (error) {
-                console.error('Errore rinnovo lock:', error);
-                showToast('Attenzione: problema con il blocco della bozza', 'warning');
-            }
-        }
-    }, 300000); // 5 minuti
-}
-
-function stopLockCheck() {
-    if (lockCheckTimer) {
-        clearInterval(lockCheckTimer);
-        lockCheckTimer = null;
-    }
-}
-
-// ==================== PROGRESS BAR ====================
-function updateProgressBar() {
-    const progressBar = document.getElementById('main-progress-bar') || createProgressBar();
-    const steps = ['tipoSection', 'step1', 'step2', 'step3'];
-    const currentStep = steps.findIndex(s => document.getElementById(s)?.classList.contains('active'));
-    
-    const progress = ((currentStep + 1) / steps.length) * 100;
-    progressBar.querySelector('.progress-fill').style.width = `${progress}%`;
-    progressBar.querySelector('.progress-text').textContent = `Step ${currentStep + 1} di ${steps.length}`;
-}
-
-function createProgressBar() {
-    const bar = document.createElement('div');
-    bar.id = 'main-progress-bar';
-    bar.className = 'main-progress-bar';
-    bar.innerHTML = `
-        <div class="progress-track">
-            <div class="progress-fill"></div>
-        </div>
-        <span class="progress-text">Step 1 di 4</span>
-    `;
-    document.querySelector('.main-container').prepend(bar);
-    return bar;
-}
-
-// ==================== DASHBOARD STATS (CORRETTO) ====================
-async function updateDashboardStats() {
-    console.log('📊 Aggiornamento statistiche dashboard...');
-    
-    try {
-        // Conta bozze (gestisce caso array vuoto)
-        const bozzeCount = Array.isArray(bozzeDB) ? bozzeDB.filter(b => !b.locked_by).length : 0;
+        // ✅ NUOVO: Conta richieste attive
+        const richiesteAttive = Array.isArray(richiesteDB) ? 
+            richiesteDB.filter(r => r.stato !== 'archiviata').length : 0;
         
         // Conta agibilità del mese corrente
         const now = new Date();
@@ -877,17 +295,21 @@ async function updateDashboardStats() {
             return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
         }).length : 0;
         
-        // Aggiorna badge se esistono
+        // Aggiorna badge dashboard
         const bozzeBadge = document.getElementById('bozze-badge');
         if (bozzeBadge) {
             bozzeBadge.textContent = bozzeCount;
-            console.log(`✅ Bozze badge aggiornato: ${bozzeCount}`);
+        }
+        
+        // ✅ NUOVO: Badge richieste
+        const richiesteBadge = document.getElementById('richieste-badge');
+        if (richiesteBadge) {
+            richiesteBadge.textContent = richiesteAttive;
         }
         
         const monthBadge = document.getElementById('month-badge');
         if (monthBadge) {
             monthBadge.textContent = agibilitaMonth;
-            console.log(`✅ Month badge aggiornato: ${agibilitaMonth}`);
         }
         
         // Aggiorna badge bozze count nel tipo card
@@ -901,110 +323,7 @@ async function updateDashboardStats() {
         
     } catch (error) {
         console.error('❌ Errore aggiornamento statistiche:', error);
-        // Non bloccare l'inizializzazione per questo
     }
-}
-
-// ==================== CALENDARIO ====================
-let currentCalendarMonth = new Date();
-
-function showCalendarView() {
-    const modal = document.getElementById('calendar-modal') || createCalendarModal();
-    modal.style.display = 'block';
-    renderCalendar();
-}
-
-function createCalendarModal() {
-    const modal = document.createElement('div');
-    modal.id = 'calendar-modal';
-    modal.className = 'modal';
-    modal.innerHTML = `
-        <div class="modal-content modal-content-wide">
-            <div class="modal-header">
-                <h2>📅 Calendario Agibilità</h2>
-                <button class="close-modal" onclick="closeCalendarModal()">&times;</button>
-            </div>
-            <div class="calendar-controls">
-                <button class="btn btn-sm" onclick="changeCalendarMonth(-1)">◀ Mese precedente</button>
-                <h3 id="calendar-month-year"></h3>
-                <button class="btn btn-sm" onclick="changeCalendarMonth(1)">Mese successivo ▶</button>
-            </div>
-            <div id="calendar-grid" class="calendar-grid"></div>
-        </div>
-    `;
-    document.body.appendChild(modal);
-    return modal;
-}
-
-function renderCalendar() {
-    const year = currentCalendarMonth.getFullYear();
-    const month = currentCalendarMonth.getMonth();
-    
-    // Aggiorna titolo
-    const monthNames = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 
-                       'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
-    document.getElementById('calendar-month-year').textContent = `${monthNames[month]} ${year}`;
-    
-    // Genera griglia calendario
-    const firstDay = new Date(year, month, 1).getDay();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    
-    let html = '<div class="calendar-header">';
-    ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'].forEach(day => {
-        html += `<div class="calendar-day-header">${day}</div>`;
-    });
-    html += '</div><div class="calendar-body">';
-    
-    // Giorni vuoti iniziali
-    for (let i = 0; i < firstDay; i++) {
-        html += '<div class="calendar-day empty"></div>';
-    }
-    
-    // Giorni del mese
-    for (let day = 1; day <= daysInMonth; day++) {
-        const date = new Date(year, month, day);
-        const dateStr = date.toISOString().split('T')[0];
-        
-        // Trova agibilità per questa data
-        const dayAgibilita = agibilitaDB.filter(a => {
-            const start = new Date(a.data_inizio);
-            const end = new Date(a.data_fine);
-            return date >= start && date <= end;
-        });
-        
-        const hasAgibilita = dayAgibilita.length > 0;
-        const isToday = date.toDateString() === new Date().toDateString();
-        
-        html += `
-            <div class="calendar-day ${hasAgibilita ? 'has-events' : ''} ${isToday ? 'today' : ''}">
-                <div class="day-number">${day}</div>
-                ${hasAgibilita ? `<div class="event-count">${dayAgibilita.length}</div>` : ''}
-                ${hasAgibilita ? `
-                    <div class="day-events">
-                        ${dayAgibilita.slice(0, 2).map(a => `
-                            <div class="mini-event" title="${a.locale.descrizione}">
-                                ${a.locale.descrizione.substring(0, 15)}${a.locale.descrizione.length > 15 ? '...' : ''}
-                            </div>
-                        `).join('')}
-                        ${dayAgibilita.length > 2 ? `<div class="more-events">+${dayAgibilita.length - 2} altri</div>` : ''}
-                    </div>
-                ` : ''}
-            </div>
-        `;
-    }
-    
-    html += '</div>';
-    document.getElementById('calendar-grid').innerHTML = html;
-}
-
-function changeCalendarMonth(delta) {
-    currentCalendarMonth.setMonth(currentCalendarMonth.getMonth() + delta);
-    renderCalendar();
-}
-
-function closeCalendarModal() {
-    const modal = document.getElementById('calendar-modal');
-    if (modal) modal.style.display = 'none';
 }
 
 // ==================== KEYBOARD SHORTCUTS ====================
@@ -1358,7 +677,7 @@ function showTab(tabName) {
     }
 }
 
-// ==================== DOWNLOAD E SALVATAGGIO MODIFICATO ====================
+// ==================== DOWNLOAD E SALVATAGGIO MODIFICATO (CON RICHIESTE) ====================
 async function downloadAndSave() {
     const xmlContent = generateXML();
     const validation = validateINPSXML(xmlContent);
@@ -1395,6 +714,13 @@ async function downloadAndSave() {
         }
     }
 
+    // ✅ NUOVO: Gestione richieste
+    if (currentRichiestaId) {
+        // Se è una richiesta, aggiorna stato a completata e collega agibilità
+        await updateRichiestaStatus(currentRichiestaId, 'completata');
+        currentRichiestaId = null;
+    }
+
     // Rimuovi bozza se esiste
     if (currentBozzaId) {
         await DatabaseService.deleteBozza(currentBozzaId);
@@ -1406,10 +732,7 @@ async function downloadAndSave() {
     currentBozzaId = null;
     currentLock = null;
 
-    // Clear timer scadenza
-    if (agibilitaData.warningTimer) {
-        clearTimeout(agibilitaData.warningTimer);
-    }
+    // ✅ RIMOSSO: Clear timer scadenza (non esiste più)
 
     document.getElementById('btnConfirm').style.display = 'none';
     document.getElementById('btnNewAgibilita').style.display = 'inline-block';
@@ -1497,7 +820,7 @@ function confirmAndProceed() {
     downloadAndSave();
 }
 
-// MODIFICA cancelAgibilita() per rilasciare il numero
+// MODIFICA cancelAgibilita() per rilasciare il numero (SENZA TIMER)
 function cancelAgibilita(codice) {
     if (typeof codice === 'string') {
         // Cancellazione agibilità esistente
@@ -1525,10 +848,7 @@ function cancelAgibilita(codice) {
                     });
             }
             
-            // Clear timer
-            if (agibilitaData.warningTimer) {
-                clearTimeout(agibilitaData.warningTimer);
-            }
+            // ✅ RIMOSSO: Clear timer scadenza (non esiste più)
             
             // Reset e torna al menu
             resetAgibilitaData();
@@ -1543,9 +863,8 @@ function resetAgibilitaData() {
         codiceAgibilita: null,
         numeroRiservato: null,
         reservationId: null,
-        reservationExpires: null,
-        numeroProgressivo: null,
-        warningTimer: null
+        numeroProgressivo: null
+        // ✅ RIMOSSO: reservationExpires, warningTimer (timer eliminati)
     };
     
     selectedArtists = [];
@@ -2726,7 +2045,7 @@ function clearAllForms() {
    if (globalSearch) globalSearch.remove();
 
    document.getElementById('editListSection').style.display = 'none';
-   document.getElementById('bozzeSection').style.display = 'none';
+   document.getElementById('bozzeRichiesteSection').style.display = 'none';
    
    const dateInfo = document.getElementById('dateInfo');
    if (dateInfo) dateInfo.style.display = 'none';
@@ -2806,4 +2125,1151 @@ function setupEventListeners() {
    });
 }
 
-console.log('🎭 Sistema agibilità v5.0 - Con protezione auth integrata completa! 🛡️');
+console.log('🎭 Sistema agibilità v6.0 - Con richieste esterne e senza timer! 🚀');: Carica richieste esterne
+        try {
+            richiesteDB = await DatabaseService.getRichiesteEsterne();
+            console.log(`✅ ${richiesteDB.length} richieste esterne caricate`);
+        } catch (error) {
+            console.warn('⚠️ Tabella richieste non ancora disponibile:', error);
+            richiesteDB = [];
+        }
+        
+        console.log('🎉 Sistema agibilità inizializzato con Supabase!');
+        return true;
+        
+    } catch (error) {
+        console.error('❌ Errore inizializzazione sistema agibilità:', error);
+        showToast('Errore nel caricamento dei dati: ' + error.message, 'error');
+        return false;
+    }
+}
+
+// ==================== SISTEMA NOTIFICHE TOAST ====================
+function showToast(message, type = 'info', duration = 3000) {
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.innerHTML = `
+        <div class="toast-content">
+            <span class="toast-icon">${getToastIcon(type)}</span>
+            <span class="toast-message">${message}</span>
+        </div>
+    `;
+    
+    const container = document.getElementById('toast-container') || createToastContainer();
+    container.appendChild(toast);
+    
+    // Animazione entrata
+    setTimeout(() => toast.classList.add('show'), 10);
+    
+    // Rimozione automatica
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, duration);
+}
+
+function createToastContainer() {
+    const container = document.createElement('div');
+    container.id = 'toast-container';
+    container.className = 'toast-container';
+    document.body.appendChild(container);
+    return container;
+}
+
+function getToastIcon(type) {
+    const icons = {
+        'success': '✅',
+        'error': '❌',
+        'warning': '⚠️',
+        'info': 'ℹ️'
+    };
+    return icons[type] || icons.info;
+}
+
+// ==================== FUNZIONI NAVIGAZIONE ====================
+function showSection(sectionId) {
+    console.log('🎯 Showing section:', sectionId);
+    
+    // Rimuovi active da tutte le sezioni
+    document.querySelectorAll('.step-section').forEach(section => {
+        section.classList.remove('active');
+        section.style.display = 'none';
+    });
+    
+    // Aggiungi active alla sezione target
+    const targetSection = document.getElementById(sectionId);
+    if (targetSection) {
+        targetSection.classList.add('active');
+        targetSection.style.display = 'block';
+        
+        console.log('✅ Sezione attivata:', sectionId, targetSection);
+        
+        // Aggiorna progress bar
+        updateProgressBar();
+        
+        // Scroll top
+        window.scrollTo(0, 0);
+    } else {
+        console.error('❌ Sezione non trovata:', sectionId);
+    }
+}
+
+// ==================== FUNZIONE PRINCIPALE MODIFICATA: startNewAgibilita() ==================== 
+async function startNewAgibilita() {
+    console.log('🆕 Avvio nuova agibilità con numerazione thread-safe (SENZA TIMER)');
+    
+    try {
+        // Mostra loader
+        showToast('🔢 Riservazione numero agibilità...', 'info');
+        
+        // === RISERVAZIONE THREAD-SAFE (SENZA TIMER) ===
+        const reservation = await DatabaseService.reserveAgibilitaNumberSafe();
+        
+        // Reset dati agibilità
+        agibilitaData.isModifica = false;
+        agibilitaData.codiceAgibilita = null;
+        
+        // === DATI NUMERAZIONE RISERVATA (SENZA SCADENZA) ===
+        agibilitaData.numeroRiservato = reservation.codice;           
+        agibilitaData.reservationId = reservation.reservation_id;     
+        agibilitaData.numeroProgressivo = reservation.numero_progressivo; 
+        
+        // Reset selezioni
+        selectedArtists = [];
+        compensiConfermati.clear();
+        clearAllForms();
+        
+        // === FEEDBACK UTENTE ===
+        showToast(`✅ Numero riservato: ${reservation.codice}`, 'success', 4000);
+        
+        // ✅ RIMOSSO: Timer di scadenza e visualizzazione scadenza
+        
+        // === AUTOSALVATAGGIO (30 SECONDI) ===
+        startAutosave();
+        
+        // === NAVIGAZIONE ===
+        showSection('step1');
+        
+        console.log('✅ Nuova agibilità avviata:', {
+            codice: reservation.codice,
+            reservationId: reservation.reservation_id
+        });
+        
+    } catch (error) {
+        console.error('❌ Errore avvio nuova agibilità:', error);
+        showToast('Errore nella prenotazione del numero agibilità: ' + error.message, 'error');
+        
+        // Fallback: continua senza numero riservato
+        agibilitaData.isModifica = false;
+        agibilitaData.codiceAgibilita = null;
+        agibilitaData.numeroRiservato = null;
+        
+        selectedArtists = [];
+        compensiConfermati.clear();
+        clearAllForms();
+        showSection('step1');
+    }
+}
+
+function showEditAgibilita() {
+    console.log('Showing edit agibilità');
+    const editListSection = document.getElementById('editListSection');
+    if (editListSection) {
+        editListSection.style.display = 'block';
+        showExistingAgibilita();
+    }
+}
+
+// ✅ MODIFICATO: Funzione legacy per compatibilità
+function showBozzeAgibilita() {
+    showBozzeRichieste();
+}
+
+// ✅ NUOVO: Mostra sezione bozze/richieste con tabs
+function showBozzeRichieste() {
+    console.log('🎯 Showing bozze/richieste with tabs');
+    const section = document.getElementById('bozzeRichiesteSection');
+    if (section) {
+        section.style.display = 'block';
+        loadBozzeRichiesteData();
+    }
+}
+
+// ✅ NUOVO: Cambia tab attivo
+function showContentTab(tabName) {
+    console.log('🔀 Switching to tab:', tabName);
+    
+    currentContentTab = tabName;
+    
+    // Rimuovi active da tutti i tab
+    document.querySelectorAll('.content-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    
+    // Rimuovi active da tutte le sezioni
+    document.querySelectorAll('.tab-content-section').forEach(section => {
+        section.classList.remove('active');
+    });
+    
+    // Attiva tab selezionato
+    const activeTab = document.querySelector(`.content-tab[onclick*="${tabName}"]`);
+    if (activeTab) {
+        activeTab.classList.add('active');
+    }
+    
+    // Attiva sezione corrispondente
+    const sectionName = tabName.charAt(0).toUpperCase() + tabName.slice(1);
+    const activeSection = document.getElementById(`content${sectionName}`);
+    if (activeSection) {
+        activeSection.classList.add('active');
+    }
+    
+    // Carica dati specifici per il tab
+    loadTabData(tabName);
+}
+
+// ✅ NUOVO: Carica dati per il tab specifico
+function loadTabData(tabName) {
+    console.log('📊 Loading data for tab:', tabName);
+    
+    switch(tabName) {
+        case 'bozze':
+            showExistingBozze();
+            break;
+        case 'richieste':
+            loadRichiesteAttive();
+            break;
+        case 'archivio':
+            loadArchivioRichieste();
+            break;
+        default:
+            console.warn('Tab non riconosciuto:', tabName);
+    }
+}
+
+// ✅ NUOVO: Carica tutti i dati bozze/richieste
+function loadBozzeRichiesteData() {
+    console.log('📋 Loading bozze/richieste data...');
+    
+    // Aggiorna conteggi per i badge
+    updateTabCounts();
+    
+    // Carica filtri autori
+    updateAuthorFilter();
+    
+    // Carica tab attivo (default: bozze)
+    loadTabData(currentContentTab);
+}
+
+// ✅ NUOVO: Aggiorna conteggi nei tab
+function updateTabCounts() {
+    const bozzeCount = bozzeDB.length;
+    const richiesteAttive = richiesteDB.filter(r => r.stato !== 'archiviata').length;
+    const richiesteArchiviate = richiesteDB.filter(r => r.stato === 'archiviata').length;
+    
+    // Aggiorna badge nei tab
+    const bozzeCountTab = document.getElementById('bozze-count-tab');
+    if (bozzeCountTab) {
+        bozzeCountTab.textContent = `(${bozzeCount})`;
+    }
+    
+    const richiesteCountTab = document.getElementById('richieste-count-tab');
+    if (richiesteCountTab) {
+        richiesteCountTab.textContent = `(${richiesteAttive})`;
+    }
+    
+    const archivioCountTab = document.getElementById('archivio-count-tab');
+    if (archivioCountTab) {
+        archivioCountTab.textContent = `(${richiesteArchiviate})`;
+    }
+    
+    // Aggiorna badge principale
+    const totalCount = bozzeCount + richiesteAttive;
+    const totalBadge = document.getElementById('total-items-count');
+    if (totalBadge) {
+        totalBadge.textContent = totalCount;
+        totalBadge.style.display = totalCount > 0 ? 'flex' : 'none';
+    }
+}
+
+// ✅ NUOVO: Aggiorna filtro autori
+function updateAuthorFilter() {
+    const filterAuthor = document.getElementById('filterAuthor');
+    if (!filterAuthor) return;
+    
+    // Raccogli tutti gli autori unici da bozze e richieste
+    const authors = new Set();
+    
+    bozzeDB.forEach(bozza => {
+        if (bozza.locked_by_name) {
+            authors.add(bozza.locked_by_name);
+        }
+    });
+    
+    richiesteDB.forEach(richiesta => {
+        if (richiesta.created_by_name) {
+            authors.add(richiesta.created_by_name);
+        }
+    });
+    
+    // Popola select
+    filterAuthor.innerHTML = '<option value="">Tutti gli autori</option>';
+    Array.from(authors).sort().forEach(author => {
+        const option = document.createElement('option');
+        option.value = author;
+        option.textContent = author;
+        filterAuthor.appendChild(option);
+    });
+}
+
+// ✅ NUOVO: Carica richieste attive
+function loadRichiesteAttive() {
+    console.log('📨 Loading richieste attive...');
+    
+    const richiesteList = document.getElementById('richiesteList');
+    if (!richiesteList) return;
+    
+    // Filtra richieste attive (non archiviate)
+    let richiesteAttive = richiesteDB.filter(r => r.stato !== 'archiviata');
+    
+    // Applica filtri
+    if (appliedFilters.author) {
+        richiesteAttive = richiesteAttive.filter(r => 
+            (r.created_by_name || '').includes(appliedFilters.author)
+        );
+    }
+    if (appliedFilters.status) {
+        richiesteAttive = richiesteAttive.filter(r => r.stato === appliedFilters.status);
+    }
+    if (appliedFilters.search) {
+        richiesteAttive = richiesteAttive.filter(r => 
+            JSON.stringify(r).toLowerCase().includes(appliedFilters.search.toLowerCase())
+        );
+    }
+    
+    if (richiesteAttive.length === 0) {
+        richiesteList.innerHTML = `
+            <div class="alert alert-info">
+                <strong>📬 Nessuna richiesta attiva</strong><br>
+                Le nuove richieste esterne appariranno qui quando ricevute dai clienti.
+            </div>
+        `;
+        return;
+    }
+    
+    // Genera HTML per richieste
+    const richiesteHTML = richiesteAttive.map(richiesta => {
+        const dataCreazione = new Date(richiesta.created_at).toLocaleString('it-IT');
+        const autore = richiesta.created_by_name || 'Cliente esterno';
+        const statusClass = `status-${richiesta.stato?.replace(' ', '-') || 'nuova'}`;
+        const statusLabel = getStatusLabel(richiesta.stato || 'nuova');
+        
+        return `
+            <div class="richiesta-item">
+                <div class="bozza-info">
+                    <div class="bozza-header">
+                        <span class="richiesta-code">[RICHIESTA-${richiesta.id}]</span>
+                        <span class="status-badge ${statusClass}">${statusLabel}</span>
+                        <span class="bozza-author">👤 ${autore}</span>
+                        <span class="bozza-date">Ricevuta: ${dataCreazione}</span>
+                    </div>
+                    
+                    <div class="richiesta-details">
+                        ${richiesta.cliente_nome ? `<div class="richiesta-cliente"><strong>Cliente:</strong> ${richiesta.cliente_nome}</div>` : ''}
+                        ${richiesta.evento_descrizione ? `<div class="richiesta-evento"><strong>Evento:</strong> ${richiesta.evento_descrizione}</div>` : ''}
+                        ${richiesta.data_evento ? `<div class="richiesta-data"><strong>Data evento:</strong> ${new Date(richiesta.data_evento).toLocaleDateString('it-IT')}</div>` : ''}
+                        ${richiesta.venue_richiesto ? `<div class="richiesta-venue"><strong>Venue:</strong> ${richiesta.venue_richiesto}</div>` : ''}
+                    </div>
+                </div>
+                
+                <div class="bozza-actions">
+                    <button class="btn btn-primary btn-sm" onclick="loadRichiesta(${richiesta.id})">
+                        📝 Elabora
+                    </button>
+                    <button class="btn btn-success btn-sm" onclick="updateRichiestaStatus(${richiesta.id}, 'in-lavorazione')">
+                        ⚡ In Lavorazione
+                    </button>
+                    <button class="btn btn-warning btn-sm" onclick="archiveRichiesta(${richiesta.id})">
+                        📦 Archivia
+                    </button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteRichiesta(${richiesta.id})">
+                        🗑️ Elimina
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    richiesteList.innerHTML = richiesteHTML;
+}
+
+// ✅ NUOVO: Carica archivio richieste
+function loadArchivioRichieste() {
+    console.log('📦 Loading archivio richieste...');
+    
+    const archivioList = document.getElementById('archivioList');
+    if (!archivioList) return;
+    
+    // Filtra richieste archiviate
+    let richiesteArchiviate = richiesteDB.filter(r => r.stato === 'archiviata');
+    
+    // Applica filtri
+    if (appliedFilters.author) {
+        richiesteArchiviate = richiesteArchiviate.filter(r => 
+            (r.created_by_name || '').includes(appliedFilters.author)
+        );
+    }
+    if (appliedFilters.search) {
+        richiesteArchiviate = richiesteArchiviate.filter(r => 
+            JSON.stringify(r).toLowerCase().includes(appliedFilters.search.toLowerCase())
+        );
+    }
+    
+    if (richiesteArchiviate.length === 0) {
+        archivioList.innerHTML = `
+            <div class="alert alert-secondary">
+                <strong>📦 Archivio vuoto</strong><br>
+                Le richieste completate appariranno qui automaticamente per consultazione futura.
+            </div>
+        `;
+        return;
+    }
+    
+    // Genera HTML per archivio
+    const archivioHTML = richiesteArchiviate.map(richiesta => {
+        const dataCreazione = new Date(richiesta.created_at).toLocaleString('it-IT');
+        const dataArchiviazione = richiesta.archived_at ? 
+            new Date(richiesta.archived_at).toLocaleString('it-IT') : 'N/A';
+        const autore = richiesta.created_by_name || 'Cliente esterno';
+        
+        return `
+            <div class="richiesta-item archived">
+                <div class="bozza-info">
+                    <div class="bozza-header">
+                        <span class="richiesta-code">[ARCHIVIATA-${richiesta.id}]</span>
+                        <span class="status-badge status-archiviata">ARCHIVIATA</span>
+                        <span class="bozza-author">👤 ${autore}</span>
+                    </div>
+                    
+                    <div class="bozza-dates">
+                        <span>Ricevuta: ${dataCreazione}</span>
+                        <span>Archiviata: ${dataArchiviazione}</span>
+                    </div>
+                    
+                    <div class="richiesta-details">
+                        ${richiesta.cliente_nome ? `<div><strong>Cliente:</strong> ${richiesta.cliente_nome}</div>` : ''}
+                        ${richiesta.evento_descrizione ? `<div><strong>Evento:</strong> ${richiesta.evento_descrizione}</div>` : ''}
+                        ${richiesta.agibilita_generata_id ? `<div><strong>Agibilità generata:</strong> ID ${richiesta.agibilita_generata_id}</div>` : ''}
+                    </div>
+                </div>
+                
+                <div class="bozza-actions">
+                    <button class="btn btn-secondary btn-sm" onclick="viewRichiestaDetails(${richiesta.id})">
+                        👁️ Visualizza
+                    </button>
+                    <button class="btn btn-info btn-sm" onclick="duplicateRichiestaAsNew(${richiesta.id})">
+                        📋 Duplica
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    archivioList.innerHTML = archivioHTML;
+}
+
+// ✅ NUOVO: Ottieni label stato
+function getStatusLabel(stato) {
+    const statusMap = {
+        'nuova': 'Nuova',
+        'in-lavorazione': 'In Lavorazione',
+        'completata': 'Completata',
+        'archiviata': 'Archiviata'
+    };
+    return statusMap[stato] || 'Sconosciuto';
+}
+
+// ✅ NUOVO: Applica filtri
+function applyFilters() {
+    console.log('🔍 Applying filters...');
+    
+    // Leggi valori filtri
+    const statusFilter = document.getElementById('filterStatus')?.value || '';
+    const authorFilter = document.getElementById('filterAuthor')?.value || '';
+    const searchFilter = document.getElementById('searchItems')?.value.toLowerCase() || '';
+    
+    appliedFilters = {
+        status: statusFilter,
+        author: authorFilter,
+        search: searchFilter
+    };
+    
+    // Ricarica il tab attivo con i filtri applicati
+    loadTabData(currentContentTab);
+}
+
+// ✅ NUOVO: Carica richiesta per elaborazione
+async function loadRichiesta(richiestaId) {
+    console.log('📝 Loading richiesta for processing:', richiestaId);
+    
+    try {
+        const richiesta = richiesteDB.find(r => r.id === richiestaId);
+        if (!richiesta) {
+            showToast('Richiesta non trovata', 'error');
+            return;
+        }
+        
+        // Aggiorna stato a "in lavorazione"
+        await updateRichiestaStatus(richiestaId, 'in-lavorazione');
+        
+        // Carica i dati della richiesta nel form
+        if (richiesta.data_richiesta) {
+            restoreDataFromRichiesta(richiesta.data_richiesta);
+        }
+        
+        // Imposta come richiesta corrente
+        currentRichiestaId = richiestaId;
+        
+        // Vai al primo step
+        document.getElementById('bozzeRichiesteSection').style.display = 'none';
+        showSection('step1');
+        
+        showToast('Richiesta caricata per elaborazione', 'success');
+        
+    } catch (error) {
+        console.error('❌ Errore caricamento richiesta:', error);
+        showToast('Errore nel caricamento della richiesta', 'error');
+    }
+}
+
+// ✅ NUOVO: Aggiorna stato richiesta
+async function updateRichiestaStatus(richiestaId, nuovoStato) {
+    console.log(`🔄 Updating richiesta ${richiestaId} status to:`, nuovoStato);
+    
+    try {
+        await DatabaseService.updateRichiestaStatus(richiestaId, nuovoStato);
+        
+        // Aggiorna cache locale
+        const richiesta = richiesteDB.find(r => r.id === richiestaId);
+        if (richiesta) {
+            richiesta.stato = nuovoStato;
+            if (nuovoStato === 'archiviata') {
+                richiesta.archived_at = new Date().toISOString();
+            }
+        }
+        
+        // Ricarica interfaccia
+        loadBozzeRichiesteData();
+        
+        showToast(`Stato richiesta aggiornato: ${getStatusLabel(nuovoStato)}`, 'success');
+        
+    } catch (error) {
+        console.error('❌ Errore aggiornamento stato:', error);
+        showToast('Errore nell\'aggiornamento dello stato', 'error');
+    }
+}
+
+// ✅ NUOVO: Archivia richiesta
+async function archiveRichiesta(richiestaId) {
+    if (!confirm('Sei sicuro di voler archiviare questa richiesta?')) return;
+    
+    await updateRichiestaStatus(richiestaId, 'archiviata');
+}
+
+// ✅ NUOVO: Elimina richiesta
+async function deleteRichiesta(richiestaId) {
+    if (!confirm('Sei sicuro di voler eliminare questa richiesta? Questa azione è irreversibile.')) return;
+    
+    try {
+        await DatabaseService.deleteRichiesta(richiestaId);
+        
+        // Rimuovi dalla cache locale
+        const index = richiesteDB.findIndex(r => r.id === richiestaId);
+        if (index !== -1) {
+            richiesteDB.splice(index, 1);
+        }
+        
+        // Ricarica interfaccia
+        loadBozzeRichiesteData();
+        
+        showToast('Richiesta eliminata', 'success');
+        
+    } catch (error) {
+        console.error('❌ Errore eliminazione richiesta:', error);
+        showToast('Errore nell\'eliminazione della richiesta', 'error');
+    }
+}
+
+// ✅ NUOVO: Visualizza dettagli richiesta
+function viewRichiestaDetails(richiestaId) {
+    const richiesta = richiesteDB.find(r => r.id === richiestaId);
+    if (!richiesta) return;
+    
+    // Crea modal per visualizzare dettagli
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Dettagli Richiesta #${richiesta.id}</h3>
+                <button class="close-modal" onclick="this.closest('.modal').remove()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="richiesta-details-full">
+                    ${richiesta.cliente_nome ? `<p><strong>Cliente:</strong> ${richiesta.cliente_nome}</p>` : ''}
+                    ${richiesta.evento_descrizione ? `<p><strong>Evento:</strong> ${richiesta.evento_descrizione}</p>` : ''}
+                    ${richiesta.data_evento ? `<p><strong>Data evento:</strong> ${new Date(richiesta.data_evento).toLocaleDateString('it-IT')}</p>` : ''}
+                    ${richiesta.venue_richiesto ? `<p><strong>Venue:</strong> ${richiesta.venue_richiesto}</p>` : ''}
+                    <p><strong>Stato:</strong> ${getStatusLabel(richiesta.stato || 'nuova')}</p>
+                    <p><strong>Creata da:</strong> ${richiesta.created_by_name || 'Cliente esterno'}</p>
+                    <p><strong>Data creazione:</strong> ${new Date(richiesta.created_at).toLocaleString('it-IT')}</p>
+                    ${richiesta.archived_at ? `<p><strong>Data archiviazione:</strong> ${new Date(richiesta.archived_at).toLocaleString('it-IT')}</p>` : ''}
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    modal.style.display = 'block';
+}
+
+// ✅ NUOVO: Duplica richiesta come nuova
+function duplicateRichiestaAsNew(richiestaId) {
+    const richiesta = richiesteDB.find(r => r.id === richiestaId);
+    if (!richiesta) return;
+    
+    if (confirm('Vuoi duplicare questa richiesta come nuova richiesta attiva?')) {
+        // Crea copia della richiesta
+        const nuovaRichiesta = {
+            ...richiesta,
+            id: undefined, // Verrà generato nuovo ID
+            stato: 'nuova',
+            created_at: new Date().toISOString(),
+            archived_at: null,
+            agibilita_generata_id: null
+        };
+        
+        // Aggiungi alla lista (simulazione - in realtà dovrebbe essere salvata nel DB)
+        richiesteDB.unshift(nuovaRichiesta);
+        
+        // Ricarica interfaccia
+        loadBozzeRichiesteData();
+        
+        showToast('Richiesta duplicata come nuova', 'success');
+    }
+}
+
+// ✅ NUOVO: Ripristina dati da richiesta
+function restoreDataFromRichiesta(dataRichiesta) {
+    console.log('🔄 Restoring data from richiesta...');
+    
+    // Ripristina dati simile a restoreBozzaData ma adattato per richieste
+    if (dataRichiesta.artisti) {
+        selectedArtists = dataRichiesta.artisti;
+        updateArtistsList();
+    }
+    
+    if (dataRichiesta.dataInizio) {
+        document.getElementById('dataInizio').value = dataRichiesta.dataInizio;
+    }
+    if (dataRichiesta.dataFine) {
+        document.getElementById('dataFine').value = dataRichiesta.dataFine;
+    }
+    
+    // Altri campi simili a restoreBozzaData...
+    if (dataRichiesta.locale) {
+        if (dataRichiesta.locale.descrizione) {
+            document.getElementById('descrizioneLocale').value = dataRichiesta.locale.descrizione;
+        }
+        if (dataRichiesta.locale.indirizzo) {
+            document.getElementById('indirizzo').value = dataRichiesta.locale.indirizzo;
+        }
+        // ... altri campi locale
+    }
+    
+    if (dataRichiesta.fatturazione) {
+        Object.keys(dataRichiesta.fatturazione).forEach(key => {
+            const element = document.getElementById(key);
+            if (element) element.value = dataRichiesta.fatturazione[key];
+        });
+    }
+}
+
+// ✅ NUOVO: Crea richiesta da bozza
+async function createRichiestaFromBozza(bozzaId) {
+    console.log('📨 Creating richiesta from bozza:', bozzaId);
+    
+    try {
+        const bozza = bozzeDB.find(b => b.id === bozzaId);
+        if (!bozza) {
+            showToast('Bozza non trovata', 'error');
+            return;
+        }
+        
+        const richiestaData = {
+            data_richiesta: bozza.data,
+            cliente_nome: 'Da bozza interna',
+            stato: 'nuova',
+            created_by: userSession.userId,
+            created_by_name: userSession.name,
+            fonte: 'bozza_interna',
+            bozza_origine_id: bozzaId
+        };
+        
+        const nuovaRichiesta = await DatabaseService.createRichiesta(richiestaData);
+        richiesteDB.push(nuovaRichiesta);
+        
+        // Elimina la bozza originale
+        await deleteBozza(bozzaId);
+        
+        // Ricarica interfaccia
+        loadBozzeRichiesteData();
+        
+        showToast('Bozza convertita in richiesta', 'success');
+        
+    } catch (error) {
+        console.error('❌ Errore conversione bozza:', error);
+        showToast('Errore nella conversione della bozza', 'error');
+    }
+}
+
+// ==================== GESTIONE BOZZE (AGGIORNATA CON AUTORE) ====================
+async function showExistingBozze() {
+    const listDiv = document.getElementById('bozzeList');
+    if (!listDiv) return;
+    
+    // Ricarica bozze dal database
+    bozzeDB = await DatabaseService.getBozze();
+    
+    // Applica filtri se necessario
+    let bozzeFiltrate = bozzeDB;
+    if (appliedFilters.author) {
+        bozzeFiltrate = bozzeFiltrate.filter(b => 
+            (b.locked_by_name || '').includes(appliedFilters.author)
+        );
+    }
+    if (appliedFilters.search) {
+        bozzeFiltrate = bozzeFiltrate.filter(b => 
+            JSON.stringify(b.data).toLowerCase().includes(appliedFilters.search) ||
+            (b.locked_by_name || '').toLowerCase().includes(appliedFilters.search)
+        );
+    }
+    
+    if (bozzeFiltrate.length === 0) {
+        listDiv.innerHTML = '<p class="no-data-message">Nessuna bozza trovata</p>';
+        return;
+    }
+    
+    const bozzeHTML = bozzeFiltrate.map(bozza => {
+        const isLocked = bozza.locked_by && bozza.locked_until > new Date().toISOString();
+        const lockInfo = isLocked ? `🔒 In modifica da ${bozza.locked_by_name}` : '';
+        const completamento = calculateCompletamento(bozza.data);
+        
+        // ✅ MIGLIORATO: Informazioni autore più dettagliate
+        const autore = bozza.locked_by_name || bozza.created_by_name || 'Utente sconosciuto';
+        const dataCreazione = new Date(bozza.created_at).toLocaleString('it-IT');
+        const dataModifica = new Date(bozza.updated_at).toLocaleString('it-IT');
+        const isModificata = dataCreazione !== dataModifica;
+        
+        return `
+            <div class="bozza-item ${isLocked ? 'locked' : ''}">
+                <div class="bozza-info">
+                    <div class="bozza-header">
+                        <span class="bozza-code">[BOZZA-${bozza.id}]</span>
+                        <span class="bozza-author">👤 ${autore}</span>
+                        <span class="bozza-date">Creata: ${dataCreazione}</span>
+                        ${isModificata ? `<span class="bozza-modified">Modificata: ${dataModifica}</span>` : ''}
+                    </div>
+                    
+                    <div class="bozza-progress">
+                        <div class="progress-bar-mini">
+                            <div class="progress-fill" style="width: ${completamento}%"></div>
+                        </div>
+                        <span class="progress-text">${completamento}% completo</span>
+                    </div>
+                    
+                    ${bozza.data.locale ? `<div class="bozza-location">📍 ${bozza.data.locale.descrizione || 'Locale non specificato'}</div>` : ''}
+                    ${bozza.data.artisti && bozza.data.artisti.length > 0 ? `<div class="bozza-artists">🎭 ${bozza.data.artisti.length} artisti</div>` : ''}
+                    ${lockInfo ? `<div class="lock-info">${lockInfo}</div>` : ''}
+                </div>
+                
+                <div class="bozza-actions">
+                    ${isLocked ? 
+                        `<button class="btn btn-secondary btn-sm" onclick="forceUnlock(${bozza.id})">🔓 Sblocca</button>` :
+                        `<button class="btn btn-primary btn-sm" onclick="loadBozza(${bozza.id})">📝 Riprendi</button>`
+                    }
+                    <button class="btn btn-success btn-sm" onclick="createRichiestaFromBozza(${bozza.id})">📨 → Richiesta</button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteBozza(${bozza.id})">🗑️ Elimina</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    listDiv.innerHTML = bozzeHTML;
+}
+
+// Calcola percentuale completamento bozza
+function calculateCompletamento(bozzaData) {
+    let campiTotali = 0;
+    let campiCompilati = 0;
+    
+    // Controlla artisti
+    if (bozzaData.artisti && bozzaData.artisti.length > 0) {
+        campiCompilati += 2;
+    }
+    campiTotali += 2;
+    
+    // Controlla date
+    if (bozzaData.dataInizio) campiCompilati++;
+    if (bozzaData.dataFine) campiCompilati++;
+    campiTotali += 2;
+    
+    // Controlla locale
+    if (bozzaData.locale) {
+        if (bozzaData.locale.descrizione) campiCompilati++;
+        if (bozzaData.locale.indirizzo) campiCompilati++;
+        if (bozzaData.locale.citta) campiCompilati++;
+        if (bozzaData.locale.cap) campiCompilati++;
+        if (bozzaData.locale.provincia) campiCompilati++;
+    }
+    campiTotali += 5;
+    
+    // Controlla fatturazione
+    if (bozzaData.fatturazione) {
+        if (bozzaData.fatturazione.ragioneSociale) campiCompilati++;
+        if (bozzaData.fatturazione.indirizzo) campiCompilati++;
+        if (bozzaData.fatturazione.citta) campiCompilati++;
+        if (bozzaData.fatturazione.cap) campiCompilati++;
+        if (bozzaData.fatturazione.provincia) campiCompilati++;
+    }
+    campiTotali += 5;
+    
+    return Math.round((campiCompilati / campiTotali) * 100);
+}
+
+// Carica bozza
+async function loadBozza(bozzaId) {
+    try {
+        // Verifica lock
+        const lockResult = await DatabaseService.lockBozza(bozzaId, userSession);
+        
+        if (!lockResult.success) {
+            showToast(`Bozza bloccata da ${lockResult.locked_by}`, 'warning');
+            return;
+        }
+        
+        // Carica dati bozza
+        const bozza = bozzeDB.find(b => b.id === bozzaId);
+        if (!bozza) {
+            showToast('Bozza non trovata', 'error');
+            return;
+        }
+        
+        currentBozzaId = bozzaId;
+        currentLock = lockResult.lock;
+        
+        // Ripristina dati
+        restoreBozzaData(bozza.data);
+        
+        // Nascondi sezione bozze e mostra step1
+        document.getElementById('bozzeRichiesteSection').style.display = 'none';
+        showSection('step1');
+        
+        // Inizia autosalvataggio e controllo lock
+        startAutosave();
+        startLockCheck();
+        
+        showToast('Bozza caricata con successo', 'success');
+        
+    } catch (error) {
+        console.error('Errore caricamento bozza:', error);
+        showToast('Errore nel caricamento della bozza', 'error');
+    }
+}
+
+// Ripristina dati da bozza
+function restoreBozzaData(data) {
+    // Ripristina agibilità data
+    if (data.agibilitaData) {
+        agibilitaData = data.agibilitaData;
+    }
+    
+    // Ripristina artisti
+    if (data.artisti) {
+        selectedArtists = data.artisti;
+        updateArtistsList();
+    }
+    
+    // Ripristina date
+    if (data.dataInizio) document.getElementById('dataInizio').value = data.dataInizio;
+    if (data.dataFine) document.getElementById('dataFine').value = data.dataFine;
+    
+    // Ripristina locale
+    if (data.locale) {
+        if (data.locale.descrizione) document.getElementById('descrizioneLocale').value = data.locale.descrizione;
+        if (data.locale.indirizzo) document.getElementById('indirizzo').value = data.locale.indirizzo;
+        if (data.locale.provincia) {
+            document.getElementById('provincia').value = data.locale.provincia;
+            loadCitta(data.locale.provincia);
+            
+            setTimeout(() => {
+                if (data.locale.citta) {
+                    document.getElementById('citta').value = data.locale.citta;
+                    loadCAP(data.locale.citta);
+                    
+                    setTimeout(() => {
+                        if (data.locale.cap) document.getElementById('cap').value = data.locale.cap;
+                    }, 100);
+                }
+            }, 100);
+        }
+    }
+    
+    // Ripristina fatturazione
+    if (data.fatturazione) {
+        Object.keys(data.fatturazione).forEach(key => {
+            const element = document.getElementById(key);
+            if (element) element.value = data.fatturazione[key];
+        });
+    }
+}
+
+// Elimina bozza
+async function deleteBozza(bozzaId) {
+    if (!confirm('Sei sicuro di voler eliminare questa bozza?')) return;
+    
+    try {
+        await DatabaseService.deleteBozza(bozzaId);
+        
+        // Rimuovi dalla cache locale
+        const index = bozzeDB.findIndex(b => b.id === bozzaId);
+        if (index !== -1) {
+            bozzeDB.splice(index, 1);
+        }
+        
+        showToast('Bozza eliminata', 'success');
+        showExistingBozze();
+    } catch (error) {
+        console.error('Errore eliminazione bozza:', error);
+        showToast('Errore nell\'eliminazione della bozza', 'error');
+    }
+}
+
+// Forza sblocco
+async function forceUnlock(bozzaId) {
+    if (!confirm('Vuoi forzare lo sblocco di questa bozza?')) return;
+    
+    try {
+        await DatabaseService.unlockBozza(bozzaId);
+        showToast('Bozza sbloccata', 'success');
+        showExistingBozze();
+    } catch (error) {
+        console.error('Errore sblocco bozza:', error);
+        showToast('Errore nello sblocco della bozza', 'error');
+    }
+}
+
+// ==================== AUTOSALVATAGGIO MODIFICATO (30 SECONDI, SENZA TIMER) ====================
+function startAutosave() {
+    // Cancella timer esistente
+    if (autosaveTimer) clearInterval(autosaveTimer);
+    
+    // ✅ MODIFICATO: Salva ogni 30 secondi (era 60)
+    autosaveTimer = setInterval(async () => {
+        if (shouldAutosave()) {
+            await performAutosave();
+        }
+    }, 30000); // 30 secondi
+}
+
+function shouldAutosave() {
+    return currentBozzaId || agibilitaData.numeroRiservato;
+}
+
+// MODIFICA autosave per includere numero riservato (SENZA scadenza)
+async function performAutosave() {
+    if (!shouldAutosave()) return;
+    
+    try {
+        const bozzaData = {
+            ...collectCurrentData(),
+            // === INCLUDI DATI NUMERAZIONE (SENZA SCADENZA) ===
+            numeroRiservato: agibilitaData.numeroRiservato,
+            reservationId: agibilitaData.reservationId
+            // ✅ RIMOSSO: reservationExpires (timer eliminati)
+        };
+        
+        if (currentBozzaId) {
+            // Aggiorna bozza esistente
+            await DatabaseService.updateBozza(currentBozzaId, bozzaData, userSession);
+        } else {
+            // Crea nuova bozza CON numero riservato
+            const newBozza = await DatabaseService.createBozzaWithReservedNumber(bozzaData, userSession);
+            currentBozzaId = newBozza.id;
+        }
+        
+        updateAutosaveIndicator('saved');
+        console.log('💾 Autosave completato (ogni 30 secondi, senza timer scadenza)');
+        
+    } catch (error) {
+        console.error('❌ Errore autosave:', error);
+        updateAutosaveIndicator('error');
+    }
+}
+
+function updateAutosaveIndicator(state) {
+    const indicator = document.getElementById('autosave-indicator') || createAutosaveIndicator();
+    
+    if (state === 'saved') {
+        indicator.textContent = '💾 Salvato automaticamente';
+        indicator.className = 'autosave-indicator success';
+    } else if (state === 'error') {
+        indicator.textContent = '⚠️ Errore salvataggio';
+        indicator.className = 'autosave-indicator error';
+    }
+    
+    indicator.classList.add('show');
+    setTimeout(() => indicator.classList.remove('show'), 2000);
+}
+
+function stopAutosave() {
+    if (autosaveTimer) {
+        clearInterval(autosaveTimer);
+        autosaveTimer = null;
+    }
+}
+
+// Salva bozza manuale
+async function saveBozza(isAutosave = false) {
+    try {
+        const bozzaData = collectCurrentData();
+        
+        if (currentBozzaId) {
+            // Aggiorna bozza esistente
+            await DatabaseService.updateBozza(currentBozzaId, bozzaData, userSession);
+        } else {
+            // Crea nuova bozza
+            const result = await DatabaseService.createBozza(bozzaData, userSession);
+            currentBozzaId = result.id;
+        }
+        
+        if (!isAutosave) {
+            showToast('Bozza salvata con successo', 'success');
+        } else {
+            // Mostra indicatore discreto per autosave
+            showAutosaveIndicator();
+        }
+        
+    } catch (error) {
+        console.error('Errore salvataggio bozza:', error);
+        showToast('Errore nel salvataggio della bozza', 'error');
+    }
+}
+
+// Mostra indicatore autosave
+function showAutosaveIndicator() {
+    const indicator = document.getElementById('autosave-indicator') || createAutosaveIndicator();
+    indicator.classList.add('show');
+    setTimeout(() => indicator.classList.remove('show'), 2000);
+}
+
+function createAutosaveIndicator() {
+    const indicator = document.createElement('div');
+    indicator.id = 'autosave-indicator';
+    indicator.className = 'autosave-indicator';
+    indicator.innerHTML = '💾 Salvato automaticamente';
+    document.body.appendChild(indicator);
+    return indicator;
+}
+
+// Raccogli dati correnti
+function collectCurrentData() {
+    const cittaSelect = document.getElementById('citta');
+    const selectedOption = cittaSelect ? cittaSelect.options[cittaSelect.selectedIndex] : null;
+    const cittaNome = selectedOption ? selectedOption.textContent : '';
+    
+    return {
+        agibilitaData: agibilitaData,
+        artisti: selectedArtists,
+        dataInizio: document.getElementById('dataInizio')?.value || '',
+        dataFine: document.getElementById('dataFine')?.value || '',
+        locale: {
+            descrizione: document.getElementById('descrizioneLocale')?.value || '',
+            indirizzo: document.getElementById('indirizzo')?.value || '',
+            citta: document.getElementById('citta')?.value || '',
+            cittaNome: cittaNome,
+            cap: document.getElementById('cap')?.value || '',
+            provincia: document.getElementById('provincia')?.value || ''
+        },
+        fatturazione: {
+            ragioneSociale: document.getElementById('ragioneSociale')?.value || '',
+            piva: document.getElementById('piva')?.value || '',
+            codiceFiscale: document.getElementById('codiceFiscale')?.value || '',
+            indirizzo: document.getElementById('indirizzoFatturazione')?.value || '',
+            citta: document.getElementById('cittaFatturazione')?.value || '',
+            cap: document.getElementById('capFatturazione')?.value || '',
+            provincia: document.getElementById('provinciaFatturazione')?.value || '',
+            codiceSDI: document.getElementById('codiceSDI')?.value || '',
+            pec: document.getElementById('pecFatturazione')?.value || ''
+        }
+    };
+}
+
+// ==================== GESTIONE LOCK ====================
+function startLockCheck() {
+    // Cancella timer esistente
+    if (lockCheckTimer) clearInterval(lockCheckTimer);
+    
+    // Controlla lock ogni 5 minuti
+    lockCheckTimer = setInterval(async () => {
+        if (currentLock && currentBozzaId) {
+            try {
+                await DatabaseService.renewLock(currentBozzaId, currentLock);
+            } catch (error) {
+                console.error('Errore rinnovo lock:', error);
+                showToast('Attenzione: problema con il blocco della bozza', 'warning');
+            }
+        }
+    }, 300000); // 5 minuti
+}
+
+function stopLockCheck() {
+    if (lockCheckTimer) {
+        clearInterval(lockCheckTimer);
+        lockCheckTimer = null;
+    }
+}
+
+// ==================== PROGRESS BAR ====================
+function updateProgressBar() {
+    const progressBar = document.getElementById('main-progress-bar') || createProgressBar();
+    const steps = ['tipoSection', 'step1', 'step2', 'step3'];
+    const currentStep = steps.findIndex(s => document.getElementById(s)?.classList.contains('active'));
+    
+    const progress = ((currentStep + 1) / steps.length) * 100;
+    progressBar.querySelector('.progress-fill').style.width = `${progress}%`;
+    progressBar.querySelector('.progress-text').textContent = `Step ${currentStep + 1} di ${steps.length}`;
+}
+
+function createProgressBar() {
+    const bar = document.createElement('div');
+    bar.id = 'main-progress-bar';
+    bar.className = 'main-progress-bar';
+    bar.innerHTML = `
+        <div class="progress-track">
+            <div class="progress-fill"></div>
+        </div>
+        <span class="progress-text">Step 1 di 4</span>
+    `;
+    document.querySelector('.main-container').prepend(bar);
+    return bar;
+}
+
+// ==================== DASHBOARD STATS (AGGIORNATO CON RICHIESTE) ====================
+async function updateDashboardStats() {
+    console.log('📊 Aggiornamento statistiche dashboard...');
+    
+    try {
+        // Conta bozze
+        const bozzeCount = Array.isArray(bozzeDB) ? bozzeDB.filter(b => !b.locked_by).length : 0;
+        
+        // ✅ NUOVO
