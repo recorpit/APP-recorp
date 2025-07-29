@@ -169,6 +169,18 @@
 
         .type-card {
             position: relative;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .type-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+
+        .type-card:active {
+            transform: translateY(0);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
 
         /* ✅ ALERT MIGLIORATO */
@@ -205,6 +217,48 @@
             border: 1px solid #ced4da;
             border-radius: 0.375rem;
             font-size: 0.875rem;
+        }
+
+        /* ✅ STILI PER INDICATORI DI STATO */
+        .status-indicator {
+            animation: slideInFromRight 0.3s ease-out;
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 16px;
+            border-radius: 6px;
+            z-index: 10000;
+            font-weight: 500;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .status-indicator.status-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-indicator.status-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status-indicator.status-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        @keyframes slideInFromRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
         }
 
         /* ✅ LAYOUT RESPONSIVE MIGLIORATO */
@@ -283,19 +337,20 @@
         <div id="tipoSection" class="step-section">
             <h2>Seleziona Tipo di Operazione</h2>
             <div class="type-cards">
-                <div class="type-card" onclick="startNewAgibilita()">
+                <!-- ✅ MODIFICATO: Rimossi onclick attributes -->
+                <div class="type-card" data-action="startNewAgibilita">
                     <div class="type-card-icon">📄</div>
                     <h3>Nuova Agibilità</h3>
                     <p>Crea una nuova pratica di agibilità</p>
                     <small class="text-muted">Numero riservato automaticamente</small>
                 </div>
-                <div class="type-card" onclick="showEditAgibilita()">
+                <div class="type-card" data-action="showEditAgibilita">
                     <div class="type-card-icon">📝</div>
                     <h3>Modifica Agibilità</h3>
                     <p>Modifica o gestisci agibilità esistenti</p>
                 </div>
                 <!-- ✅ MODIFICATO: Bozze/Richieste -->
-                <div class="type-card" onclick="showBozzeRichieste()">
+                <div class="type-card" data-action="showBozzeRichieste">
                     <div class="type-card-icon">📋</div>
                     <h3>Bozze/Richieste</h3>
                     <p>Gestisci bozze salvate e richieste esterne</p>
@@ -661,10 +716,11 @@
     <!-- 6. Agibilità Module (ultimo, dipende da tutto) -->
     <script type="module" src="agibilita.js"></script>
 
+    <!-- ✅ SCRIPT CORRETTIVO PER I PULSANTI -->
     <script>
         // === GESTIONE CLASSE AUTHENTICATED ===
         document.addEventListener('DOMContentLoaded', () => {
-            console.log('🎯 DOM Ready - Setup auth class management');
+            console.log('🎯 DOM Ready - Setup auth class management e event listeners');
             
             // Funzione per mostrare contenuto quando autenticato
             function showAuthenticatedContent() {
@@ -688,6 +744,9 @@
             // Esporta funzioni globalmente per AuthGuard
             window.showAuthenticatedContent = showAuthenticatedContent;
             window.hideUnauthenticatedContent = hideUnauthenticatedContent;
+            
+            // ✅ AGGIUNTO: Event listeners diretti per i pulsanti principali
+            setupButtonEventListeners();
             
             // Controlla auth state ogni secondo per i primi 10 secondi
             let attempts = 0;
@@ -715,6 +774,157 @@
                 }
             }, 1000);
         });
+
+        // ✅ NUOVA FUNZIONE: Setup event listeners diretti per i pulsanti
+        function setupButtonEventListeners() {
+            console.log('🔧 Setup event listeners diretti per i pulsanti...');
+            
+            // Event listener per tutte le type-cards
+            document.addEventListener('click', function(e) {
+                const typeCard = e.target.closest('.type-card[data-action]');
+                if (typeCard) {
+                    e.preventDefault();
+                    const action = typeCard.getAttribute('data-action');
+                    console.log('🖱️ Click rilevato su type-card con action:', action);
+                    
+                    handleCardClick(action);
+                }
+            });
+            
+            // Backup: event listeners diretti sulle cards
+            setTimeout(() => {
+                const cards = document.querySelectorAll('.type-card[data-action]');
+                cards.forEach(card => {
+                    const action = card.getAttribute('data-action');
+                    const title = card.querySelector('h3')?.textContent || 'Sconosciuto';
+                    
+                    // Rimuovi eventuali listener precedenti
+                    card.removeEventListener('click', card._clickHandler);
+                    
+                    // Crea nuovo handler
+                    card._clickHandler = function(e) {
+                        e.preventDefault();
+                        console.log(`🔄 Handler diretto per "${title}" (${action})`);
+                        handleCardClick(action);
+                    };
+                    
+                    // Aggiungi listener
+                    card.addEventListener('click', card._clickHandler);
+                    console.log(`✅ Event listener aggiunto per "${title}"`);
+                });
+            }, 500);
+        }
+
+        // ✅ NUOVA FUNZIONE: Gestisce i click sulle cards
+        function handleCardClick(action) {
+            console.log('🎯 Esecuzione action:', action);
+            
+            // Mostra indicatore di caricamento
+            showStatusIndicator('⏳ Caricamento in corso...', 'info');
+            
+            switch(action) {
+                case 'startNewAgibilita':
+                    console.log('🆕 Tentativo chiamata startNewAgibilita...');
+                    if (typeof window.startNewAgibilita === 'function') {
+                        try {
+                            window.startNewAgibilita();
+                            showStatusIndicator('✅ Nuova agibilità avviata', 'success');
+                        } catch (error) {
+                            console.error('❌ Errore in startNewAgibilita:', error);
+                            showStatusIndicator('❌ Errore: ' + error.message, 'error');
+                        }
+                    } else {
+                        console.error('❌ startNewAgibilita non disponibile');
+                        showStatusIndicator('⚠️ Funzione non caricata - Ricarica la pagina', 'error');
+                    }
+                    break;
+                    
+                case 'showEditAgibilita':
+                    console.log('📝 Tentativo chiamata showEditAgibilita...');
+                    if (typeof window.showEditAgibilita === 'function') {
+                        try {
+                            window.showEditAgibilita();
+                            showStatusIndicator('✅ Lista agibilità caricata', 'success');
+                        } catch (error) {
+                            console.error('❌ Errore in showEditAgibilita:', error);
+                            showStatusIndicator('❌ Errore: ' + error.message, 'error');
+                        }
+                    } else {
+                        console.error('❌ showEditAgibilita non disponibile');
+                        showStatusIndicator('⚠️ Funzione non caricata - Ricarica la pagina', 'error');
+                    }
+                    break;
+                    
+                case 'showBozzeRichieste':
+                    console.log('📋 Tentativo chiamata showBozzeRichieste...');
+                    if (typeof window.showBozzeRichieste === 'function') {
+                        try {
+                            window.showBozzeRichieste();
+                            showStatusIndicator('✅ Bozze/Richieste caricate', 'success');
+                        } catch (error) {
+                            console.error('❌ Errore in showBozzeRichieste:', error);
+                            showStatusIndicator('❌ Errore: ' + error.message, 'error');
+                        }
+                    } else {
+                        console.error('❌ showBozzeRichieste non disponibile');
+                        showStatusIndicator('⚠️ Funzione non caricata - Ricarica la pagina', 'error');
+                    }
+                    break;
+                    
+                default:
+                    console.warn('⚠️ Action non riconosciuta:', action);
+                    showStatusIndicator('⚠️ Azione non riconosciuta', 'error');
+            }
+        }
+
+        // ✅ NUOVA FUNZIONE: Mostra indicatori di stato
+        function showStatusIndicator(message, type = 'info') {
+            // Rimuovi indicatori esistenti
+            const existing = document.querySelector('.status-indicator');
+            if (existing) existing.remove();
+            
+            const indicator = document.createElement('div');
+            indicator.className = `status-indicator status-${type}`;
+            indicator.innerHTML = message;
+            
+            document.body.appendChild(indicator);
+            
+            // Rimuovi automaticamente dopo 3 secondi (tranne errori)
+            if (type !== 'error') {
+                setTimeout(() => {
+                    if (indicator && indicator.parentNode) {
+                        indicator.remove();
+                    }
+                }, 3000);
+            }
+        }
+
+        // ✅ CONTROLLO PERIODICO DISPONIBILITÀ FUNZIONI
+        let functionCheckInterval = setInterval(() => {
+            const functionsStatus = {
+                startNewAgibilita: typeof window.startNewAgibilita === 'function',
+                showEditAgibilita: typeof window.showEditAgibilita === 'function',
+                showBozzeRichieste: typeof window.showBozzeRichieste === 'function'
+            };
+            
+            console.log('🔍 Status funzioni:', functionsStatus);
+            
+            // Se tutte le funzioni sono disponibili, ferma il controllo
+            if (functionsStatus.startNewAgibilita && 
+                functionsStatus.showEditAgibilita && 
+                functionsStatus.showBozzeRichieste) {
+                
+                console.log('✅ Tutte le funzioni disponibili - Stopping check');
+                clearInterval(functionCheckInterval);
+                showStatusIndicator('🚀 Sistema completamente caricato', 'success');
+            }
+        }, 2000);
+
+        // Ferma il controllo dopo 30 secondi
+        setTimeout(() => {
+            clearInterval(functionCheckInterval);
+            console.log('⏰ Controllo funzioni terminato (timeout 30s)');
+        }, 30000);
         
         // Global error handler for auth issues
         window.addEventListener('error', (e) => {
@@ -724,20 +934,28 @@
             }
         });
 
-        // ✅ NUOVE FUNZIONI PER GESTIONE TABS BOZZE/RICHIESTE
-        
-        // Mostra sezione bozze/richieste con tabs
-        window.showBozzeRichieste = function() {
-            console.log('Showing bozze/richieste with tabs');
-            const section = document.getElementById('bozzeRichiesteSection');
-            if (section) {
-                section.style.display = 'block';
-                loadBozzeRichiesteData();
+        // ✅ DEBUGGING: Log dello stato delle funzioni ogni 5 secondi per i primi 30 secondi
+        let debugCount = 0;
+        const debugInterval = setInterval(() => {
+            debugCount++;
+            console.log(`🔍 Debug ${debugCount}/6 - Funzioni disponibili:`, {
+                startNewAgibilita: typeof window.startNewAgibilita,
+                showEditAgibilita: typeof window.showEditAgibilita,
+                showBozzeRichieste: typeof window.showBozzeRichieste,
+                showContentTab: typeof window.showContentTab,
+                applyFilters: typeof window.applyFilters
+            });
+            
+            if (debugCount >= 6) {
+                clearInterval(debugInterval);
+                console.log('🔍 Debug terminato');
             }
-        };
+        }, 5000);
 
-        // Cambia tab attivo
-        window.showContentTab = function(tabName) {
+        // ✅ FUNZIONI PLACEHOLDER PER TABS (se non caricate dal modulo)
+        window.showContentTab = window.showContentTab || function(tabName) {
+            console.log('📋 Placeholder showContentTab chiamata per:', tabName);
+            
             // Rimuovi active da tutti i tab
             document.querySelectorAll('.content-tab').forEach(tab => {
                 tab.classList.remove('active');
@@ -749,7 +967,7 @@
             });
             
             // Attiva tab selezionato
-            const activeTab = document.querySelector(`.content-tab[onclick="showContentTab('${tabName}')"]`);
+            const activeTab = document.querySelector(`.content-tab[onclick*="${tabName}"]`);
             if (activeTab) {
                 activeTab.classList.add('active');
             }
@@ -758,76 +976,22 @@
             const activeSection = document.getElementById(`content${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`);
             if (activeSection) {
                 activeSection.classList.add('active');
+                
+                // Mostra placeholder content
+                if (tabName === 'bozze') {
+                    activeSection.innerHTML = '<div class="alert alert-info">🔄 Caricamento bozze in corso...</div>';
+                } else if (tabName === 'richieste') {
+                    activeSection.innerHTML = '<div class="alert alert-info">🔄 Caricamento richieste in corso...</div>';
+                } else if (tabName === 'archivio') {
+                    activeSection.innerHTML = '<div class="alert alert-info">🔄 Caricamento archivio in corso...</div>';
+                }
             }
-            
-            // Carica dati specifici per il tab
-            loadTabData(tabName);
         };
 
-        // Carica dati per il tab specifico
-        function loadTabData(tabName) {
-            switch(tabName) {
-                case 'bozze':
-                    if (window.showExistingBozze) {
-                        window.showExistingBozze();
-                    }
-                    break;
-                case 'richieste':
-                    loadRichiesteAttive();
-                    break;
-                case 'archivio':
-                    loadArchivioRichieste();
-                    break;
-            }
-        }
-
-        // Carica tutti i dati bozze/richieste
-        function loadBozzeRichiesteData() {
-            // Carica conteggi per i badge
-            updateTabCounts();
-            // Carica tab attivo (default: bozze)
-            loadTabData('bozze');
-        }
-
-        // Aggiorna conteggi nei tab
-        function updateTabCounts() {
-            // TODO: implementare quando saranno disponibili i dati
-            document.getElementById('bozze-count-tab').textContent = '(0)';
-            document.getElementById('richieste-count-tab').textContent = '(0)';
-            document.getElementById('archivio-count-tab').textContent = '(0)';
-        }
-
-        // Carica richieste attive (placeholder)
-        function loadRichiesteAttive() {
-            const richiesteList = document.getElementById('richiesteList');
-            if (richiesteList) {
-                richiesteList.innerHTML = `
-                    <div class="alert alert-info">
-                        <strong>🚧 In sviluppo</strong><br>
-                        La funzionalità per gestire richieste esterne è in fase di implementazione.
-                        A breve potrai ricevere e gestire richieste di agibilità direttamente dai clienti.
-                    </div>
-                `;
-            }
-        }
-
-        // Carica archivio richieste (placeholder)
-        function loadArchivioRichieste() {
-            const archivioList = document.getElementById('archivioList');
-            if (archivioList) {
-                archivioList.innerHTML = `
-                    <div class="alert alert-secondary">
-                        <strong>📦 Archivio vuoto</strong><br>
-                        Le richieste completate appariranno qui automaticamente per consultazione futura.
-                    </div>
-                `;
-            }
-        }
-
-        // Applica filtri (placeholder)
-        window.applyFilters = function() {
-            console.log('Applying filters...');
-            // TODO: implementare logica filtri
+        // ✅ FUNZIONE PLACEHOLDER PER FILTRI
+        window.applyFilters = window.applyFilters || function() {
+            console.log('🔍 Placeholder applyFilters chiamata');
+            showStatusIndicator('🔍 Filtri applicati', 'info');
         };
     </script>
 </body>

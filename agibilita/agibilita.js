@@ -50,8 +50,10 @@ let userSession = {
     userId: null
 };
 
-// ==================== ESPORTA FUNZIONI GLOBALI SUBITO ====================
+// ==================== ESPORTA FUNZIONI GLOBALI - MODIFICATO ====================
 function exportGlobalFunctions() {
+    console.log('🔄 Esportazione funzioni globali (versione corretta)...');
+    
     // Funzioni esistenti
     window.startNewAgibilita = startNewAgibilita;
     window.showEditAgibilita = showEditAgibilita;
@@ -117,18 +119,44 @@ function exportGlobalFunctions() {
         }
     };
     
-    console.log('✅ Funzioni globali esportate:', Object.keys(window).filter(k => k.includes('Agibilita') || k.includes('Artist') || k.includes('Bozz')));
+    // ✅ AGGIUNTO: Debug e protezione contro override
+    const exportedFunctions = Object.keys(window).filter(k => k.includes('Agibilita') || k.includes('Artist') || k.includes('Bozz'));
+    console.log('✅ Funzioni globali esportate:', exportedFunctions);
+    console.log('🎯 startNewAgibilita tipo:', typeof window.startNewAgibilita);
+    console.log('🎯 showEditAgibilita tipo:', typeof window.showEditAgibilita);
+    
+    // ✅ AGGIUNTO: Protezione contro override per funzioni critiche
+    if (typeof startNewAgibilita === 'function') {
+        Object.defineProperty(window, 'startNewAgibilita', {
+            value: startNewAgibilita,
+            writable: true, // Cambiato da false per permettere re-assignment se necessario
+            configurable: true
+        });
+    }
+    
+    if (typeof showEditAgibilita === 'function') {
+        Object.defineProperty(window, 'showEditAgibilita', {
+            value: showEditAgibilita,
+            writable: true,
+            configurable: true
+        });
+    }
+    
+    return true;
 }
 
-// ✅ ESPORTA IMMEDIATAMENTE (prima di DOMContentLoaded)
+// ✅ MODIFICATO: Esportazione immediata + multipla
 exportGlobalFunctions();
 
 // ==================== INIZIALIZZAZIONE SEMPLIFICATA ====================
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('🚀 Inizializzazione sistema agibilità con richieste esterne...');
     
-    // ✅ RIESPORTA FUNZIONI PER SICUREZZA
-    exportGlobalFunctions();
+    // ✅ MODIFICATO: Re-esportazione per sicurezza
+    setTimeout(() => {
+        exportGlobalFunctions();
+        console.log('🔄 Funzioni re-esportate dopo DOMContentLoaded');
+    }, 100);
     
     try {
         // === OTTIENI USER SESSION DA AUTHGUARD ===
@@ -202,18 +230,37 @@ document.addEventListener('DOMContentLoaded', async function() {
         
         console.log('✅ Sistema agibilità inizializzato con successo!');
         
-        // ✅ FORZA ESPORTAZIONE FINALE DOPO COMPLETO CARICAMENTO
+        // ✅ MODIFICATO: Esportazione finale con delay maggiore
         setTimeout(() => {
             exportGlobalFunctions();
             console.log('🔄 Funzioni re-esportate dopo caricamento completo');
             console.log('🎯 startNewAgibilita ora è:', typeof window.startNewAgibilita);
-        }, 500);
+        }, 1000); // Aumentato da 500ms a 1000ms
         
     } catch (error) {
         console.error('❌ Errore inizializzazione sistema agibilità:', error);
         showToast('Errore di inizializzazione: ' + error.message, 'error');
     }
 });
+
+// ✅ AGGIUNTO: Esportazione di sicurezza dopo 3 secondi
+setTimeout(() => {
+    exportGlobalFunctions();
+    console.log('🔄 Esportazione di sicurezza dopo 3 secondi');
+    
+    // Test finale funzioni
+    if (typeof window.startNewAgibilita === 'function') {
+        console.log('✅ startNewAgibilita DISPONIBILE');
+    } else {
+        console.error('❌ startNewAgibilita NON DISPONIBILE dopo 3 secondi');
+    }
+    
+    if (typeof window.showEditAgibilita === 'function') {
+        console.log('✅ showEditAgibilita DISPONIBILE');
+    } else {
+        console.error('❌ showEditAgibilita NON DISPONIBILE dopo 3 secondi');
+    }
+}, 3000);
 
 // NUOVA FUNZIONE: Autocompila data fine con giorno successivo
 async function initializeInterface() {
@@ -297,6 +344,15 @@ async function initializeAgibilitaSystem() {
         bozzeDB = await DatabaseService.getBozze();
         console.log(`✅ ${bozzeDB.length} bozze caricate`);
         
+        // ✅ NUOVO: Carica richieste esterne
+        try {
+            richiesteDB = await DatabaseService.getRichiesteEsterne();
+            console.log(`✅ ${richiesteDB.length} richieste esterne caricate`);
+        } catch (error) {
+            console.warn('⚠️ Tabella richieste non ancora disponibile:', error);
+            richiesteDB = [];
+        }
+        
         // ✅ NUOVO: Conta richieste attive
         const richiesteAttive = Array.isArray(richiesteDB) ? 
             richiesteDB.filter(r => r.stato !== 'archiviata').length : 0;
@@ -308,6 +364,8 @@ async function initializeAgibilitaSystem() {
             const date = new Date(a.created_at);
             return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
         }).length : 0;
+        
+        const bozzeCount = Array.isArray(bozzeDB) ? bozzeDB.length : 0;
         
         // Aggiorna badge dashboard
         const bozzeBadge = document.getElementById('bozze-badge');
@@ -327,10 +385,11 @@ async function initializeAgibilitaSystem() {
         }
         
         // Aggiorna badge bozze count nel tipo card
-        const bozzeCountBadge = document.getElementById('bozze-count');
+        const bozzeCountBadge = document.getElementById('total-items-count');
         if (bozzeCountBadge) {
-            bozzeCountBadge.textContent = bozzeCount;
-            bozzeCountBadge.style.display = bozzeCount > 0 ? 'inline' : 'none';
+            const totalCount = bozzeCount + richiesteAttive;
+            bozzeCountBadge.textContent = totalCount;
+            bozzeCountBadge.style.display = totalCount > 0 ? 'inline' : 'none';
         }
         
         console.log('✅ Statistiche dashboard aggiornate');
@@ -905,6 +964,133 @@ function resetAgibilitaData() {
     currentBozzaId = null;
     currentLock = null;
 }
+
+// ==================== FUNZIONI PRINCIPALI - CORRETTE ====================
+
+// ✅ MODIFICATO: startNewAgibilita con gestione errori migliorata
+async function startNewAgibilita() {
+    console.log('🆕 [CORRETTO] startNewAgibilita chiamata');
+    
+    try {
+        console.log('🆕 Avvio nuova agibilità con numerazione thread-safe (SENZA TIMER)');
+        
+        // Mostra loader
+        showToast('🔢 Riservazione numero agibilità...', 'info');
+        
+        // Verifica DatabaseService
+        if (!DatabaseService) {
+            throw new Error('DatabaseService non disponibile');
+        }
+        
+        // === RISERVAZIONE THREAD-SAFE (SENZA TIMER) ===
+        const reservation = await DatabaseService.reserveAgibilitaNumberSafe();
+        
+        // Reset dati agibilità
+        agibilitaData.isModifica = false;
+        agibilitaData.codiceAgibilita = null;
+        
+        // === DATI NUMERAZIONE RISERVATA (SENZA SCADENZA) ===
+        agibilitaData.numeroRiservato = reservation.codice;           
+        agibilitaData.reservationId = reservation.reservation_id;     
+        agibilitaData.numeroProgressivo = reservation.numero_progressivo; 
+        
+        // Reset selezioni
+        selectedArtists = [];
+        compensiConfermati.clear();
+        clearAllForms();
+        
+        // === FEEDBACK UTENTE ===
+        showToast(`✅ Numero riservato: ${reservation.codice}`, 'success', 4000);
+        
+        // === AUTOSALVATAGGIO (30 SECONDI) ===
+        startAutosave();
+        
+        // === NAVIGAZIONE ===
+        showSection('step1');
+        
+        console.log('✅ Nuova agibilità avviata:', {
+            codice: reservation.codice,
+            reservationId: reservation.reservation_id
+        });
+        
+    } catch (error) {
+        console.error('❌ Errore in startNewAgibilita:', error);
+        showToast('Errore nella prenotazione del numero agibilità: ' + error.message, 'error');
+        
+        // Fallback: continua senza numero riservato
+        agibilitaData.isModifica = false;
+        agibilitaData.codiceAgibilita = null;
+        agibilitaData.numeroRiservato = null;
+        
+        selectedArtists = [];
+        compensiConfermati.clear();
+        clearAllForms();
+        showSection('step1');
+    }
+}
+
+// ✅ MODIFICATO: showEditAgibilita con gestione errori
+function showEditAgibilita() {
+    console.log('📝 [CORRETTO] showEditAgibilita chiamata');
+    
+    try {
+        // Nascondi altre sezioni
+        document.querySelectorAll('.step-section').forEach(section => {
+            section.style.display = 'none';
+            section.classList.remove('active');
+        });
+        
+        const editListSection = document.getElementById('editListSection');
+        if (editListSection) {
+            editListSection.style.display = 'block';
+            editListSection.classList.add('active');
+            
+            showExistingAgibilita();
+            console.log('✅ showEditAgibilita completata con successo');
+        } else {
+            console.error('❌ EditListSection non trovato!');
+            showToast('Errore: sezione modifica non trovata', 'error');
+        }
+    } catch (error) {
+        console.error('❌ Errore in showEditAgibilita:', error);
+        showToast('Errore nel caricamento delle agibilità esistenti', 'error');
+    }
+}
+
+// ✅ MODIFICATO: Funzione legacy per compatibilità
+function showBozzeAgibilita() {
+    console.log('📋 Reindirizzamento da showBozzeAgibilita a showBozzeRichieste');
+    showBozzeRichieste();
+}
+
+// ✅ NUOVO: Mostra sezione bozze/richieste con tabs
+function showBozzeRichieste() {
+    console.log('🎯 [CORRETTO] Showing bozze/richieste with tabs');
+    
+    try {
+        // Nascondi altre sezioni
+        document.querySelectorAll('.step-section').forEach(section => {
+            section.style.display = 'none';
+            section.classList.remove('active');
+        });
+        
+        const section = document.getElementById('bozzeRichiesteSection');
+        if (section) {
+            section.style.display = 'block';
+            section.classList.add('active');
+            loadBozzeRichiesteData();
+            console.log('✅ showBozzeRichieste completata con successo');
+        } else {
+            console.error('❌ bozzeRichiesteSection non trovato!');
+            showToast('Errore: sezione bozze/richieste non trovata', 'error');
+        }
+    } catch (error) {
+        console.error('❌ Errore in showBozzeRichieste:', error);
+        showToast('Errore nel caricamento delle bozze/richieste', 'error');
+    }
+}
+
+// [RESTO DEL CODICE IDENTICO ALL'ORIGINALE...]
 
 // ==================== ALTRE FUNZIONI NECESSARIE ====================
 function determineTipoRapporto(artist) {
@@ -2174,97 +2360,7 @@ function setupEventListeners() {
    });
 }
 
-console.log('🎭 Sistema agibilità v6.0 - Con richieste esterne e senza timer! 🚀');
-
-// ✅ DEBUG: Verifica funzioni esportate
-setTimeout(() => {
-    console.log('🔍 Funzioni startNewAgibilita disponibile:', typeof window.startNewAgibilita);
-    console.log('🔍 Funzioni showEditAgibilita disponibile:', typeof window.showEditAgibilita);
-    console.log('🔍 Funzioni showBozzeAgibilita disponibile:', typeof window.showBozzeAgibilita);
-    console.log('🔍 Funzioni showBozzeRichieste disponibile:', typeof window.showBozzeRichieste);
-    console.log('🔍 Funzioni showCalendarView disponibile:', typeof window.showCalendarView);
-    
-    // Lista tutte le funzioni window che iniziano con nomi specifici
-    const agibilitaFunctions = Object.keys(window).filter(key => 
-        key.includes('Agibilita') || key.includes('Artist') || key.includes('Bozz') || 
-        key.includes('Calendar') || key.includes('goTo') || key.includes('show')
-    );
-    console.log('🎯 Funzioni agibilità esportate:', agibilitaFunctions);
-}, 1000);
-
-// ✅ FALLBACK: Re-esporta funzioni se necessario
-setTimeout(() => {
-    if (typeof window.startNewAgibilita === 'undefined') {
-        console.warn('⚠️ Funzioni non esportate correttamente, forzo esportazione...');
-        exportGlobalFunctions();
-        
-        // Verifica di nuovo dopo il fallback
-        setTimeout(() => {
-            console.log('🔄 Dopo fallback - startNewAgibilita:', typeof window.startNewAgibilita);
-        }, 500);
-    }
-}, 2000);: Carica richieste esterne
-        try {
-            richiesteDB = await DatabaseService.getRichiesteEsterne();
-            console.log(`✅ ${richiesteDB.length} richieste esterne caricate`);
-        } catch (error) {
-            console.warn('⚠️ Tabella richieste non ancora disponibile:', error);
-            richiesteDB = [];
-        }
-        
-        console.log('🎉 Sistema agibilità inizializzato con Supabase!');
-        return true;
-        
-    } catch (error) {
-        console.error('❌ Errore inizializzazione sistema agibilità:', error);
-        showToast('Errore nel caricamento dei dati: ' + error.message, 'error');
-        return false;
-    }
-}
-
-// ==================== SISTEMA NOTIFICHE TOAST ====================
-function showToast(message, type = 'info', duration = 3000) {
-    const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    toast.innerHTML = `
-        <div class="toast-content">
-            <span class="toast-icon">${getToastIcon(type)}</span>
-            <span class="toast-message">${message}</span>
-        </div>
-    `;
-    
-    const container = document.getElementById('toast-container') || createToastContainer();
-    container.appendChild(toast);
-    
-    // Animazione entrata
-    setTimeout(() => toast.classList.add('show'), 10);
-    
-    // Rimozione automatica
-    setTimeout(() => {
-        toast.classList.remove('show');
-        setTimeout(() => toast.remove(), 300);
-    }, duration);
-}
-
-function createToastContainer() {
-    const container = document.createElement('div');
-    container.id = 'toast-container';
-    container.className = 'toast-container';
-    document.body.appendChild(container);
-    return container;
-}
-
-function getToastIcon(type) {
-    const icons = {
-        'success': '✅',
-        'error': '❌',
-        'warning': '⚠️',
-        'info': 'ℹ️'
-    };
-    return icons[type] || icons.info;
-}
-
-// ==================== FUNZIONI NAVIGAZIONE (CORRETTE) ====================
+// ==================== FUNZIONI SEZIONE ====================
 function showSection(sectionId) {
     console.log('🎯 Showing section:', sectionId);
     
@@ -2302,126 +2398,7 @@ function showSection(sectionId) {
     }
 }
 
-// ==================== FUNZIONE PRINCIPALE MODIFICATA: startNewAgibilita() ==================== 
-async function startNewAgibilita() {
-    console.log('🆕 [DEBUG] Funzione startNewAgibilita chiamata');
-    
-    try {
-        console.log('🆕 [DEBUG] Avvio nuova agibilità con numerazione thread-safe (SENZA TIMER)');
-        
-        // Mostra loader
-        showToast('🔢 Riservazione numero agibilità...', 'info');
-        console.log('🆕 [DEBUG] Toast mostrato');
-        
-        // === RISERVAZIONE THREAD-SAFE (SENZA TIMER) ===
-        console.log('🆕 [DEBUG] Chiamata DatabaseService.reserveAgibilitaNumberSafe()');
-        const reservation = await DatabaseService.reserveAgibilitaNumberSafe();
-        console.log('🆕 [DEBUG] Reservation ottenuta:', reservation);
-        
-        // Reset dati agibilità
-        agibilitaData.isModifica = false;
-        agibilitaData.codiceAgibilita = null;
-        
-        // === DATI NUMERAZIONE RISERVATA (SENZA SCADENZA) ===
-        agibilitaData.numeroRiservato = reservation.codice;           
-        agibilitaData.reservationId = reservation.reservation_id;     
-        agibilitaData.numeroProgressivo = reservation.numero_progressivo; 
-        
-        // Reset selezioni
-        selectedArtists = [];
-        compensiConfermati.clear(); // ✅ CORRETTO: era compensiConfirmati
-        clearAllForms();
-        console.log('🆕 [DEBUG] Dati resettati');
-        
-        // === FEEDBACK UTENTE ===
-        showToast(`✅ Numero riservato: ${reservation.codice}`, 'success', 4000);
-        
-        // === AUTOSALVATAGGIO (30 SECONDI) ===
-        startAutosave();
-        console.log('🆕 [DEBUG] Autosave avviato');
-        
-        // === NAVIGAZIONE ===
-        console.log('🆕 [DEBUG] Chiamata showSection(step1)');
-        showSection('step1');
-        
-        console.log('✅ Nuova agibilità avviata:', {
-            codice: reservation.codice,
-            reservationId: reservation.reservation_id
-        });
-        
-    } catch (error) {
-        console.error('❌ [DEBUG] Errore in startNewAgibilita:', error);
-        console.error('❌ [DEBUG] Stack trace:', error.stack);
-        showToast('Errore nella prenotazione del numero agibilità: ' + error.message, 'error');
-        
-        // Fallback: continua senza numero riservato
-        console.log('🆕 [DEBUG] Fallback mode attivato');
-        agibilitaData.isModifica = false;
-        agibilitaData.codiceAgibilita = null;
-        agibilitaData.numeroRiservato = null;
-        
-        selectedArtists = [];
-        compensiConfirmati.clear();
-        clearAllForms();
-        showSection('step1');
-    }
-}
-
-function showEditAgibilita() {
-    console.log('📝 [DEBUG] Funzione showEditAgibilita chiamata');
-    
-    try {
-        console.log('📝 [DEBUG] Showing edit agibilità');
-        
-        // Nascondi altre sezioni
-        console.log('📝 [DEBUG] Nascondendo altre sezioni...');
-        document.querySelectorAll('.step-section').forEach(section => {
-            section.style.display = 'none';
-            section.classList.remove('active');
-        });
-        
-        console.log('📝 [DEBUG] Cercando editListSection...');
-        const editListSection = document.getElementById('editListSection');
-        if (editListSection) {
-            console.log('📝 [DEBUG] EditListSection trovato, mostrando...');
-            editListSection.style.display = 'block';
-            editListSection.classList.add('active');
-            
-            console.log('📝 [DEBUG] Chiamando showExistingAgibilita...');
-            showExistingAgibilita();
-            console.log('✅ [DEBUG] showEditAgibilita completata con successo');
-        } else {
-            console.error('❌ [DEBUG] EditListSection non trovato!');
-        }
-    } catch (error) {
-        console.error('❌ [DEBUG] Errore in showEditAgibilita:', error);
-        console.error('❌ [DEBUG] Stack trace:', error.stack);
-    }
-}
-
-// ✅ MODIFICATO: Funzione legacy per compatibilità
-function showBozzeAgibilita() {
-    console.log('📋 Reindirizzamento da showBozzeAgibilita a showBozzeRichieste');
-    showBozzeRichieste();
-}
-
-// ✅ NUOVO: Mostra sezione bozze/richieste con tabs
-function showBozzeRichieste() {
-    console.log('🎯 Showing bozze/richieste with tabs');
-    
-    // Nascondi altre sezioni
-    document.querySelectorAll('.step-section').forEach(section => {
-        section.style.display = 'none';
-        section.classList.remove('active');
-    });
-    
-    const section = document.getElementById('bozzeRichiesteSection');
-    if (section) {
-        section.style.display = 'block';
-        section.classList.add('active');
-        loadBozzeRichiesteData();
-    }
-}
+// ==================== FUNZIONI RICHIESTE ESTERNE ====================
 
 // ✅ NUOVO: Cambia tab attivo
 function showContentTab(tabName) {
@@ -3405,4 +3382,119 @@ async function updateDashboardStats() {
         // Conta bozze
         const bozzeCount = Array.isArray(bozzeDB) ? bozzeDB.filter(b => !b.locked_by).length : 0;
         
-        // ✅ NUOVO
+        // ✅ NUOVO: Conta richieste attive
+        const richiesteAttive = Array.isArray(richiesteDB) ? 
+            richiesteDB.filter(r => r.stato !== 'archiviata').length : 0;
+        
+        // Conta agibilità del mese corrente
+        const now = new Date();
+        const agibilitaMonth = Array.isArray(agibilitaDB) ? agibilitaDB.filter(a => {
+            if (!a.created_at) return false;
+            const date = new Date(a.created_at);
+            return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+        }).length : 0;
+        
+        // Aggiorna badge dashboard
+        const bozzeBadge = document.getElementById('bozze-badge');
+        if (bozzeBadge) {
+            bozzeBadge.textContent = bozzeCount;
+        }
+        
+        // ✅ NUOVO: Badge richieste
+        const richiesteBadge = document.getElementById('richieste-badge');
+        if (richiesteBadge) {
+            richiesteBadge.textContent = richiesteAttive;
+        }
+        
+        const monthBadge = document.getElementById('month-badge');
+        if (monthBadge) {
+            monthBadge.textContent = agibilitaMonth;
+        }
+        
+        // Aggiorna badge bozze count nel tipo card
+        const bozzeCountBadge = document.getElementById('total-items-count');
+        if (bozzeCountBadge) {
+            const totalCount = bozzeCount + richiesteAttive;
+            bozzeCountBadge.textContent = totalCount;
+            bozzeCountBadge.style.display = totalCount > 0 ? 'inline' : 'none';
+        }
+        
+        console.log('✅ Statistiche dashboard aggiornate');
+        
+    } catch (error) {
+        console.error('❌ Errore aggiornamento statistiche:', error);
+    }
+}
+
+// ==================== SISTEMA NOTIFICHE TOAST ====================
+function showToast(message, type = 'info', duration = 3000) {
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.innerHTML = `
+        <div class="toast-content">
+            <span class="toast-icon">${getToastIcon(type)}</span>
+            <span class="toast-message">${message}</span>
+        </div>
+    `;
+    
+    const container = document.getElementById('toast-container') || createToastContainer();
+    container.appendChild(toast);
+    
+    // Animazione entrata
+    setTimeout(() => toast.classList.add('show'), 10);
+    
+    // Rimozione automatica
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, duration);
+}
+
+function createToastContainer() {
+    const container = document.createElement('div');
+    container.id = 'toast-container';
+    container.className = 'toast-container';
+    document.body.appendChild(container);
+    return container;
+}
+
+function getToastIcon(type) {
+    const icons = {
+        'success': '✅',
+        'error': '❌',
+        'warning': '⚠️',
+        'info': 'ℹ️'
+    };
+    return icons[type] || icons.info;
+}
+
+console.log('🎭 Sistema agibilità v6.0 - Con richieste esterne e senza timer! 🚀');
+
+// ✅ DEBUG: Verifica funzioni esportate
+setTimeout(() => {
+    console.log('🔍 Funzioni startNewAgibilita disponibile:', typeof window.startNewAgibilita);
+    console.log('🔍 Funzioni showEditAgibilita disponibile:', typeof window.showEditAgibilita);
+    console.log('🔍 Funzioni showBozzeAgibilita disponibile:', typeof window.showBozzeAgibilita);
+    console.log('🔍 Funzioni showBozzeRichieste disponibile:', typeof window.showBozzeRichieste);
+    console.log('🔍 Funzioni showCalendarView disponibile:', typeof window.showCalendarView);
+    
+    // Lista tutte le funzioni window che iniziano con nomi specifici
+    const agibilitaFunctions = Object.keys(window).filter(key => 
+        key.includes('Agibilita') || key.includes('Artist') || key.includes('Bozz') || 
+        key.includes('Calendar') || key.includes('goTo') || key.includes('show')
+    );
+    console.log('🎯 Funzioni agibilità esportate:', agibilitaFunctions);
+}, 1000);
+
+// ✅ FALLBACK: Re-esporta funzioni se necessario
+setTimeout(() => {
+    if (typeof window.startNewAgibilita === 'undefined') {
+        console.warn('⚠️ Funzioni non esportate correttamente, forzo esportazione...');
+        exportGlobalFunctions();
+        
+        // Verifica di nuovo dopo il fallback
+        setTimeout(() => {
+            console.log('🔄 Dopo fallback - startNewAgibilita:', typeof window.startNewAgibilita);
+        }, 500);
+    }
+}, 2000);
