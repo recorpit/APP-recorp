@@ -155,22 +155,31 @@ export class ProgressBarManager {
         const progressLine = document.getElementById('progressLine');
         const progressConnectors = document.querySelectorAll('.progress-connector');
         
-        if (progressSteps.length === 0) return;
+        if (progressSteps.length === 0) {
+            console.warn('⚠️ Progress steps non trovati nel DOM');
+            return;
+        }
         
         console.log(`📊 Aggiornamento progress bar: step ${currentStep}`);
         
         // Reset tutti gli step
         progressSteps.forEach(step => {
-            step.classList.remove('active', 'completed', 'clickable');
+            if (step) {
+                step.classList.remove('active', 'completed', 'clickable');
+            }
         });
         
         // Reset connectors
         progressConnectors.forEach(connector => {
-            connector.classList.remove('completed');
+            if (connector) {
+                connector.classList.remove('completed');
+            }
         });
         
         // Aggiorna step
         progressSteps.forEach((step, index) => {
+            if (!step) return;
+            
             const stepNumber = parseInt(step.dataset.step);
             
             if (stepNumber < currentStep) {
@@ -180,10 +189,13 @@ export class ProgressBarManager {
                 
                 // Anima completamento
                 setTimeout(() => {
-                    step.querySelector('.step-circle').style.transform = 'scale(1.1)';
-                    setTimeout(() => {
-                        step.querySelector('.step-circle').style.transform = 'scale(1)';
-                    }, 200);
+                    const stepCircle = step.querySelector('.step-circle');
+                    if (stepCircle) {
+                        stepCircle.style.transform = 'scale(1.1)';
+                        setTimeout(() => {
+                            stepCircle.style.transform = 'scale(1)';
+                        }, 200);
+                    }
                 }, index * 100);
                 
             } else if (stepNumber === currentStep) {
@@ -192,7 +204,10 @@ export class ProgressBarManager {
                 step.classList.add('clickable');
                 
                 // Pulse animation per step attivo
-                step.querySelector('.step-circle').style.animation = 'pulse 2s infinite';
+                const stepCircle = step.querySelector('.step-circle');
+                if (stepCircle) {
+                    stepCircle.style.animation = 'pulse 2s infinite';
+                }
                 
             } else if (stepNumber <= this.maxStep + 1) {
                 // Step accessibile (massimo step raggiunto + 1)
@@ -202,12 +217,16 @@ export class ProgressBarManager {
         
         // Aggiorna connectors
         progressConnectors.forEach((connector, index) => {
+            if (!connector) return;
+            
             if (index < currentStep - 1) {
                 connector.classList.add('completed');
                 
                 // Anima connettore con delay
                 setTimeout(() => {
-                    connector.style.width = '100%';
+                    if (connector.style) {
+                        connector.style.width = '100%';
+                    }
                 }, (index + 1) * 150);
             }
         });
@@ -236,7 +255,7 @@ export class ProgressBarManager {
         // Update tooltips
         this.updateTooltips();
         
-        console.log(`✅ Progress bar aggiornata: step ${currentStep}/${totalSteps}`);
+        console.log(`✅ Progress bar aggiornata: step ${currentStep}/${this.steps.length}`);
     }
     
     /**
@@ -329,6 +348,8 @@ export class ProgressBarManager {
         const progressSteps = document.querySelectorAll('.progress-step');
         
         progressSteps.forEach(step => {
+            if (!step) return;
+            
             const stepNumber = parseInt(step.dataset.step);
             const stepData = this.steps.find(s => s.id === stepNumber);
             if (!stepData) return;
@@ -415,14 +436,18 @@ export class ProgressBarManager {
         // Reset animazioni
         const progressSteps = document.querySelectorAll('.progress-step .step-circle');
         progressSteps.forEach(circle => {
-            circle.style.animation = '';
-            circle.style.transform = '';
+            if (circle && circle.style) {
+                circle.style.animation = '';
+                circle.style.transform = '';
+            }
         });
         
         // Reset connectors
         const connectors = document.querySelectorAll('.progress-connector');
         connectors.forEach(connector => {
-            connector.style.width = '0%';
+            if (connector && connector.style) {
+                connector.style.width = '0%';
+            }
         });
         
         console.log('✅ Progress bar reset completato');
