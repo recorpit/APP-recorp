@@ -83,7 +83,7 @@ class AgibilitaSystem {
         // State Manager
         console.log('🗄️ Caricamento StateManager...');
         const stateManager = new StateManager();
-        await stateManager.initialize();
+        // StateManager non richiede initialize()
         this.modules.set('stateManager', stateManager);
         window.stateManager = stateManager; // Per debug
         console.log('✅ StateManager inizializzato');
@@ -91,14 +91,18 @@ class AgibilitaSystem {
         // System Initializer
         console.log('🚀 Caricamento SystemInitializer...');
         const systemInitializer = new SystemInitializer(stateManager);
-        await systemInitializer.initialize();
+        if (systemInitializer.initialize) {
+            await systemInitializer.initialize();
+        }
         this.modules.set('systemInitializer', systemInitializer);
         console.log('✅ SystemInitializer pronto');
         
         // Event Manager
         console.log('🎧 Caricamento EventManager...');
         const eventManager = new EventManager(stateManager);
-        await eventManager.initialize();
+        if (eventManager.initialize) {
+            await eventManager.initialize();
+        }
         this.modules.set('eventManager', eventManager);
         window.eventManager = eventManager; // Per debug
         console.log('✅ EventManager inizializzato');
@@ -115,7 +119,9 @@ class AgibilitaSystem {
         // Toast System
         console.log('🔔 Caricamento ToastSystem...');
         const toastSystem = new ToastSystem();
-        await toastSystem.initialize();
+        if (toastSystem.initialize) {
+            await toastSystem.initialize();
+        }
         this.modules.set('toastSystem', toastSystem);
         window.toastSystem = toastSystem; // Per uso globale
         console.log('✅ ToastSystem pronto');
@@ -123,7 +129,9 @@ class AgibilitaSystem {
         // Navigation Manager
         console.log('🧭 Caricamento NavigationManager...');
         const navigationManager = new NavigationManager(stateManager);
-        await navigationManager.initialize();
+        if (navigationManager.initialize) {
+            await navigationManager.initialize();
+        }
         this.modules.set('navigationManager', navigationManager);
         window.navigationManager = navigationManager; // Per uso globale
         console.log('✅ NavigationManager pronto');
@@ -131,7 +139,9 @@ class AgibilitaSystem {
         // Progress Bar Manager
         console.log('📊 Caricamento ProgressBarManager...');
         const progressBarManager = new ProgressBarManager(stateManager);
-        await progressBarManager.initialize();
+        if (progressBarManager.initialize) {
+            await progressBarManager.initialize();
+        }
         this.modules.set('progressBarManager', progressBarManager);
         window.progressBarManager = progressBarManager; // Per uso globale
         console.log('✅ ProgressBarManager pronto');
@@ -139,7 +149,9 @@ class AgibilitaSystem {
         // Modal Manager
         console.log('🔔 Caricamento ModalManager...');
         const modalManager = new ModalManager();
-        await modalManager.initialize();
+        if (modalManager.initialize) {
+            await modalManager.initialize();
+        }
         this.modules.set('modalManager', modalManager);
         window.modalManager = modalManager; // Per uso globale
         console.log('✅ ModalManager pronto');
