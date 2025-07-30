@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestione Agibilità - RECORP ALL-IN-ONE</title>
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="../assets/style.css">
+    <link rel="stylesheet" href="css/agibilita.css">
+    
+    <!-- Font Awesome per icone -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="authenticated">
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Caricamento sistema agibilità...</div>
+    </div>
+
+    <!-- User Info Bar -->
+    <div class="user-info-bar">
+        <div class="container">
+            <div class="user-info">
+                <span>Utente:</span>
+                <span id="current-user-email">loading...</span>
+                <span class="status-online">Online</span>
+            </div>
+            <div class="user-actions">
+                <span id="session-info">Sessione attiva</span>
+                <button id="logout-btn">Logout</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Debug Indicator -->
+    <div class="debug-indicator" id="debugIndicator">
+        <div class="debug-status">
+            <div class="debug-dot"></div>
+            <span>Debug Mode</span>
+        </div>
+    </div>
+
+    <!-- System Status -->
+    <div class="system-status" id="systemStatus">
+        <div class="status-indicator"></div>
+        <span class="status-text">Sistema Online</span>
+    </div>
+
+    <!-- Autosave Indicator -->
+    <div class="autosave-indicator" id="autosaveIndicator">
+        <div class="autosave-spinner"></div>
+        <span>Salvataggio automatico...</span>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Main Container -->
+    <div class="agibilita-container">
+        <!-- Header -->
+        <div class="agibilita-header">
+            <h1 class="agibilita-title">Gestione Agibilità</h1>
+            <p class="agibilita-subtitle">Sistema completo per la gestione delle pratiche di agibilità RECORP</p>
+        </div>
+
+        <!-- Progress Container -->
+        <div class="progress-container" id="progressContainer" style="display: none;">
+            <div class="progress-steps" id="progressSteps">
+                <div class="progress-line" id="progressLine"></div>
+                
+                <div class="progress-step" data-step="0">
+                    <div class="progress-step-circle">1</div>
+                    <div class="progress-step-label">Tipo</div>
+                </div>
+                
+                <div class="progress-step" data-step="1">
+                    <div class="progress-step-circle">2</div>
+                    <div class="progress-step-label">Artisti</div>
+                </div>
+                
+                <div class="progress-step" data-step="2">
+                    <div class="progress-step-circle">3</div>
+                    <div class="progress-step-label">Località</div>
+                </div>
+                
+                <div class="progress-step" data-step="3">
+                    <div class="progress-step-circle">4</div>
+                    <div class="progress-step-label">Riepilogo</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- HOME SECTION -->
+        <div class="step-section active" id="homeSection">
+            <div class="step-header">
+                <h2 class="step-title">Seleziona tipo di operazione</h2>
+                <p class="step-description">Scegli se creare una nuova agibilità o gestire quelle esistenti</p>
+            </div>
+
+            <div class="type-selection">
+                <div class="type-card" data-action="startNewAgibilita">
+                    <i class="type-card-icon fas fa-plus-circle"></i>
+                    <h3 class="type-card-title">Nuova Agibilità</h3>
+                    <p class="type-card-description">Crea una nuova pratica di agibilità per un evento</p>
+                </div>
+
+                <div class="type-card" data-action="showEditAgibilita">
+                    <i class="type-card-icon fas fa-edit"></i>
+                    <h3 class="type-card-title">Modifica Agibilità</h3>
+                    <p class="type-card-description">Modifica una pratica di agibilità esistente</p>
+                </div>
+
+                <div class="type-card" data-action="showBozzeRichieste">
+                    <i class="type-card-icon fas fa-folder-open"></i>
+                    <h3 class="type-card-title">Bozze e Richieste</h3>
+                    <p class="type-card-description">Gestisci bozze salvate e richieste esterne</p>
+                </div>
+            </div>
+
+            <!-- Dashboard Stats -->
+            <div class="summary-container" id="dashboardStats">
+                <div class="summary-card">
+                    <h4 class="summary-card-title">📝 Statistiche Bozze</h4>
+                    <div class="summary-item">
+                        <span class="summary-label">Bozze salvate</span>
+                        <span class="summary-value" id="bozzeCount">0</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">In lavorazione</span>
+                        <span class="summary-value" id="bozzeInLavorazione">0</span>
+                    </div>
+                </div>
+
+                <div class="summary-card">
+                    <h4 class="summary-card-title">📋 Statistiche Richieste</h4>
+                    <div class="summary-item">
+                        <span class="summary-label">Richieste attive</span>
+                        <span class="summary-value" id="richiesteCount">0</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Agibilità questo mese</span>
+                        <span class="summary-value" id="agibilitaMese">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- STEP 1 - ARTISTI -->
+        <div class="step-section" id="step1">
+            <div class="step-header">
+                <h2 class="step-title">Selezione Artisti</h2>
+                <p class="step-description">Cerca e seleziona gli artisti per questa agibilità</p>
+            </div>
+
+            <!-- Artist Search -->
+            <div class="artist-search-container">
+                <div class="search-input-container">
+                    <input type="text" 
+                           class="artist-search-input" 
+                           id="artistSearchInput"
+                           placeholder="Cerca artista per nome, cognome o codice fiscale..."
+                           data-search-field="artist">
+                    <i class="search-icon fas fa-search"></i>
+                    <div class="search-suggestions" id="searchSuggestions" style="display: none;"></div>
+                </div>
+
+                <div class="btn-group">
+                    <button class="nav-btn nav-btn-secondary" data-action="showAddArtistModal">
+                        <i class="fas fa-plus"></i>
+                        Registra Nuovo Artista
+                    </button>
+                    <button class="nav-btn nav-btn-secondary" data-action="clearSearch">
+                        <i class="fas fa-times"></i>
+                        Pulisci Ricerca
+                    </button>
+                </div>
+            </div>
+
+            <!-- Selected Artists -->
+            <div class="selected-artists" id="selectedArtists">
+                <div class="selected-artists-header">
+                    <h3 class="selected-artists-title">Artisti Selezionati</h3>
+                    <span class="selected-count" id="selectedCount">0</span>
+                </div>
+                <div class="artists-list" id="artistsList">
+                    <!-- Artisti selezionati verranno inseriti qui dinamicamente -->
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <div class="navigation-buttons">
+                <button class="nav-btn nav-btn-secondary" data-action="goToHome">
+                    <i class="fas fa-arrow-left"></i>
+                    Indietro
+                </button>
+                <button class="nav-btn nav-btn-primary" id="goToStep2" data-action="goToStep2" disabled>
+                    Avanti
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- STEP 2 - LOCALITÀ -->
+        <div class="step-section" id="step2">
+            <div class="step-header">
+                <h2 class="step-title">Dati Località e Fatturazione</h2>
+                <p class="step-description">Inserisci i dettagli della location e i dati per la fatturazione</p>
+            </div>
+
+            <!-- Event Data -->
+            <div class="form-section">
+                <h4 class="form-section-title">📅 Dati Evento</h4>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Data Inizio <span class="required">*</span></label>
+                        <input type="date" class="form-control" id="dataInizio" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Data Fine <span class="required">*</span></label>
+                        <input type="date" class="form-control" id="dataFine" required>
+                    </div>
+                </div>
+                <div class="date-info" id="dateInfo" style="display: none;"></div>
+            </div>
+
+            <!-- Location Search -->
+            <div class="form-section">
+                <h4 class="form-section-title">📍 Ricerca Località</h4>
+                <div class="form-group">
+                    <label class="form-label">Cerca Venue</label>
+                    <input type="text" 
+                           class="form-control" 
+                           id="venueSearch"
+                           placeholder="Cerca per nome venue..."
+                           data-search-field="venue">
+                </div>
+            </div>
+
+            <!-- Location Details -->
+            <div class="form-section">
+                <h4 class="form-section-title">🏢 Dettagli Località</h4>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Nome Venue <span class="required">*</span></label>
+                        <input type="text" class="form-control" id="nomeVenue" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Indirizzo <span class="required">*</span></label>
+                        <input type="text" class="form-control" id="indirizzoVenue" required>
+                    </div>
+                </div>
+
+                <div class="location-grid">
+                    <div class="form-group">
+                        <label class="form-label">Provincia <span class="required">*</span></label>
+                        <select class="location-select" id="provinciaSelect" required>
+                            <option value="">Seleziona provincia...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Città <span class="required">*</span></label>
+                        <select class="location-select" id="cittaSelect" disabled required>
+                            <option value="">Prima seleziona provincia...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">CAP <span class="required">*</span></label>
+                        <select class="location-select" id="capSelect" disabled required>
+                            <option value="">Prima seleziona città...</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="location-info" id="locationInfo" style="display: none;">
+                    <i class="fas fa-info-circle"></i>
+                    <span>Informazioni località verranno mostrate qui</span>
+                </div>
+            </div>
+
+            <!-- Invoice Data -->
+            <div class="form-section">
+                <h4 class="form-section-title">🧾 Dati Fatturazione</h4>
+                <div class="btn-group" style="margin-bottom: 1rem;">
+                    <button class="nav-btn nav-btn-secondary" data-action="searchInvoiceData">
+                        <i class="fas fa-search"></i>
+                        Cerca Dati Fatturazione
+                    </button>
+                    <button class="nav-btn nav-btn-secondary" data-action="copyVenueAddress">
+                        <i class="fas fa-copy"></i>
+                        Copia da Venue
+                    </button>
+                    <button class="nav-btn nav-btn-secondary" data-action="clearInvoiceFields">
+                        <i class="fas fa-eraser"></i>
+                        Pulisci Campi
+                    </button>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Ragione Sociale <span class="required">*</span></label>
+                        <input type="text" class="form-control" id="ragioneSociale" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Codice Fiscale <span class="required">*</span></label>
+                        <input type="text" class="form-control uppercase-field" id="codiceFiscaleAzienda" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Partita IVA</label>
+                        <input type="text" class="form-control" id="partitaIva">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Indirizzo Fatturazione <span class="required">*</span></label>
+                        <input type="text" class="form-control" id="indirizzoFatturazione" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Città Fatturazione <span class="required">*</span></label>
+                        <input type="text" class="form-control" id="cittaFatturazione" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">CAP Fatturazione <span class="required">*</span></label>
+                        <input type="text" class="form-control" id="capFatturazione" required>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <div class="navigation-buttons">
+                <button class="nav-btn nav-btn-secondary" data-action="goToStep1">
+                    <i class="fas fa-arrow-left"></i>
+                    Indietro
+                </button>
+                <button class="nav-btn nav-btn-primary" id="goToStep3" data-action="goToStep3" disabled>
+                    Avanti
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- STEP 3 - RIEPILOGO -->
+        <div class="step-section" id="step3">
+            <div class="step-header">
+                <h2 class="step-title">Riepilogo e Generazione</h2>
+                <p class="step-description">Controlla i dati inseriti e genera i file XML per l'INPS</p>
+            </div>
+
+            <!-- Summary Data -->
+            <div class="summary-container">
+                <div class="summary-card">
+                    <h4 class="summary-card-title">🎭 Riepilogo Artisti</h4>
+                    <div id="artistsSummary">
+                        <!-- Popolato dinamicamente -->
+                    </div>
+                </div>
+
+                <div class="summary-card">
+                    <h4 class="summary-card-title">📍 Riepilogo Evento</h4>
+                    <div id="eventSummary">
+                        <!-- Popolato dinamicamente -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="btn-group" style="margin: 2rem 0;">
+                <button class="nav-btn nav-btn-primary" data-action="validateAndGenerate">
+                    <i class="fas fa-check-circle"></i>
+                    Valida e Genera XML
+                </button>
+                <button class="nav-btn nav-btn-secondary" data-action="saveAsBozza">
+                    <i class="fas fa-save"></i>
+                    Salva come Bozza
+                </button>
+            </div>
+
+            <!-- Navigation -->
+            <div class="navigation-buttons">
+                <button class="nav-btn nav-btn-secondary" data-action="goToStep2">
+                    <i class="fas fa-arrow-left"></i>
+                    Indietro
+                </button>
+                <button class="nav-btn nav-btn-success" id="finalizeAgibilita" data-action="finalizeAgibilita" disabled>
+                    <i class="fas fa-download"></i>
+                    Finalizza e Scarica
+                </button>
+            </div>
+        </div>
+
+        <!-- BOZZE E RICHIESTE SECTION -->
+        <div class="step-section" id="bozzeRichiesteSection">
+            <div class="step-header">
+                <h2 class="step-title">Gestione Bozze e Richieste</h2>
+                <p class="step-description">Gestisci le tue bozze salvate e le richieste esterne</p>
+            </div>
+
+            <!-- Tabs -->
+            <div class="tabs" id="bozzeRichiesteTabs">
+                <button class="tab active" data-tab="bozze">
+                    <i class="tab-icon fas fa-file-alt"></i>
+                    <span class="tab-label">Bozze</span>
+                    <span class="tab-badge" id="bozzeTabBadge">0</span>
+                </button>
+                <button class="tab" data-tab="richieste">
+                    <i class="tab-icon fas fa-inbox"></i>
+                    <span class="tab-label">Richieste</span>
+                    <span class="tab-badge" id="richiesteTabBadge">0</span>
+                </button>
+                <button class="tab" data-tab="archivio">
+                    <i class="tab-icon fas fa-archive"></i>
+                    <span class="tab-label">Archivio</span>
+                    <span class="tab-badge" id="archivioTabBadge">0</span>
+                </button>
+            </div>
+
+            <!-- Tab Contents -->
+            <div class="tab-content active" id="bozzeContent">
+                <div class="filters-section">
+                    <div class="filters-header">
+                        <h3>Filtri Bozze</h3>
+                        <button class="nav-btn nav-btn-secondary" data-action="refreshBozze">
+                            <i class="fas fa-sync-alt"></i>
+                            Aggiorna
+                        </button>
+                    </div>
+                    <div class="filters-grid">
+                        <div class="filter-group">
+                            <label>Ricerca</label>
+                            <input type="text" class="form-control" id="bozzeSearchInput" placeholder="Cerca nelle bozze...">
+                        </div>
+                        <div class="filter-group">
+                            <label>Stato</label>
+                            <select class="form-control" id="bozzeStatusFilter">
+                                <option value="">Tutti gli stati</option>
+                                <option value="disponibile">Disponibile</option>
+                                <option value="locked">In lavorazione</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div id="bozzeList">
+                    <!-- Popolato dinamicamente -->
+                </div>
+            </div>
+
+            <div class="tab-content" id="richiesteContent">
+                <div class="filters-section">
+                    <div class="filters-header">
+                        <h3>Filtri Richieste</h3>
+                        <button class="nav-btn nav-btn-secondary" data-action="refreshRichieste">
+                            <i class="fas fa-sync-alt"></i>
+                            Aggiorna
+                        </button>
+                    </div>
+                    <div class="filters-grid">
+                        <div class="filter-group">
+                            <label>Ricerca</label>
+                            <input type="text" class="form-control" id="richiesteSearchInput" placeholder="Cerca nelle richieste...">
+                        </div>
+                        <div class="filter-group">
+                            <label>Stato</label>
+                            <select class="form-control" id="richiesteStatusFilter">
+                                <option value="">Tutti gli stati</option>
+                                <option value="nuova">Nuova</option>
+                                <option value="in-lavorazione">In Lavorazione</option>
+                                <option value="completata">Completata</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label>Autore</label>
+                            <select class="form-control" id="richiesteAuthorFilter">
+                                <option value="">Tutti gli autori</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div id="richiesteList">
+                    <!-- Popolato dinamicamente -->
+                </div>
+            </div>
+
+            <div class="tab-content" id="archivioContent">
+                <div class="filters-section">
+                    <div class="filters-header">
+                        <h3>Filtri Archivio</h3>
+                        <button class="nav-btn nav-btn-secondary" data-action="refreshArchivio">
+                            <i class="fas fa-sync-alt"></i>
+                            Aggiorna
+                        </button>
+                    </div>
+                    <div class="filters-grid">
+                        <div class="filter-group">
+                            <label>Ricerca</label>
+                            <input type="text" class="form-control" id="archivioSearchInput" placeholder="Cerca nell'archivio...">
+                        </div>
+                        <div class="filter-group">
+                            <label>Periodo</label>
+                            <select class="form-control" id="archivioPeriodFilter">
+                                <option value="">Tutti i periodi</option>
+                                <option value="ultimo-mese">Ultimo mese</option>
+                                <option value="ultimi-3-mesi">Ultimi 3 mesi</option>
+                                <option value="ultimo-anno">Ultimo anno</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div id="archivioList">
+                    <!-- Popolato dinamicamente -->
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <div class="navigation-buttons">
+                <button class="nav-btn nav-btn-secondary" data-action="goToHome">
+                    <i class="fas fa-home"></i>
+                    Torna alla Home
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALS -->
+    
+    <!-- Add Artist Modal -->
+    <div class="agibilita-modal" id="addArtistModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Ricerca Artisti</h2>
+                <button class="modal-close" data-action="closeModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Cerca Artista</label>
+                    <input type="text" 
+                           class="form-control" 
+                           id="modalArtistSearch"
+                           placeholder="Inserisci nome, cognome o codice fiscale..."
+                           data-search-field="modal-artist">
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Filtro Ruolo</label>
+                        <select class="form-control" id="roleFilter">
+                            <option value="">Tutti i ruoli</option>
+                            <option value="030">Artista Principale</option>
+                            <option value="031">Artista Secondario</option>
+                            <option value="032">Tecnico</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Nazionalità</label>
+                        <select class="form-control" id="nationalityFilter">
+                            <option value="">Tutte</option>
+                            <option value="IT">Italia</option>
+                            <option value="OTHER">Altre</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="modalSearchResults">
+                    <!-- Risultati ricerca popolati dinamicamente -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="nav-btn nav-btn-secondary" data-action="closeModal">
+                    Chiudi
+                </button>
+                <button class="nav-btn nav-btn-primary" data-action="registerNewArtist">
+                    <i class="fas fa-user-plus"></i>
+                    Registra Nuovo
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Validation Modal -->
+    <div class="agibilita-modal" id="validationModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Validazione Dati</h2>
+                <button class="modal-close" data-action="closeModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="validationResults">
+                    <!-- Risultati validazione popolati dinamicamente -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="nav-btn nav-btn-secondary" data-action="closeModal">
+                    Annulla
+                </button>
+                <button class="nav-btn nav-btn-primary" id="confirmValidation" data-action="confirmValidation">
+                    <i class="fas fa-check"></i>
+                    Procedi Comunque
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bozza Modal -->
+    <div class="agibilita-modal" id="bozzaModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Gestione Bozza</h2>
+                <button class="modal-close" data-action="closeModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="bozzaDetails">
+                    <!-- Dettagli bozza popolati dinamicamente -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="nav-btn nav-btn-danger" id="deleteBozza" data-action="deleteBozza">
+                    <i class="fas fa-trash"></i>
+                    Elimina
+                </button>
+                <button class="nav-btn nav-btn-secondary" data-action="closeModal">
+                    Chiudi
+                </button>
+                <button class="nav-btn nav-btn-primary" id="loadBozza" data-action="loadBozza">
+                    <i class="fas fa-folder-open"></i>
+                    Carica Bozza
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Modules -->
+    <script type="module" src="js/agibilita-main.js"></script>
+    
+    <!-- Fallback Script -->
+    <script>
+        // Fallback se il sistema modulare non si carica
+        setTimeout(() => {
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            if (loadingOverlay && loadingOverlay.style.display !== 'none') {
+                loadingOverlay.innerHTML = `
+                    <div style="text-align: center; color: #ff3b30;">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 3rem; margin-bottom: 1rem;"></i>
+                        <h3>Errore di Caricamento</h3>
+                        <p>Il sistema modulare non si è caricato correttamente.</p>
+                        <p>Controlla la console per dettagli (F12).</p>
+                        <button onclick="location.reload()" style="padding: 12px 24px; background: #007aff; color: white; border: none; border-radius: 8px; cursor: pointer; margin-top: 1rem;">
+                            Ricarica Pagina
+                        </button>
+                    </div>
+                `;
+            }
+        }, 10000); // 10 secondi timeout
+
+        // Debug utilities globali
+        window.agibilitaDebug = {
+            system: () => console.log('🎭 Agibilità Debug System Ready'),
+            state: () => window.agibilitaSystem?.stateManager?.getAll() || 'System not loaded',
+            modules: () => window.agibilitaSystem?.loadedModules || 'Modules not loaded'
+        };
+    </script>
+</body>
+</html>
