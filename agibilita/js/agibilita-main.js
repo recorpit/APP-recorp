@@ -49,7 +49,7 @@ class AgibilitaSystem {
             this.initialized = true;
             const initTime = Date.now() - this.startTime;
             
-            console.log(`✅ Sistema agibilità inizializzato con successo in ${initTime}ms`);
+            console.log('✅ Sistema agibilità inizializzato con successo in ' + initTime + 'ms');
             
             // Nascondi loading overlay
             this.hideLoadingOverlay();
@@ -261,44 +261,17 @@ class AgibilitaSystem {
         // Mostra errore user-friendly
         const errorDiv = document.createElement('div');
         errorDiv.id = 'system-error';
-        errorDiv.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.9);
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 9999;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        `;
+        errorDiv.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.9); color: white; display: flex; align-items: center; justify-content: center; z-index: 9999; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;';
         
-                    errorDiv.innerHTML = `
-            <div style="text-align: center; max-width: 500px; padding: 40px;">
-                <div style="font-size: 4rem; margin-bottom: 20px;">⚠️</div>
-                <h2 style="margin-bottom: 16px;">Errore Sistema Agibilità</h2>
-                <p style="margin-bottom: 24px; opacity: 0.8; line-height: 1.5;">
-                    Si è verificato un errore durante l'inizializzazione del sistema.
-                </p>
-                <div style="background: rgba(255, 255, 255, 0.1); padding: 16px; border-radius: 8px; margin-bottom: 24px; font-family: monospace; font-size: 14px; text-align: left;">
-                    ${error.message}
-                </div>
-                <button onclick="window.location.reload()" style="
-                    background: #3b82f6;
-                    color: white;
-                    border: none;
-                    padding: 12px 24px;
-                    border-radius: 8px;
-                    cursor: pointer;
-                    font-weight: 600;
-                ">
-                    🔄 Ricarica Pagina
-                </button>
-            </div>
-        `;
+        const errorMessage = error.message || 'Errore sconosciuto';
+        
+        errorDiv.innerHTML = '<div style="text-align: center; max-width: 500px; padding: 40px;">' +
+            '<div style="font-size: 4rem; margin-bottom: 20px;">⚠️</div>' +
+            '<h2 style="margin-bottom: 16px;">Errore Sistema Agibilità</h2>' +
+            '<p style="margin-bottom: 24px; opacity: 0.8; line-height: 1.5;">Si è verificato un errore durante l\'inizializzazione del sistema.</p>' +
+            '<div style="background: rgba(255, 255, 255, 0.1); padding: 16px; border-radius: 8px; margin-bottom: 24px; font-family: monospace; font-size: 14px; text-align: left;">' + errorMessage + '</div>' +
+            '<button onclick="window.location.reload()" style="background: #3b82f6; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-weight: 600;">🔄 Ricarica Pagina</button>' +
+            '</div>';
         
         document.body.appendChild(errorDiv);
         
@@ -367,9 +340,9 @@ class AgibilitaSystem {
             if (module.cleanup && typeof module.cleanup === 'function') {
                 try {
                     module.cleanup();
-                    console.log(`✅ Cleanup ${name} completato`);
+                    console.log('✅ Cleanup ' + name + ' completato');
                 } catch (error) {
-                    console.warn(`⚠️ Errore cleanup ${name}:`, error);
+                    console.warn('⚠️ Errore cleanup ' + name + ':', error);
                 }
             }
         }
@@ -450,7 +423,7 @@ window.showSection = (sectionId) => {
 
 window.goToStep = (stepNumber) => {
     if (window.navigationManager) {
-        return window.navigationManager.showSection(`step${stepNumber}`);
+        return window.navigationManager.showSection('step' + stepNumber);
     }
     console.warn('⚠️ NavigationManager non inizializzato');
     return false;
@@ -485,4 +458,4 @@ window.reloadAgibilita = () => {
 export { agibilitaSystem };
 export default agibilitaSystem;
 
-console.log('🎭 Sistema agibilità configurato e pronto per l'inizializzazione');
+console.log('🎭 Sistema agibilità configurato e pronto per l\'inizializzazione');
