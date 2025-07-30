@@ -42,6 +42,16 @@ export class EventManager {
             }
         });
 
+        // Event delegation per tab switching
+        document.addEventListener('click', (e) => {
+            const tabElement = e.target.closest('[data-tab]');
+            if (tabElement) {
+                const tab = tabElement.dataset.tab;
+                console.log(`📋 Tab rilevato: ${tab}`);
+                this.handleTabSwitch(tab, tabElement, e);
+            }
+        });
+
         // Event delegation per ricerche
         document.addEventListener('input', (e) => {
             if (e.target.dataset.searchField) {
@@ -171,7 +181,155 @@ export class EventManager {
         }
     }
     
-    // ==================== METODI NAVIGAZIONE ====================
+    // ==================== TAB MANAGEMENT ====================
+    
+    /**
+     * Gestisce il cambio tab
+     */
+    handleTabSwitch(tab, tabElement, event) {
+        console.log(`📋 Cambio tab: ${tab}`);
+        
+        // Trova il container dei tab
+        const tabContainer = tabElement.closest('.tabs');
+        const contentContainer = tabContainer?.nextElementSibling || 
+                                document.querySelector('.tab-content').parentElement;
+        
+        if (!tabContainer || !contentContainer) {
+            console.warn('⚠️ Container tab non trovato');
+            return;
+        }
+        
+        // Rimuovi active da tutti i tab
+        const allTabs = tabContainer.querySelectorAll('.tab');
+        allTabs.forEach(t => t.classList.remove('active'));
+        
+        // Aggiungi active al tab corrente
+        tabElement.classList.add('active');
+        
+        // Nascondi tutti i contenuti
+        const allContents = contentContainer.querySelectorAll('.tab-content');
+        allContents.forEach(content => {
+            content.classList.remove('active');
+            content.style.display = 'none';
+        });
+        
+        // Mostra contenuto corrispondente
+        const targetContent = document.getElementById(`${tab}Content`);
+        if (targetContent) {
+            targetContent.classList.add('active');
+            targetContent.style.display = 'block';
+            
+            // Carica contenuto se necessario
+            this.loadTabContent(tab);
+        }
+        
+        this.showToast(`Passaggio a tab: ${this.getTabDisplayName(tab)}`, 'info', 2000);
+    }
+    
+    /**
+     * Carica contenuto del tab
+     */
+    loadTabContent(tab) {
+        switch (tab) {
+            case 'bozze':
+                this.loadBozzeContent();
+                break;
+                
+            case 'richieste':
+                this.loadRichiesteContent();
+                break;
+                
+            case 'archivio':
+                this.loadArchivioContent();
+                break;
+                
+            default:
+                console.warn(`⚠️ Tab non gestito: ${tab}`);
+        }
+    }
+    
+    /**
+     * Carica contenuto bozze
+     */
+    loadBozzeContent() {
+        console.log('📝 Caricamento contenuto bozze...');
+        const bozzeList = document.getElementById('bozzeList');
+        if (bozzeList) {
+            bozzeList.innerHTML = '<div class="loading-message">🔄 Caricamento bozze in corso...</div>';
+            
+            // Simula caricamento
+            setTimeout(() => {
+                bozzeList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">📝</div>
+                        <h3>Nessuna bozza trovata</h3>
+                        <p>Le tue bozze salvate appariranno qui</p>
+                        <button class="btn btn-primary" data-action="startNewAgibilita">
+                            <i class="fas fa-plus"></i> Crea Prima Agibilità
+                        </button>
+                    </div>
+                `;
+            }, 1000);
+        }
+    }
+    
+    /**
+     * Carica contenuto richieste
+     */
+    loadRichiesteContent() {
+        console.log('📥 Caricamento contenuto richieste...');
+        const richiesteList = document.getElementById('richiesteList');
+        if (richiesteList) {
+            richiesteList.innerHTML = '<div class="loading-message">🔄 Caricamento richieste in corso...</div>';
+            
+            // Simula caricamento
+            setTimeout(() => {
+                richiesteList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">📥</div>
+                        <h3>Nessuna richiesta attiva</h3>
+                        <p>Le richieste esterne appariranno qui quando disponibili</p>
+                        <small class="text-muted">Funzionalità in sviluppo</small>
+                    </div>
+                `;
+            }, 800);
+        }
+    }
+    
+    /**
+     * Carica contenuto archivio
+     */
+    loadArchivioContent() {
+        console.log('🗄️ Caricamento contenuto archivio...');
+        const archivioList = document.getElementById('archivioList');
+        if (archivioList) {
+            archivioList.innerHTML = '<div class="loading-message">🔄 Caricamento archivio in corso...</div>';
+            
+            // Simula caricamento
+            setTimeout(() => {
+                archivioList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">🗄️</div>
+                        <h3>Archivio vuoto</h3>
+                        <p>Le agibilità completate e archiviate appariranno qui</p>
+                        <small class="text-muted">Funzionalità in sviluppo</small>
+                    </div>
+                `;
+            }, 600);
+        }
+    }
+    
+    /**
+     * Ottiene nome display del tab
+     */
+    getTabDisplayName(tab) {
+        const names = {
+            'bozze': 'Bozze',
+            'richieste': 'Richieste',
+            'archivio': 'Archivio'
+        };
+        return names[tab] || tab;
+    }
     
     /**
      * Avvia nuova agibilità (va allo step 1)
