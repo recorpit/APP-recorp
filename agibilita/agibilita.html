@@ -5,7 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestione Agibilità - RECORP ALL-IN-ONE</title>
     
-    <!-- CSS -->
+    <!-- Configurazioni dedicate agibilità -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- CSS dedicato agibilità -->
     <link rel="stylesheet" href="../assets/style.css">
     <link rel="stylesheet" href="css/agibilita.css">
     
@@ -16,21 +19,9 @@
     <!-- Loading Overlay -->
     <div class="loading-overlay" id="loadingOverlay">
         <div class="loading-spinner"></div>
-        <div class="loading-text">Caricamento sistema agibilità...</div>
-    </div>
-
-    <!-- User Info Bar -->
-    <div class="user-info-bar">
-        <div class="container">
-            <div class="user-info">
-                <span>Utente:</span>
-                <span id="current-user-email">loading...</span>
-                <span class="status-online">Online</span>
-            </div>
-            <div class="user-actions">
-                <span id="session-info">Sessione attiva</span>
-                <button id="logout-btn">Logout</button>
-            </div>
+        <div class="loading-text">🎭 Caricamento sistema agibilità...</div>
+        <div class="loading-details" style="margin-top: 10px; font-size: 0.9rem; opacity: 0.8;">
+            Inizializzazione moduli dedicati...
         </div>
     </div>
 
@@ -45,7 +36,7 @@
     <!-- System Status -->
     <div class="system-status" id="systemStatus">
         <div class="status-indicator"></div>
-        <span class="status-text">Sistema Online</span>
+        <span class="status-text">🎭 Sistema Agibilità Online</span>
     </div>
 
     <!-- Autosave Indicator -->
@@ -61,7 +52,7 @@
     <div class="agibilita-container">
         <!-- Header -->
         <div class="agibilita-header">
-            <h1 class="agibilita-title">Gestione Agibilità</h1>
+            <h1 class="agibilita-title">🎭 Gestione Agibilità</h1>
             <p class="agibilita-subtitle">Sistema completo per la gestione delle pratiche di agibilità RECORP</p>
         </div>
 
@@ -638,7 +629,7 @@
         </div>
     </div>
 
-    <!-- JavaScript Modules -->
+    <!-- JavaScript principale agibilità -->
     <script type="module" src="js/agibilita-main.js"></script>
     
     <!-- Fallback Script -->
@@ -650,23 +641,50 @@
                 loadingOverlay.innerHTML = `
                     <div style="text-align: center; color: #ff3b30;">
                         <i class="fas fa-exclamation-triangle" style="font-size: 3rem; margin-bottom: 1rem;"></i>
-                        <h3>Errore di Caricamento</h3>
-                        <p>Il sistema modulare non si è caricato correttamente.</p>
+                        <h3>🎭 Errore Sistema Agibilità</h3>
+                        <p>Il sistema modulare dedicato non si è caricato correttamente.</p>
+                        <p><strong>Possibili cause:</strong></p>
+                        <ul style="text-align: left; margin: 1rem 0;">
+                            <li>File configurazioni dedicate mancanti</li>
+                            <li>Errori nella struttura dei moduli</li>
+                            <li>Problemi di autenticazione</li>
+                        </ul>
                         <p>Controlla la console per dettagli (F12).</p>
                         <button onclick="location.reload()" style="padding: 12px 24px; background: #007aff; color: white; border: none; border-radius: 8px; cursor: pointer; margin-top: 1rem;">
-                            Ricarica Pagina
+                            🔄 Ricarica Sistema Agibilità
                         </button>
                     </div>
                 `;
             }
         }, 10000); // 10 secondi timeout
 
-        // Debug utilities globali
+        // Debug utilities globali agibilità
         window.agibilitaDebug = {
-            system: () => console.log('🎭 Agibilità Debug System Ready'),
-            state: () => window.agibilitaSystem?.stateManager?.getAll() || 'System not loaded',
-            modules: () => window.agibilitaSystem?.loadedModules || 'Modules not loaded'
+            system: () => {
+                console.log('🎭 Agibilità Debug System');
+                return window.agibilitaSystem?.debug() || 'Sistema non caricato';
+            },
+            state: () => {
+                console.log('🗄️ Agibilità State');
+                return window.stateManager?.getAll() || 'StateManager non caricato';
+            },
+            modules: () => {
+                console.log('🧩 Agibilità Modules');
+                return window.agibilitaSystem?.modules || new Map();
+            },
+            auth: () => {
+                console.log('🛡️ Agibilità Auth Status');
+                return window.AuthGuard?.debug() || 'AuthGuard non caricato';
+            },
+            database: () => {
+                console.log('🗄️ Agibilità Database Status'); 
+                return window.DatabaseService?.debug() || 'DatabaseService non caricato';
+            }
         };
+
+        // Quick shortcuts globali
+        window.reloadAgibilita = () => window.location.reload();
+        window.debugAgibilita = () => window.agibilitaDebug.system();
     </script>
 </body>
 </html>
