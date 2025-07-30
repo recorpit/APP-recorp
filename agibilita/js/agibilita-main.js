@@ -34,14 +34,14 @@ class AgibilitaSystem {
         try {
             console.log('🔧 Inizializzazione sistema agibilità in corso...');
             
-            // Phase 1: Core Systems
+            // Phase 1: Protezione autenticazione (PRIMA DI TUTTO)
+            await this.initializeAuthentication();
+            
+            // Phase 2: Core Systems
             await this.initializeCoreModules();
             
-            // Phase 2: UI Systems  
+            // Phase 3: UI Systems  
             await this.initializeUIModules();
-            
-            // Phase 3: Protezione autenticazione
-            await this.initializeAuthentication();
             
             // Phase 4: Post-initialization
             await this.finalizeInitialization();
@@ -167,15 +167,8 @@ class AgibilitaSystem {
             // Inizializza protezione pagina agibilità
             const session = await AuthGuard.initAgibilitaPageProtection();
             
-            // Salva sessione nel state manager
-            const stateManager = this.modules.get('stateManager');
-            if (stateManager && session) {
-                const user = await AuthGuard.getCurrentUser();
-                stateManager.update('userSession', user);
-                console.log('✅ Sessione utente salvata nel state manager');
-            }
-            
             console.log('✅ Protezione autenticazione attivata');
+            return session;
             
         } catch (error) {
             console.error('❌ Errore inizializzazione autenticazione:', error);
