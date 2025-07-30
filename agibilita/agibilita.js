@@ -1,4 +1,4 @@
-// agibilita.js - Sistema Gestione Agibilità RECORP con Richieste Esterne
+// agibilita.js - Sistema Gestione Agibilità RECORP con Richieste Esterne - CORRETTO
 
 // Import Supabase DatabaseService e AuthGuard
 import { DatabaseService } from '../supabase-config.js';
@@ -12,7 +12,6 @@ let agibilitaData = {
     numeroRiservato: null,
     reservationId: null,
     numeroProgressivo: null
-    // ✅ RIMOSSO: reservationExpires, warningTimer (timer eliminati)
 };
 
 // Database - caricati da Supabase
@@ -21,7 +20,7 @@ let agibilitaDB = [];
 let venuesDB = [];
 let invoiceDB = [];
 let bozzeDB = [];
-let richiesteDB = []; // ✅ NUOVO: Database richieste esterne
+let richiesteDB = [];
 
 // Variabili per tracciare conferme compensi
 let compensiConfermati = new Set();
@@ -32,7 +31,7 @@ let lockCheckTimer = null;
 let currentLock = null;
 let currentBozzaId = null;
 
-// ✅ NUOVO: Variabili per gestione richieste
+// Variabili per gestione richieste
 let currentRichiestaId = null;
 let currentContentTab = 'bozze';
 let appliedFilters = {
@@ -41,24 +40,33 @@ let appliedFilters = {
     search: ''
 };
 
-// User session da AuthGuard (MODIFICATO con nome per autore)
+// User session da AuthGuard
 let userSession = {
     id: null,
     email: null,
-    name: null, // ✅ AGGIUNTO: Nome per autore bozze
+    name: null,
     workstation: null,
     userId: null
 };
 
-// ==================== ESPORTA FUNZIONI GLOBALI - MODIFICATO ====================
+// ✅ NUOVO: Flag per prevenire doppi click
+let isProcessingAction = false;
+
+// ==================== ESPORTA FUNZIONI GLOBALI - CORRETTO ====================
 function exportGlobalFunctions() {
-    console.log('🔄 Esportazione funzioni globali (versione corretta)...');
+    console.log('🔄 Esportazione funzioni globali (versione corretta anti-doppio-click)...');
+    
+    // ✅ CORREZIONE: Controlla se già esportate per evitare sovrascritture
+    if (window._agibilitaFunctionsExported) {
+        console.log('⚠️ Funzioni già esportate, salto per evitare duplicazioni');
+        return false;
+    }
     
     // Funzioni esistenti
     window.startNewAgibilita = startNewAgibilita;
     window.showEditAgibilita = showEditAgibilita;
     window.showBozzeAgibilita = showBozzeAgibilita;
-    window.showBozzeRichieste = showBozzeRichieste; // ✅ AGGIUNTO
+    window.showBozzeRichieste = showBozzeRichieste;
     window.showAddArtistModal = showAddArtistModal;
     window.closeModal = closeModal;
     window.searchArtists = searchArtists;
@@ -91,11 +99,11 @@ function exportGlobalFunctions() {
     window.loadBozza = loadBozza;
     window.deleteBozza = deleteBozza;
     window.forceUnlock = forceUnlock;
-    window.showCalendarView = showCalendarView; // ✅ AGGIUNTO per compatibilità HTML
-    window.changeCalendarMonth = changeCalendarMonth; // ✅ AGGIUNTO
-    window.closeCalendarModal = closeCalendarModal; // ✅ AGGIUNTO
+    window.showCalendarView = showCalendarView;
+    window.changeCalendarMonth = changeCalendarMonth;
+    window.closeCalendarModal = closeCalendarModal;
     
-    // ✅ NUOVO: Funzioni per richieste esterne
+    // Funzioni per richieste esterne
     window.showContentTab = showContentTab;
     window.applyFilters = applyFilters;
     window.loadRichiesta = loadRichiesta;
@@ -119,68 +127,41 @@ function exportGlobalFunctions() {
         }
     };
     
-    // ✅ AGGIUNTO: Debug e protezione contro override
-    const exportedFunctions = Object.keys(window).filter(k => k.includes('Agibilita') || k.includes('Artist') || k.includes('Bozz'));
-    console.log('✅ Funzioni globali esportate:', exportedFunctions);
-    console.log('🎯 startNewAgibilita tipo:', typeof window.startNewAgibilita);
-    console.log('🎯 showEditAgibilita tipo:', typeof window.showEditAgibilita);
+    // ✅ CORREZIONE: Marca come esportate
+    window._agibilitaFunctionsExported = true;
     
-    // ✅ AGGIUNTO: Protezione contro override per funzioni critiche
-    if (typeof startNewAgibilita === 'function') {
-        Object.defineProperty(window, 'startNewAgibilita', {
-            value: startNewAgibilita,
-            writable: true, // Cambiato da false per permettere re-assignment se necessario
-            configurable: true
-        });
-    }
-    
-    if (typeof showEditAgibilita === 'function') {
-        Object.defineProperty(window, 'showEditAgibilita', {
-            value: showEditAgibilita,
-            writable: true,
-            configurable: true
-        });
-    }
-    
+    console.log('✅ Funzioni globali esportate una sola volta');
     return true;
 }
 
-// ✅ MODIFICATO: Esportazione immediata + multipla
+// ✅ CORREZIONE: Esportazione singola all'inizio
 exportGlobalFunctions();
 
 // ==================== INIZIALIZZAZIONE SEMPLIFICATA ====================
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('🚀 Inizializzazione sistema agibilità con richieste esterne...');
     
-    // ✅ MODIFICATO: Re-esportazione per sicurezza
-    setTimeout(() => {
-        exportGlobalFunctions();
-        console.log('🔄 Funzioni re-esportate dopo DOMContentLoaded');
-    }, 100);
-    
     try {
         // === OTTIENI USER SESSION DA AUTHGUARD ===
         const user = await AuthGuard.getCurrentUser();
         if (user) {
-            // Genera workstation ID univoco
             const workstationId = btoa(
                 navigator.userAgent + screen.width + screen.height
             ).substring(0, 8);
             
-            // Genera session ID basato su timestamp + user ID
             const sessionId = `sess_${Date.now()}_${user.id ? user.id.substring(0, 8) : 'unknown'}`;
             
             userSession = {
                 id: sessionId,
                 email: user.email,
-                name: user.user_metadata?.full_name || user.email.split('@')[0], // ✅ AGGIUNTO: Nome per autore
+                name: user.user_metadata?.full_name || user.email.split('@')[0],
                 workstation: workstationId,
                 userId: user.id || 'unknown'
             };
             
             console.log('✅ Sessione utente ottenuta da AuthGuard:', {
                 email: userSession.email,
-                name: userSession.name, // ✅ NUOVO
+                name: userSession.name,
                 workstation: userSession.workstation
             });
         } else {
@@ -230,37 +211,11 @@ document.addEventListener('DOMContentLoaded', async function() {
         
         console.log('✅ Sistema agibilità inizializzato con successo!');
         
-        // ✅ MODIFICATO: Esportazione finale con delay maggiore
-        setTimeout(() => {
-            exportGlobalFunctions();
-            console.log('🔄 Funzioni re-esportate dopo caricamento completo');
-            console.log('🎯 startNewAgibilita ora è:', typeof window.startNewAgibilita);
-        }, 1000); // Aumentato da 500ms a 1000ms
-        
     } catch (error) {
         console.error('❌ Errore inizializzazione sistema agibilità:', error);
         showToast('Errore di inizializzazione: ' + error.message, 'error');
     }
 });
-
-// ✅ AGGIUNTO: Esportazione di sicurezza dopo 3 secondi
-setTimeout(() => {
-    exportGlobalFunctions();
-    console.log('🔄 Esportazione di sicurezza dopo 3 secondi');
-    
-    // Test finale funzioni
-    if (typeof window.startNewAgibilita === 'function') {
-        console.log('✅ startNewAgibilita DISPONIBILE');
-    } else {
-        console.error('❌ startNewAgibilita NON DISPONIBILE dopo 3 secondi');
-    }
-    
-    if (typeof window.showEditAgibilita === 'function') {
-        console.log('✅ showEditAgibilita DISPONIBILE');
-    } else {
-        console.error('❌ showEditAgibilita NON DISPONIBILE dopo 3 secondi');
-    }
-}, 3000);
 
 // NUOVA FUNZIONE: Autocompila data fine con giorno successivo
 async function initializeInterface() {
@@ -270,8 +225,8 @@ async function initializeInterface() {
         // Carica province e località
         await loadProvinces();
         
-        // Setup event listeners
-        setupEventListeners();
+        // ✅ CORREZIONE: Setup event listeners una sola volta
+        setupEventListenersOnce();
         
         // Aggiorna dashboard stats
         updateDashboardStats();
@@ -344,7 +299,7 @@ async function initializeAgibilitaSystem() {
         bozzeDB = await DatabaseService.getBozze();
         console.log(`✅ ${bozzeDB.length} bozze caricate`);
         
-        // ✅ NUOVO: Carica richieste esterne
+        // Carica richieste esterne
         try {
             richiesteDB = await DatabaseService.getRichiesteEsterne();
             console.log(`✅ ${richiesteDB.length} richieste esterne caricate`);
@@ -353,7 +308,7 @@ async function initializeAgibilitaSystem() {
             richiesteDB = [];
         }
         
-        // ✅ NUOVO: Conta richieste attive
+        // Conta richieste attive
         const richiesteAttive = Array.isArray(richiesteDB) ? 
             richiesteDB.filter(r => r.stato !== 'archiviata').length : 0;
         
@@ -373,7 +328,6 @@ async function initializeAgibilitaSystem() {
             bozzeBadge.textContent = bozzeCount;
         }
         
-        // ✅ NUOVO: Badge richieste
         const richiesteBadge = document.getElementById('richieste-badge');
         if (richiesteBadge) {
             richiesteBadge.textContent = richiesteAttive;
@@ -435,7 +389,7 @@ function initializeKeyboardShortcuts() {
     });
 }
 
-// ==================== VALIDAZIONE COMPENSI (MODIFICATA) ====================
+// ==================== VALIDAZIONE COMPENSI ====================
 async function validateCompensations() {
     let hasIssues = false;
     let needsConfirmation = [];
@@ -497,7 +451,7 @@ async function validateCompensations() {
     return true;
 }
 
-// ==================== NAVIGAZIONE STEP (MODIFICATA) ====================
+// ==================== NAVIGAZIONE STEP ====================
 async function goToStep2() {
     if (selectedArtists.length === 0) {
         showToast('Seleziona almeno un artista', 'warning');
@@ -541,7 +495,7 @@ function goToStep3() {
     showSection('step3');
 }
 
-// ==================== GESTIONE ARTISTI (CORRETTA) ====================
+// ==================== GESTIONE ARTISTI ====================
 function showAddArtistModal() {
     console.log('Opening artist modal');
     const modal = document.getElementById('addArtistModal');
@@ -560,7 +514,6 @@ function closeModal() {
     }
 }
 
-// CORREZIONE 1: Funzione searchArtists migliorata per cercare nome E cognome insieme
 async function searchArtists() {
     const searchTerm = document.getElementById('artistSearch').value.toLowerCase().trim();
     
@@ -626,7 +579,6 @@ function displayArtistResults(results) {
     }
 }
 
-// CORREZIONE 2: Funzione addArtistToList con autocompilazione mansione corretta
 function addArtistToList(artistId) {
     console.log('Adding artist:', artistId);
     
@@ -654,7 +606,7 @@ function addArtistToList(artistId) {
 
     const tipoRapporto = determineTipoRapporto(artist);
     
-    // CORREZIONE: Mappa correttamente la mansione al ruolo
+    // Mappa correttamente la mansione al ruolo
     let ruoloPrecompilato = '';
     if (artist.mansione) {
         // Mappa diretta delle mansioni ai ruoli del dropdown
@@ -695,7 +647,7 @@ function addArtistToList(artistId) {
 
     selectedArtists.push({
         ...artist,
-        ruolo: ruoloPrecompilato, // Usa il ruolo mappato, non la mansione diretta
+        ruolo: ruoloPrecompilato,
         compenso: 0,
         matricolaEnpals: artist.matricola_enpals || generateMatricolaEnpals(),
         tipoRapporto: tipoRapporto
@@ -706,7 +658,7 @@ function addArtistToList(artistId) {
     showToast(`${artist.nome} ${artist.cognome} aggiunto`, 'success');
 }
 
-// ==================== GESTIONE DATE (MODIFICATA) ====================
+// ==================== GESTIONE DATE ====================
 function validateDates() {
     const startDate = document.getElementById('dataInizio').value;
     const endDate = document.getElementById('dataFine').value;
@@ -738,7 +690,7 @@ function validateDates() {
     }
 }
 
-// ==================== GESTIONE TAB (MODIFICATA - SENZA ANTEPRIMA) ====================
+// ==================== GESTIONE TAB ====================
 function showTab(tabName) {
     // Se è anteprima, salta direttamente a invio
     if (tabName === 'anteprima') {
@@ -765,7 +717,7 @@ function showTab(tabName) {
     }
 }
 
-// ==================== DOWNLOAD E SALVATAGGIO MODIFICATO (CON RICHIESTE) ====================
+// ==================== DOWNLOAD E SALVATAGGIO ====================
 async function downloadAndSave() {
     const xmlContent = generateXML();
     const validation = validateINPSXML(xmlContent);
@@ -781,7 +733,7 @@ async function downloadAndSave() {
     // Salva agibilità nel database CON CONFERMA NUMERO
     await saveAgibilitaToDatabase(xmlContent);
     
-    // NUOVO: Invia notifiche agli artisti (se abilitato)
+    // Invia notifiche agli artisti (se abilitato)
     try {
         await sendArtistNotifications();
     } catch (error) {
@@ -802,7 +754,7 @@ async function downloadAndSave() {
         }
     }
 
-    // ✅ NUOVO: Gestione richieste
+    // Gestione richieste
     if (currentRichiestaId) {
         // Se è una richiesta, aggiorna stato a completata e collega agibilità
         await updateRichiestaStatus(currentRichiestaId, 'completata');
@@ -820,15 +772,12 @@ async function downloadAndSave() {
     currentBozzaId = null;
     currentLock = null;
 
-    // ✅ RIMOSSO: Clear timer scadenza (non esiste più)
-
     document.getElementById('btnConfirm').style.display = 'none';
     document.getElementById('btnNewAgibilita').style.display = 'inline-block';
 
     showToast('✅ Agibilità creata con successo!', 'success', 5000);
 }
 
-// MODIFICA saveAgibilitaToDatabase per confermare il numero riservato
 async function saveAgibilitaToDatabase(xmlContent) {
     try {
         const cittaSelect = document.getElementById('citta');
@@ -898,7 +847,6 @@ async function saveAgibilitaToDatabase(xmlContent) {
     }
 }
 
-// NUOVA FUNZIONE: Invia notifiche agli artisti (opzionale)
 async function sendArtistNotifications() {
     console.log('📧 Notifiche disabilitate - saltate');
     // TODO: Implementa quando necessario con notificationService
@@ -908,7 +856,6 @@ function confirmAndProceed() {
     downloadAndSave();
 }
 
-// MODIFICA cancelAgibilita() per rilasciare il numero (SENZA TIMER)
 function cancelAgibilita(codice) {
     if (typeof codice === 'string') {
         // Cancellazione agibilità esistente
@@ -936,8 +883,6 @@ function cancelAgibilita(codice) {
                     });
             }
             
-            // ✅ RIMOSSO: Clear timer scadenza (non esiste più)
-            
             // Reset e torna al menu
             resetAgibilitaData();
             showSection('tipoSection');
@@ -952,7 +897,6 @@ function resetAgibilitaData() {
         numeroRiservato: null,
         reservationId: null,
         numeroProgressivo: null
-        // ✅ RIMOSSO: reservationExpires, warningTimer (timer eliminati)
     };
     
     selectedArtists = [];
@@ -967,12 +911,20 @@ function resetAgibilitaData() {
 
 // ==================== FUNZIONI PRINCIPALI - CORRETTE ====================
 
-// ✅ MODIFICATO: startNewAgibilita con gestione errori migliorata
+// ✅ CORREZIONE PRINCIPALE: startNewAgibilita con protezione doppio click
 async function startNewAgibilita() {
     console.log('🆕 [CORRETTO] startNewAgibilita chiamata');
     
+    // ✅ CORREZIONE: Previeni doppi click
+    if (isProcessingAction) {
+        console.log('⚠️ Azione già in corso, ignoro secondo click');
+        return;
+    }
+    
+    isProcessingAction = true;
+    
     try {
-        console.log('🆕 Avvio nuova agibilità con numerazione thread-safe (SENZA TIMER)');
+        console.log('🆕 Avvio nuova agibilità con numerazione thread-safe');
         
         // Mostra loader
         showToast('🔢 Riservazione numero agibilità...', 'info');
@@ -982,14 +934,14 @@ async function startNewAgibilita() {
             throw new Error('DatabaseService non disponibile');
         }
         
-        // === RISERVAZIONE THREAD-SAFE (SENZA TIMER) ===
+        // === RISERVAZIONE THREAD-SAFE ===
         const reservation = await DatabaseService.reserveAgibilitaNumberSafe();
         
         // Reset dati agibilità
         agibilitaData.isModifica = false;
         agibilitaData.codiceAgibilita = null;
         
-        // === DATI NUMERAZIONE RISERVATA (SENZA SCADENZA) ===
+        // === DATI NUMERAZIONE RISERVATA ===
         agibilitaData.numeroRiservato = reservation.codice;           
         agibilitaData.reservationId = reservation.reservation_id;     
         agibilitaData.numeroProgressivo = reservation.numero_progressivo; 
@@ -1002,7 +954,7 @@ async function startNewAgibilita() {
         // === FEEDBACK UTENTE ===
         showToast(`✅ Numero riservato: ${reservation.codice}`, 'success', 4000);
         
-        // === AUTOSALVATAGGIO (30 SECONDI) ===
+        // === AUTOSALVATAGGIO ===
         startAutosave();
         
         // === NAVIGAZIONE ===
@@ -1026,12 +978,25 @@ async function startNewAgibilita() {
         compensiConfermati.clear();
         clearAllForms();
         showSection('step1');
+    } finally {
+        // ✅ CORREZIONE: Rilascia il lock dopo un breve delay
+        setTimeout(() => {
+            isProcessingAction = false;
+            console.log('🔓 Lock startNewAgibilita rilasciato');
+        }, 1000);
     }
 }
 
-// ✅ MODIFICATO: showEditAgibilita con gestione errori
+// ✅ CORREZIONE: showEditAgibilita con protezione doppio click
 function showEditAgibilita() {
     console.log('📝 [CORRETTO] showEditAgibilita chiamata');
+    
+    if (isProcessingAction) {
+        console.log('⚠️ Azione già in corso, ignoro secondo click');
+        return;
+    }
+    
+    isProcessingAction = true;
     
     try {
         // Nascondi altre sezioni
@@ -1054,18 +1019,28 @@ function showEditAgibilita() {
     } catch (error) {
         console.error('❌ Errore in showEditAgibilita:', error);
         showToast('Errore nel caricamento delle agibilità esistenti', 'error');
+    } finally {
+        setTimeout(() => {
+            isProcessingAction = false;
+        }, 500);
     }
 }
 
-// ✅ MODIFICATO: Funzione legacy per compatibilità
 function showBozzeAgibilita() {
     console.log('📋 Reindirizzamento da showBozzeAgibilita a showBozzeRichieste');
     showBozzeRichieste();
 }
 
-// ✅ NUOVO: Mostra sezione bozze/richieste con tabs
+// ✅ CORREZIONE: showBozzeRichieste con protezione doppio click
 function showBozzeRichieste() {
     console.log('🎯 [CORRETTO] Showing bozze/richieste with tabs');
+    
+    if (isProcessingAction) {
+        console.log('⚠️ Azione già in corso, ignoro secondo click');
+        return;
+    }
+    
+    isProcessingAction = true;
     
     try {
         // Nascondi altre sezioni
@@ -1087,10 +1062,137 @@ function showBozzeRichieste() {
     } catch (error) {
         console.error('❌ Errore in showBozzeRichieste:', error);
         showToast('Errore nel caricamento delle bozze/richieste', 'error');
+    } finally {
+        setTimeout(() => {
+            isProcessingAction = false;
+        }, 500);
     }
 }
 
-// [RESTO DEL CODICE IDENTICO ALL'ORIGINALE...]
+// ==================== SETUP EVENT LISTENERS - CORRETTO ====================
+
+// ✅ CORREZIONE PRINCIPALE: Setup una sola volta senza duplicazioni
+function setupEventListenersOnce() {
+    console.log('🔧 Setup event listeners una sola volta...');
+    
+    // ✅ Flag per evitare setup multipli
+    if (window._eventListenersSetup) {
+        console.log('⚠️ Event listeners già configurati, salto setup');
+        return;
+    }
+    
+    // ✅ CORREZIONE: Event delegation per evitare duplicazioni
+    document.addEventListener('click', function(e) {
+        const typeCard = e.target.closest('.type-card[data-action]');
+        if (typeCard && !typeCard.hasAttribute('data-processing')) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Marca come in elaborazione
+            typeCard.setAttribute('data-processing', 'true');
+            
+            const action = typeCard.getAttribute('data-action');
+            console.log('🖱️ Click rilevato su type-card con action:', action);
+            
+            handleCardClick(action);
+            
+            // Rimuovi il flag dopo un delay
+            setTimeout(() => {
+                typeCard.removeAttribute('data-processing');
+            }, 1000);
+        }
+    });
+    
+    // Setup altri event listeners
+    setupOtherEventListeners();
+    
+    // ✅ Marca come configurato
+    window._eventListenersSetup = true;
+    console.log('✅ Event listeners configurati una sola volta');
+}
+
+// ✅ CORREZIONE: Gestione click con protezione
+function handleCardClick(action) {
+    console.log('🎯 Esecuzione action:', action);
+    
+    // Mostra indicatore di caricamento
+    showStatusIndicator('⏳ Caricamento in corso...', 'info');
+    
+    switch(action) {
+        case 'startNewAgibilita':
+            console.log('🆕 Tentativo chiamata startNewAgibilita...');
+            if (typeof window.startNewAgibilita === 'function') {
+                try {
+                    window.startNewAgibilita();
+                    showStatusIndicator('✅ Nuova agibilità avviata', 'success');
+                } catch (error) {
+                    console.error('❌ Errore in startNewAgibilita:', error);
+                    showStatusIndicator('❌ Errore: ' + error.message, 'error');
+                }
+            } else {
+                console.error('❌ startNewAgibilita non disponibile');
+                showStatusIndicator('⚠️ Funzione non caricata - Ricarica la pagina', 'error');
+            }
+            break;
+            
+        case 'showEditAgibilita':
+            console.log('📝 Tentativo chiamata showEditAgibilita...');
+            if (typeof window.showEditAgibilita === 'function') {
+                try {
+                    window.showEditAgibilita();
+                    showStatusIndicator('✅ Lista agibilità caricata', 'success');
+                } catch (error) {
+                    console.error('❌ Errore in showEditAgibilita:', error);
+                    showStatusIndicator('❌ Errore: ' + error.message, 'error');
+                }
+            } else {
+                console.error('❌ showEditAgibilita non disponibile');
+                showStatusIndicator('⚠️ Funzione non caricata - Ricarica la pagina', 'error');
+            }
+            break;
+            
+        case 'showBozzeRichieste':
+            console.log('📋 Tentativo chiamata showBozzeRichieste...');
+            if (typeof window.showBozzeRichieste === 'function') {
+                try {
+                    window.showBozzeRichieste();
+                    showStatusIndicator('✅ Bozze/Richieste caricate', 'success');
+                } catch (error) {
+                    console.error('❌ Errore in showBozzeRichieste:', error);
+                    showStatusIndicator('❌ Errore: ' + error.message, 'error');
+                }
+            } else {
+                console.error('❌ showBozzeRichieste non disponibile');
+                showStatusIndicator('⚠️ Funzione non caricata - Ricarica la pagina', 'error');
+            }
+            break;
+            
+        default:
+            console.warn('⚠️ Action non riconosciuta:', action);
+            showStatusIndicator('⚠️ Azione non riconosciuta', 'error');
+    }
+}
+
+function showStatusIndicator(message, type = 'info') {
+    // Rimuovi indicatori esistenti
+    const existing = document.querySelector('.status-indicator');
+    if (existing) existing.remove();
+    
+    const indicator = document.createElement('div');
+    indicator.className = `status-indicator status-${type}`;
+    indicator.innerHTML = message;
+    
+    document.body.appendChild(indicator);
+    
+    // Rimuovi automaticamente dopo 3 secondi (tranne errori)
+    if (type !== 'error') {
+        setTimeout(() => {
+            if (indicator && indicator.parentNode) {
+                indicator.remove();
+            }
+        }, 3000);
+    }
+}
 
 // ==================== ALTRE FUNZIONI NECESSARIE ====================
 function determineTipoRapporto(artist) {
@@ -1201,7 +1303,6 @@ function showIntermittentiSummary(artistiAChiamata) {
     }
 }
 
-// CORREZIONE 4: Aggiornamento della funzione updateArtistsList per gestire meglio il ruolo preselezionato
 function updateArtistsList() {
     const listDiv = document.getElementById('artistList');
     if (!listDiv) return;
@@ -1216,7 +1317,6 @@ function updateArtistsList() {
             const identificativo = artist.codice_fiscale || artist.codice_fiscale_temp || 'NO-ID';
             const nazionalitaLabel = artist.nazionalita !== 'IT' ? ` 🌍 ${artist.nazionalita}` : '';
             
-            // Il ruolo è già stato mappato correttamente in addArtistToList
             const ruoloSelezionato = artist.ruolo || '';
             
             return `
@@ -1340,7 +1440,7 @@ function goToRegistration() {
    window.location.href = '../registrazione-artista.html';
 }
 
-// ==================== GESTIONE LOCALITÀ (CORRETTA) ====================
+// ==================== GESTIONE LOCALITÀ ====================
 async function loadProvinces() {
     console.log('📍 Caricamento province...');
     
@@ -1570,7 +1670,6 @@ function showInvoiceDataSelector(invoiceDataList) {
        existingSelector.remove();
    }
    
-   // Ordina per data più recente e seleziona il primo
    invoiceDataList.sort((a, b) => {
        const dateA = new Date(a.last_updated || '1970-01-01');
        const dateB = new Date(b.last_updated || '1970-01-01');
@@ -1709,7 +1808,6 @@ async function loadInvoiceDataForVenue(venueName) {
        
        if (venueInvoices.length > 1) {
            showInvoiceDataSelector(venueInvoices);
-           // Ordina e seleziona il più recente
            venueInvoices.sort((a, b) => {
                const dateA = new Date(a.last_updated || '1970-01-01');
                const dateB = new Date(b.last_updated || '1970-01-01');
@@ -1741,7 +1839,6 @@ function loadSelectedInvoiceData() {
        const venueInvoices = invoiceDB.filter(invoice => 
            invoice.venue_name && invoice.venue_name.toLowerCase() === venueName.toLowerCase()
        );
-       // Ordina per data più recente
        venueInvoices.sort((a, b) => {
            const dateA = new Date(a.last_updated || '1970-01-01');
            const dateB = new Date(b.last_updated || '1970-01-01');
@@ -1796,12 +1893,10 @@ async function saveInvoiceData() {
 
    try {
        await DatabaseService.saveInvoiceData(invoiceData);
-       // Aggiungi sempre il nuovo record a invoiceDB
        invoiceDB.push(invoiceData);
        console.log('✅ Dati fatturazione salvati');
    } catch (error) {
        console.error('❌ Errore salvataggio dati fatturazione:', error);
-       // Non bloccare il flusso
        showToast('Attenzione: impossibile salvare i dati di fatturazione', 'warning');
    }
 }
@@ -2291,11 +2386,11 @@ function clearAllForms() {
    document.getElementById('cap').innerHTML = '<option value="">Prima seleziona la città</option>';
 }
 
-function setupEventListeners() {
+// ✅ CORREZIONE: Setup event listeners senza duplicazioni
+function setupOtherEventListeners() {
    const dataInizio = document.getElementById('dataInizio');
    if (dataInizio) {
        dataInizio.addEventListener('change', validateDates);
-       // MODIFICA: Aggiungi anche qui l'event listener per autocompletare data fine
        dataInizio.addEventListener('change', autocompletaDataFine);
    }
    
@@ -2342,6 +2437,7 @@ function setupEventListeners() {
        });
    }
 
+   // Event listeners per click e chiusura modali (SENZA duplicazione)
    window.addEventListener('click', function(event) {
        const modal = document.getElementById('addArtistModal');
        if (event.target === modal) {
@@ -2400,7 +2496,6 @@ function showSection(sectionId) {
 
 // ==================== FUNZIONI RICHIESTE ESTERNE ====================
 
-// ✅ NUOVO: Cambia tab attivo
 function showContentTab(tabName) {
     console.log('🔀 Switching to tab:', tabName);
     
@@ -2433,7 +2528,6 @@ function showContentTab(tabName) {
     loadTabData(tabName);
 }
 
-// ✅ NUOVO: Carica dati per il tab specifico
 function loadTabData(tabName) {
     console.log('📊 Loading data for tab:', tabName);
     
@@ -2452,7 +2546,6 @@ function loadTabData(tabName) {
     }
 }
 
-// ✅ NUOVO: Carica tutti i dati bozze/richieste
 function loadBozzeRichiesteData() {
     console.log('📋 Loading bozze/richieste data...');
     
@@ -2466,7 +2559,6 @@ function loadBozzeRichiesteData() {
     loadTabData(currentContentTab);
 }
 
-// ✅ NUOVO: Aggiorna conteggi nei tab
 function updateTabCounts() {
     const bozzeCount = bozzeDB.length;
     const richiesteAttive = richiesteDB.filter(r => r.stato !== 'archiviata').length;
@@ -2497,7 +2589,6 @@ function updateTabCounts() {
     }
 }
 
-// ✅ NUOVO: Aggiorna filtro autori
 function updateAuthorFilter() {
     const filterAuthor = document.getElementById('filterAuthor');
     if (!filterAuthor) return;
@@ -2527,7 +2618,6 @@ function updateAuthorFilter() {
     });
 }
 
-// ✅ NUOVO: Carica richieste attive
 function loadRichiesteAttive() {
     console.log('📨 Loading richieste attive...');
     
@@ -2608,7 +2698,6 @@ function loadRichiesteAttive() {
     richiesteList.innerHTML = richiesteHTML;
 }
 
-// ✅ NUOVO: Carica archivio richieste
 function loadArchivioRichieste() {
     console.log('📦 Loading archivio richieste...');
     
@@ -2683,7 +2772,6 @@ function loadArchivioRichieste() {
     archivioList.innerHTML = archivioHTML;
 }
 
-// ✅ NUOVO: Ottieni label stato
 function getStatusLabel(stato) {
     const statusMap = {
         'nuova': 'Nuova',
@@ -2694,7 +2782,6 @@ function getStatusLabel(stato) {
     return statusMap[stato] || 'Sconosciuto';
 }
 
-// ✅ NUOVO: Applica filtri
 function applyFilters() {
     console.log('🔍 Applying filters...');
     
@@ -2713,7 +2800,6 @@ function applyFilters() {
     loadTabData(currentContentTab);
 }
 
-// ✅ NUOVO: Carica richiesta per elaborazione
 async function loadRichiesta(richiestaId) {
     console.log('📝 Loading richiesta for processing:', richiestaId);
     
@@ -2751,7 +2837,6 @@ async function loadRichiesta(richiestaId) {
     }
 }
 
-// ✅ NUOVO: Aggiorna stato richiesta
 async function updateRichiestaStatus(richiestaId, nuovoStato) {
     console.log(`🔄 Updating richiesta ${richiestaId} status to:`, nuovoStato);
     
@@ -2778,14 +2863,12 @@ async function updateRichiestaStatus(richiestaId, nuovoStato) {
     }
 }
 
-// ✅ NUOVO: Archivia richiesta
 async function archiveRichiesta(richiestaId) {
     if (!confirm('Sei sicuro di voler archiviare questa richiesta?')) return;
     
     await updateRichiestaStatus(richiestaId, 'archiviata');
 }
 
-// ✅ NUOVO: Elimina richiesta
 async function deleteRichiesta(richiestaId) {
     if (!confirm('Sei sicuro di voler eliminare questa richiesta? Questa azione è irreversibile.')) return;
     
@@ -2809,7 +2892,6 @@ async function deleteRichiesta(richiestaId) {
     }
 }
 
-// ✅ NUOVO: Visualizza dettagli richiesta
 function viewRichiestaDetails(richiestaId) {
     const richiesta = richiesteDB.find(r => r.id === richiestaId);
     if (!richiesta) return;
@@ -2841,7 +2923,6 @@ function viewRichiestaDetails(richiestaId) {
     modal.style.display = 'block';
 }
 
-// ✅ NUOVO: Duplica richiesta come nuova
 function duplicateRichiestaAsNew(richiestaId) {
     const richiesta = richiesteDB.find(r => r.id === richiestaId);
     if (!richiesta) return;
@@ -2867,7 +2948,6 @@ function duplicateRichiestaAsNew(richiestaId) {
     }
 }
 
-// ✅ NUOVO: Ripristina dati da richiesta
 function restoreDataFromRichiesta(dataRichiesta) {
     console.log('🔄 Restoring data from richiesta...');
     
@@ -2903,7 +2983,6 @@ function restoreDataFromRichiesta(dataRichiesta) {
     }
 }
 
-// ✅ NUOVO: Crea richiesta da bozza
 async function createRichiestaFromBozza(bozzaId) {
     console.log('📨 Creating richiesta from bozza:', bozzaId);
     
@@ -2941,7 +3020,7 @@ async function createRichiestaFromBozza(bozzaId) {
     }
 }
 
-// ==================== GESTIONE BOZZE (AGGIORNATA CON AUTORE) ====================
+// ==================== GESTIONE BOZZE ====================
 async function showExistingBozze() {
     const listDiv = document.getElementById('bozzeList');
     if (!listDiv) return;
@@ -2973,7 +3052,6 @@ async function showExistingBozze() {
         const lockInfo = isLocked ? `🔒 In modifica da ${bozza.locked_by_name}` : '';
         const completamento = calculateCompletamento(bozza.data);
         
-        // ✅ MIGLIORATO: Informazioni autore più dettagliate
         const autore = bozza.locked_by_name || bozza.created_by_name || 'Utente sconosciuto';
         const dataCreazione = new Date(bozza.created_at).toLocaleString('it-IT');
         const dataModifica = new Date(bozza.updated_at).toLocaleString('it-IT');
@@ -3016,7 +3094,6 @@ async function showExistingBozze() {
     listDiv.innerHTML = bozzeHTML;
 }
 
-// Calcola percentuale completamento bozza
 function calculateCompletamento(bozzaData) {
     let campiTotali = 0;
     let campiCompilati = 0;
@@ -3055,7 +3132,6 @@ function calculateCompletamento(bozzaData) {
     return Math.round((campiCompilati / campiTotali) * 100);
 }
 
-// Carica bozza
 async function loadBozza(bozzaId) {
     try {
         // Verifica lock
@@ -3096,7 +3172,6 @@ async function loadBozza(bozzaId) {
     }
 }
 
-// Ripristina dati da bozza
 function restoreBozzaData(data) {
     // Ripristina agibilità data
     if (data.agibilitaData) {
@@ -3143,7 +3218,6 @@ function restoreBozzaData(data) {
     }
 }
 
-// Elimina bozza
 async function deleteBozza(bozzaId) {
     if (!confirm('Sei sicuro di voler eliminare questa bozza?')) return;
     
@@ -3164,7 +3238,6 @@ async function deleteBozza(bozzaId) {
     }
 }
 
-// Forza sblocco
 async function forceUnlock(bozzaId) {
     if (!confirm('Vuoi forzare lo sblocco di questa bozza?')) return;
     
@@ -3178,12 +3251,12 @@ async function forceUnlock(bozzaId) {
     }
 }
 
-// ==================== AUTOSALVATAGGIO MODIFICATO (30 SECONDI, SENZA TIMER) ====================
+// ==================== AUTOSALVATAGGIO ====================
 function startAutosave() {
     // Cancella timer esistente
     if (autosaveTimer) clearInterval(autosaveTimer);
     
-    // ✅ MODIFICATO: Salva ogni 30 secondi (era 60)
+    // Salva ogni 30 secondi
     autosaveTimer = setInterval(async () => {
         if (shouldAutosave()) {
             await performAutosave();
@@ -3195,17 +3268,14 @@ function shouldAutosave() {
     return currentBozzaId || agibilitaData.numeroRiservato;
 }
 
-// MODIFICA autosave per includere numero riservato (SENZA scadenza)
 async function performAutosave() {
     if (!shouldAutosave()) return;
     
     try {
         const bozzaData = {
             ...collectCurrentData(),
-            // === INCLUDI DATI NUMERAZIONE (SENZA SCADENZA) ===
             numeroRiservato: agibilitaData.numeroRiservato,
             reservationId: agibilitaData.reservationId
-            // ✅ RIMOSSO: reservationExpires (timer eliminati)
         };
         
         if (currentBozzaId) {
@@ -3218,7 +3288,7 @@ async function performAutosave() {
         }
         
         updateAutosaveIndicator('saved');
-        console.log('💾 Autosave completato (ogni 30 secondi, senza timer scadenza)');
+        console.log('💾 Autosave completato (ogni 30 secondi)');
         
     } catch (error) {
         console.error('❌ Errore autosave:', error);
@@ -3248,7 +3318,6 @@ function stopAutosave() {
     }
 }
 
-// Salva bozza manuale
 async function saveBozza(isAutosave = false) {
     try {
         const bozzaData = collectCurrentData();
@@ -3275,7 +3344,6 @@ async function saveBozza(isAutosave = false) {
     }
 }
 
-// Mostra indicatore autosave
 function showAutosaveIndicator() {
     const indicator = document.getElementById('autosave-indicator') || createAutosaveIndicator();
     indicator.classList.add('show');
@@ -3291,7 +3359,6 @@ function createAutosaveIndicator() {
     return indicator;
 }
 
-// Raccogli dati correnti
 function collectCurrentData() {
     const cittaSelect = document.getElementById('citta');
     const selectedOption = cittaSelect ? cittaSelect.options[cittaSelect.selectedIndex] : null;
@@ -3374,7 +3441,7 @@ function createProgressBar() {
     return bar;
 }
 
-// ==================== DASHBOARD STATS (AGGIORNATO CON RICHIESTE) ====================
+// ==================== DASHBOARD STATS ====================
 async function updateDashboardStats() {
     console.log('📊 Aggiornamento statistiche dashboard...');
     
@@ -3382,7 +3449,7 @@ async function updateDashboardStats() {
         // Conta bozze
         const bozzeCount = Array.isArray(bozzeDB) ? bozzeDB.filter(b => !b.locked_by).length : 0;
         
-        // ✅ NUOVO: Conta richieste attive
+        // Conta richieste attive
         const richiesteAttive = Array.isArray(richiesteDB) ? 
             richiesteDB.filter(r => r.stato !== 'archiviata').length : 0;
         
@@ -3400,7 +3467,6 @@ async function updateDashboardStats() {
             bozzeBadge.textContent = bozzeCount;
         }
         
-        // ✅ NUOVO: Badge richieste
         const richiesteBadge = document.getElementById('richieste-badge');
         if (richiesteBadge) {
             richiesteBadge.textContent = richiesteAttive;
@@ -3468,33 +3534,15 @@ function getToastIcon(type) {
     return icons[type] || icons.info;
 }
 
-console.log('🎭 Sistema agibilità v6.0 - Con richieste esterne e senza timer! 🚀');
+console.log('🎭 Sistema agibilità v6.1 - CORRETTO senza doppio click! 🚀');
 
-// ✅ DEBUG: Verifica funzioni esportate
+// ✅ DEBUG FINALE: Verifica funzioni esportate
 setTimeout(() => {
-    console.log('🔍 Funzioni startNewAgibilita disponibile:', typeof window.startNewAgibilita);
-    console.log('🔍 Funzioni showEditAgibilita disponibile:', typeof window.showEditAgibilita);
-    console.log('🔍 Funzioni showBozzeAgibilita disponibile:', typeof window.showBozzeAgibilita);
-    console.log('🔍 Funzioni showBozzeRichieste disponibile:', typeof window.showBozzeRichieste);
-    console.log('🔍 Funzioni showCalendarView disponibile:', typeof window.showCalendarView);
-    
-    // Lista tutte le funzioni window che iniziano con nomi specifici
-    const agibilitaFunctions = Object.keys(window).filter(key => 
-        key.includes('Agibilita') || key.includes('Artist') || key.includes('Bozz') || 
-        key.includes('Calendar') || key.includes('goTo') || key.includes('show')
-    );
-    console.log('🎯 Funzioni agibilità esportate:', agibilitaFunctions);
-}, 1000);
-
-// ✅ FALLBACK: Re-esporta funzioni se necessario
-setTimeout(() => {
-    if (typeof window.startNewAgibilita === 'undefined') {
-        console.warn('⚠️ Funzioni non esportate correttamente, forzo esportazione...');
-        exportGlobalFunctions();
-        
-        // Verifica di nuovo dopo il fallback
-        setTimeout(() => {
-            console.log('🔄 Dopo fallback - startNewAgibilita:', typeof window.startNewAgibilita);
-        }, 500);
-    }
+    console.log('🔍 DEBUG FINALE - Funzioni disponibili:');
+    console.log('🎯 startNewAgibilita:', typeof window.startNewAgibilita);
+    console.log('🎯 showEditAgibilita:', typeof window.showEditAgibilita);
+    console.log('🎯 showBozzeRichieste:', typeof window.showBozzeRichieste);
+    console.log('🎯 isProcessingAction flag:', isProcessingAction);
+    console.log('🎯 _agibilitaFunctionsExported:', window._agibilitaFunctionsExported);
+    console.log('🎯 _eventListenersSetup:', window._eventListenersSetup);
 }, 2000);
