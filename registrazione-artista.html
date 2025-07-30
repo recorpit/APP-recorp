@@ -14,6 +14,13 @@
                 <img src="./assets/logo.png" alt="RECORP Logo">
                 <span class="logo-text">RECORP ALL-IN-ONE</span>
             </a>
+            
+            <!-- 🆕 Indicatore sorgente agibilità -->
+            <div class="source-indicator" id="sourceIndicator" style="display: none;">
+                <span class="source-badge">
+                    <i class="fas fa-theater-masks"></i> Da Agibilità
+                </span>
+            </div>
         </div>
     </nav>
 
@@ -23,18 +30,50 @@
                 <div class="header text-center">
                     <h1 class="page-title" id="pageTitle">Gestione Artisti</h1>
                     <p class="page-subtitle" id="pageSubtitle">Scegli un'azione da eseguire</p>
+                    
+                    <!-- 🆕 Breadcrumb per agibilità -->
+                    <div class="agibilita-breadcrumb" id="agibilitaBreadcrumb" style="display: none;">
+                        <nav class="breadcrumb">
+                            <span class="breadcrumb-item">
+                                <i class="fas fa-theater-masks"></i> Sistema Agibilità
+                            </span>
+                            <span class="breadcrumb-separator">›</span>
+                            <span class="breadcrumb-item active">
+                                <i class="fas fa-user-plus"></i> Registrazione Completa Artista
+                            </span>
+                        </nav>
+                    </div>
                 </div>
                 
                 <div class="loading-indicator" id="loadingIndicator">
                     <span class="loading-icon spinning">⌛</span> Caricamento database località...
                 </div>
                 
+                <!-- 🆕 Alert di successo migliorato -->
                 <div class="alert alert-success" id="successMessage">
-                    Artista registrato con successo!
+                    <i class="fas fa-check-circle"></i>
+                    <span id="successText">Artista registrato con successo!</span>
+                    <div class="success-actions" id="successActions" style="display: none;">
+                        <button class="btn btn-sm btn-outline-success" id="addToAgibilitaBtn">
+                            <i class="fas fa-plus"></i> Aggiungi ad Agibilità
+                        </button>
+                        <button class="btn btn-sm btn-outline-primary" id="backToAgibilitaBtn">
+                            <i class="fas fa-arrow-left"></i> Torna ad Agibilità
+                        </button>
+                    </div>
                 </div>
                 
                 <div class="alert alert-error" id="errorMessage">
                     Errore durante la registrazione. Riprova.
+                </div>
+                
+                <!-- 🆕 Info prefill da agibilità -->
+                <div class="alert alert-info" id="prefillInfo" style="display: none;">
+                    <i class="fas fa-info-circle"></i>
+                    <strong>Dati precompilati:</strong> Alcuni campi sono stati compilati automaticamente dal sistema agibilità.
+                    <button class="btn btn-sm btn-outline-info" id="clearPrefillBtn">
+                        <i class="fas fa-eraser"></i> Cancella Precompilazione
+                    </button>
                 </div>
                 
                 <!-- Selezione modalità -->
@@ -427,6 +466,11 @@
                         </button>
                         <button type="button" class="btn btn-secondary btn-lg" id="cancelBtn">
                             <span class="btn-icon">❌</span> Annulla
+                        </button>
+                        
+                        <!-- 🆕 Pulsante ritorno agibilità -->
+                        <button type="button" class="btn btn-outline-info btn-lg" id="backToAgibilitaFormBtn" style="display: none;">
+                            <span class="btn-icon">🎭</span> Torna ad Agibilità senza Salvare
                         </button>
                     </div>
                 </form>
