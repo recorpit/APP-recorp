@@ -1,544 +1,523 @@
 // initialization.js - Inizializzazione Sistema Agibilità
-console.log('🏗️ Caricamento SystemInitializer...');
+// Import configurazioni dedicate
+import { DatabaseService } from '../../../config/supabase-config-agibilita.js';
+import { AuthGuard } from '../../../config/auth-guard-agibilita.js';
 
-import { DatabaseService } from '../../../supabase-config.js';
-import { AuthGuard } from '../../../auth-guard.js';
+console.log('🚀 Caricamento SystemInitializer...');
 
 export class SystemInitializer {
+    constructor(stateManager) {
+        this.stateManager = stateManager;
+        this.initialized = false;
+        
+        console.log('🚀 SystemInitializer creato');
+    }
     
     /**
-     * Inizializza il sistema agibilità
-     * @param {StateManager} stateManager - Gestore dello stato
-     * @returns {Promise<boolean>} True se inizializzato con successo
+     * Inizializzazione principale del sistema
      */
-    static async init(stateManager) {
-        console.log('🚀 Inizializzazione sistema agibilità...');
-        
+    async initialize() {
         try {
-            // 1. Setup user session
-            await this.setupUserSession(stateManager);
+            console.log('🔧 Inizializzazione SystemInitializer...');
             
-            // 2. Inizializza date default
-            this.setupDefaultDates(stateManager);
+            // Setup sessione utente
+            await this.setupUserSession();
             
-            // 3. Carica dati di base
-            await this.loadBaseData(stateManager);
+            // Carica database
+            await this.loadDatabases();
             
-            // 4. Setup province e località
-            await this.setupLocations(stateManager);
+            // Setup dati località
+            await this.setupLocationData();
             
-            // 5. Aggiorna statistiche dashboard
-            await this.updateDashboardStats(stateManager);
+            // Carica statistiche dashboard
+            await this.loadDashboardStats();
             
-            // 6. Setup listeners di sistema
-            this.setupSystemListeners(stateManager);
+            // Setup date default
+            this.setupDefaultDates();
             
-            // 7. Inizializza UI
-            this.initializeUI();
-            
-            // Marca come inizializzato
-            stateManager.update('isInitialized', true);
-            
-            console.log('✅ Sistema agibilità inizializzato con successo');
-            return true;
+            this.initialized = true;
+            console.log('✅ SystemInitializer inizializzato con successo');
             
         } catch (error) {
-            console.error('❌ Errore inizializzazione sistema:', error);
-            this.showInitializationError(error);
-            return false;
+            console.error('❌ Errore inizializzazione SystemInitializer:', error);
+            throw error;
         }
     }
     
     /**
-     * Setup sessione utente da AuthGuard
+     * Setup sessione utente dal sistema di autenticazione
      */
-    static async setupUserSession(stateManager) {
-        console.log('👤 Setup sessione utente...');
-        
+    async setupUserSession() {
         try {
-            const userSession = AuthGuard.getCurrentUser();
+            console.log('👤 Setup sessione utente agibilità...');
             
-            if (!userSession) {
-                throw new Error('Sessione utente non trovata');
+            // Ottieni utente corrente da AuthGuard dedicato
+            const currentUser = await AuthGuard.getCurrentUser();
+            if (!currentUser) {
+                throw new Error('Utente non autenticato per agibilità');
             }
             
-            stateManager.update('userSession', {
-                email: userSession.email || 'unknown@example.com',
-                userId: userSession.id || 'unknown',
-                sessionStart: new Date().toISOString(),
-                permissions: userSession.permissions || []
-            });
-            
-            // Aggiorna UI con email utente
-            const emailElement = document.getElementById('current-user-email');
-            if (emailElement) {
-                emailElement.textContent = userSession.email || 'Utente';
-            }
-            
-            console.log('✅ Sessione utente configurata:', userSession.email);
-            
-        } catch (error) {
-            console.warn('⚠️ Errore setup sessione utente:', error.message);
-            
-            // Fallback per development/testing
-            stateManager.update('userSession', {
-                email: 'dev@recorp.it',
-                userId: 'dev_user',
-                sessionStart: new Date().toISOString(),
-                permissions: ['read', 'write']
-            });
-            
-            const emailElement = document.getElementById('current-user-email');
-            if (emailElement) {
-                emailElement.textContent = 'dev@recorp.it';
-            }
-        }
-    }
-    
-    /**
-     * Inizializza le date di default (oggi e domani)
-     */
-    static setupDefaultDates(stateManager) {
-        console.log('📅 Setup date default...');
-        
-        const oggi = new Date();
-        const domani = new Date(oggi);
-        domani.setDate(oggi.getDate() + 1);
-        
-        const dataInizio = oggi.toISOString().split('T')[0];
-        const dataFine = domani.toISOString().split('T')[0];
-        
-        stateManager.update('agibilitaData.dataInizio', dataInizio);
-        stateManager.update('agibilitaData.dataFine', dataFine);
-        
-        // Aggiorna i campi nel DOM
-        const dataInizioElement = document.getElementById('dataInizio');
-        const dataFineElement = document.getElementById('dataFine');
-        
-        if (dataInizioElement) dataInizioElement.value = dataInizio;
-        if (dataFineElement) dataFineElement.value = dataFine;
-        
-        console.log('✅ Date default impostate:', { dataInizio, dataFine });
-    }
-    
-    /**
-     * Carica i dati di base del database
-     */
-    static async loadBaseData(stateManager) {
-        console.log('💾 Caricamento dati di base...');
-        
-        try {
-            // Carica artisti (cache)
-            const artists = await this.loadArtists();
-            stateManager.update('cache.artists', artists);
-            console.log(`✅ Caricati ${artists.length} artisti`);
-            
-            // Carica venues (cache)
-            const venues = await this.loadVenues();
-            stateManager.update('cache.venues', venues);
-            console.log(`✅ Caricate ${venues.length} venues`);
-            
-            // Carica dati fatturazione (cache)
-            const invoiceData = await this.loadInvoiceData();
-            stateManager.update('cache.invoiceData', invoiceData);
-            console.log(`✅ Caricati ${invoiceData.length} dati fatturazione`);
-            
-            // Aggiorna timestamp cache
-            stateManager.update('cache.lastUpdated', new Date().toISOString());
-            
-        } catch (error) {
-            console.warn('⚠️ Errore caricamento dati di base:', error.message);
-            // Continua anche se il caricamento fallisce
-        }
-    }
-    
-    /**
-     * Carica artisti dal database
-     */
-    static async loadArtists() {
-        try {
-            const { data, error } = await DatabaseService.supabase
-                .from('artisti')
-                .select('*')
-                .order('cognome', { ascending: true });
-            
-            if (error) throw error;
-            return data || [];
-            
-        } catch (error) {
-            console.error('❌ Errore caricamento artisti:', error);
-            return [];
-        }
-    }
-    
-    /**
-     * Carica venues dal database
-     */
-    static async loadVenues() {
-        try {
-            const { data, error } = await DatabaseService.supabase
-                .from('venues')
-                .select('*')
-                .order('nome', { ascending: true });
-            
-            if (error) throw error;
-            return data || [];
-            
-        } catch (error) {
-            console.error('❌ Errore caricamento venues:', error);
-            return [];
-        }
-    }
-    
-    /**
-     * Carica dati fatturazione dal database
-     */
-    static async loadInvoiceData() {
-        try {
-            const { data, error } = await DatabaseService.supabase
-                .from('invoice_data')
-                .select('*')
-                .order('last_updated', { ascending: false });
-            
-            if (error) throw error;
-            return data || [];
-            
-        } catch (error) {
-            console.error('❌ Errore caricamento dati fatturazione:', error);
-            return [];
-        }
-    }
-    
-    /**
-     * Setup del sistema località (province, comuni, CAP)
-     */
-    static async setupLocations(stateManager) {
-        console.log('📍 Setup sistema località...');
-        
-        try {
-            // Attendi che il database geografico sia caricato
-            await this.waitForGIDatabase();
-            
-            // Carica le province
-            const provinces = await this.loadProvinces();
-            stateManager.update('cache.provinces', provinces);
-            
-            // Popola il dropdown province
-            this.populateProvinceDropdown(provinces);
-            
-            console.log(`✅ Caricate ${provinces.length} province`);
-            
-        } catch (error) {
-            console.warn('⚠️ Errore setup località:', error.message);
-        }
-    }
-    
-    /**
-     * Attende che il database geografico sia disponibile
-     */
-    static async waitForGIDatabase(maxWait = 10000) {
-        return new Promise((resolve, reject) => {
-            const startTime = Date.now();
-            
-            const checkGIDatabase = () => {
-                if (window.GIDatabase) {
-                    resolve(window.GIDatabase);
-                } else if (Date.now() - startTime > maxWait) {
-                    reject(new Error('Timeout caricamento database geografico'));
-                } else {
-                    setTimeout(checkGIDatabase, 100);
-                }
+            const userSession = {
+                id: currentUser.id,
+                email: currentUser.email,
+                name: currentUser.name || currentUser.email.split('@')[0],
+                permissions: currentUser.permissions || {},
+                loginTime: new Date(),
+                module: 'agibilita'
             };
             
-            checkGIDatabase();
-        });
-    }
-    
-    /**
-     * Carica le province dal database geografico
-     */
-    static async loadProvinces() {
-        try {
-            if (!window.GIDatabase) {
-                throw new Error('Database geografico non disponibile');
+            // Salva nel state manager
+            if (this.stateManager) {
+                this.stateManager.update('userSession', userSession);
+                console.log('✅ Sessione utente agibilità configurata:', userSession.name);
             }
             
-            const provinces = window.GIDatabase.getProvince();
-            return provinces.sort((a, b) => a.sigla_automobilistica.localeCompare(b.sigla_automobilistica));
-            
+            return userSession;
         } catch (error) {
-            console.error('❌ Errore caricamento province:', error);
-            return [];
+            console.error('❌ Errore setup sessione utente agibilità:', error);
+            throw error;
         }
     }
     
     /**
-     * Popola il dropdown delle province
+     * Carica tutti i database necessari
      */
-    static populateProvinceDropdown(provinces) {
-        const provinciaSelect = document.getElementById('provinciaSelect');
-        if (!provinciaSelect) return;
-        
-        // Pulisci dropdown
-        provinciaSelect.innerHTML = '<option value="">Seleziona provincia...</option>';
-        
-        // Aggiungi province
-        provinces.forEach(provincia => {
-            const option = document.createElement('option');
-            option.value = provincia.codice;
-            option.textContent = `${provincia.sigla_automobilistica} - ${provincia.denominazione_ita}`;
-            option.dataset.provincia = JSON.stringify(provincia);
-            provinciaSelect.appendChild(option);
-        });
-    }
-    
-    /**
-     * Aggiorna le statistiche del dashboard
-     */
-    static async updateDashboardStats(stateManager) {
-        console.log('📊 Aggiornamento statistiche dashboard...');
-        
+    async loadDatabases() {
         try {
-            // Conta bozze non locked
-            const bozzeCount = await this.countBozze();
-            stateManager.update('stats.bozzeCount', bozzeCount);
+            console.log('🗄️ Caricamento database...');
             
-            // Conta richieste attive
-            const richiesteCount = await this.countRichieste();
-            stateManager.update('stats.richiesteCount', richiesteCount);
+            // Carica in parallelo per performance
+            const [artists, venues, invoiceData] = await Promise.all([
+                this.loadArtistsDatabase(),
+                this.loadVenuesDatabase(), 
+                this.loadInvoiceData()
+            ]);
             
-            // Conta agibilità del mese corrente
-            const agibilitaMese = await this.countAgibilitaMese();
-            stateManager.update('stats.agibilitaMese', agibilitaMese);
-            
-            // Aggiorna timestamp
-            stateManager.update('stats.lastStatsUpdate', new Date().toISOString());
-            
-            // Aggiorna l'UI
-            this.updateStatsUI(stateManager.get('stats'));
-            
-            console.log('✅ Statistiche aggiornate:', { bozzeCount, richiesteCount, agibilitaMese });
+            console.log('✅ Database caricati:', {
+                artists: artists.length,
+                venues: venues.length,
+                invoiceData: invoiceData.length
+            });
             
         } catch (error) {
-            console.warn('⚠️ Errore aggiornamento statistiche:', error.message);
-            
-            // Fallback con valori di default
-            stateManager.update('stats.bozzeCount', 0);
-            stateManager.update('stats.richiesteCount', 0);
-            stateManager.update('stats.agibilitaMese', 0);
-            
-            this.updateStatsUI({ bozzeCount: 0, richiesteCount: 0, agibilitaMese: 0 });
+            console.error('❌ Errore caricamento database:', error);
+            // Non bloccare l'inizializzazione per errori database
         }
     }
     
     /**
-     * Conta le bozze non locked
+     * Carica database degli artisti
      */
-    static async countBozze() {
+    async loadArtistsDatabase() {
         try {
-            const { count, error } = await DatabaseService.supabase
-                .from('agibilita_bozze')
-                .select('*', { count: 'exact', head: true })
-                .or('locked_by.is.null,locked_until.lt.' + new Date().toISOString());
+            console.log('🎭 Caricamento database artisti agibilità...');
             
-            if (error) throw error;
-            return count || 0;
+            // Usa DatabaseService dedicato agibilità
+            const artists = await DatabaseService.getArtistsForAgibilita();
             
+            if (this.stateManager) {
+                this.stateManager.update('artistsDatabase', artists);
+                console.log(`✅ Database artisti caricato: ${artists.length} artisti`);
+            }
+            
+            return artists;
         } catch (error) {
-            console.error('❌ Errore conteggio bozze:', error);
-            return 0;
+            console.error('❌ Errore caricamento artisti:', error);
+            
+            // Fallback con dati mock per sviluppo
+            const mockArtists = this.getMockArtists();
+            if (this.stateManager) {
+                this.stateManager.update('artistsDatabase', mockArtists);
+                console.log('⚠️ Uso dati artisti mock per sviluppo');
+            }
+            
+            return mockArtists;
         }
     }
     
     /**
-     * Conta le richieste non archiviate
+     * Carica database venues
      */
-    static async countRichieste() {
+    async loadVenuesDatabase() {
         try {
-            const { count, error } = await DatabaseService.supabase
-                .from('richieste_esterne')
-                .select('*', { count: 'exact', head: true })
-                .neq('status', 'archiviata');
+            console.log('🏛️ Caricamento database venues agibilità...');
             
-            if (error) throw error;
-            return count || 0;
+            // Usa DatabaseService dedicato agibilità
+            const venues = await DatabaseService.getVenuesForAgibilita();
             
+            if (this.stateManager) {
+                this.stateManager.update('venuesDatabase', venues);
+                console.log(`✅ Database venues caricato: ${venues.length} venues`);
+            }
+            
+            return venues;
         } catch (error) {
-            console.error('❌ Errore conteggio richieste:', error);
-            return 0;
+            console.error('❌ Errore caricamento venues:', error);
+            
+            // Fallback con dati mock
+            const mockVenues = this.getMockVenues();
+            if (this.stateManager) {
+                this.stateManager.update('venuesDatabase', mockVenues);
+                console.log('⚠️ Uso dati venues mock per sviluppo');
+            }
+            
+            return mockVenues;
         }
     }
     
     /**
-     * Conta le agibilità del mese corrente
+     * Carica dati fatturazione
      */
-    static async countAgibilitaMese() {
+    async loadInvoiceData() {
         try {
-            const oggi = new Date();
-            const inizioMese = new Date(oggi.getFullYear(), oggi.getMonth(), 1).toISOString();
-            const fineMese = new Date(oggi.getFullYear(), oggi.getMonth() + 1, 0).toISOString();
+            console.log('🧾 Caricamento dati fatturazione agibilità...');
             
-            const { count, error } = await DatabaseService.supabase
-                .from('agibilita')
-                .select('*', { count: 'exact', head: true })
-                .gte('created_at', inizioMese)
-                .lte('created_at', fineMese);
+            // Usa DatabaseService dedicato agibilità
+            const invoiceData = await DatabaseService.getInvoiceDataForAgibilita();
             
-            if (error) throw error;
-            return count || 0;
+            if (this.stateManager) {
+                this.stateManager.update('invoiceDatabase', invoiceData);
+                console.log(`✅ Dati fatturazione caricati: ${invoiceData.length} record`);
+            }
             
+            return invoiceData;
         } catch (error) {
-            console.error('❌ Errore conteggio agibilità mese:', error);
-            return 0;
+            console.error('❌ Errore caricamento dati fatturazione:', error);
+            
+            // Fallback con dati mock
+            const mockInvoiceData = this.getMockInvoiceData();
+            if (this.stateManager) {
+                this.stateManager.update('invoiceDatabase', mockInvoiceData);
+                console.log('⚠️ Uso dati fatturazione mock per sviluppo');
+            }
+            
+            return mockInvoiceData;
         }
     }
     
     /**
-     * Aggiorna l'UI delle statistiche
+     * Setup sistema dati località con GIDatabase
      */
-    static updateStatsUI(stats) {
-        const elements = {
-            bozzeCount: document.getElementById('bozzeCount'),
-            richiesteCount: document.getElementById('richiesteCount'),
-            agibilitaMese: document.getElementById('agibilitaMese'),
-            bozzeInLavorazione: document.getElementById('bozzeInLavorazione')
+    async setupLocationData() {
+        try {
+            console.log('📍 Setup sistema località...');
+            
+            // Per ora usa dati mock - in futuro integrato con GIDatabase
+            const locationSystem = {
+                provinces: this.getMockProvinces(),
+                cities: this.getMockCities(),
+                caps: this.getMockCAPs()
+            };
+            
+            if (this.stateManager) {
+                this.stateManager.update('locationSystem', locationSystem);
+                console.log('✅ Sistema località configurato');
+            }
+            
+        } catch (error) {
+            console.error('❌ Errore setup località:', error);
+        }
+    }
+    
+    /**
+     * Carica statistiche dashboard
+     */
+    async loadDashboardStats() {
+        try {
+            console.log('📊 Caricamento statistiche dashboard...');
+            
+            // Usa DatabaseService per statistiche reali
+            const stats = await DatabaseService.getStatisticheAgibilita();
+            
+            if (this.stateManager) {
+                this.stateManager.update('dashboardStats', stats);
+                console.log('✅ Statistiche dashboard caricate:', stats);
+            }
+            
+            return stats;
+        } catch (error) {
+            console.error('❌ Errore caricamento statistiche:', error);
+            
+            // Fallback con statistiche mock
+            const mockStats = this.getMockStats();
+            if (this.stateManager) {
+                this.stateManager.update('dashboardStats', mockStats);
+                console.log('⚠️ Uso statistiche mock per sviluppo');
+            }
+            
+            return mockStats;
+        }
+    }
+    
+    /**
+     * Setup date di default
+     */
+    setupDefaultDates() {
+        try {
+            console.log('📅 Setup date default...');
+            
+            const today = new Date();
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            
+            // Formato YYYY-MM-DD per input HTML
+            const defaultDates = {
+                today: today.toISOString().split('T')[0],
+                tomorrow: tomorrow.toISOString().split('T')[0],
+                currentMonth: today.toISOString().substring(0, 7), // YYYY-MM
+                currentYear: today.getFullYear()
+            };
+            
+            if (this.stateManager) {
+                this.stateManager.update('defaultDates', defaultDates);
+                console.log('✅ Date default configurate:', defaultDates);
+            }
+            
+        } catch (error) {
+            console.error('❌ Errore setup date:', error);
+        }
+    }
+    
+    // ==================== DATI MOCK ====================
+    
+    getMockArtists() {
+        return [
+            {
+                id: 'mock_1',
+                nome: 'Mario',
+                cognome: 'Rossi',
+                nome_arte: 'Mario Red',
+                codice_fiscale: 'RSSMRA80A01H501Z',
+                mansione: 'Cantante',
+                nazionalita: 'Italiana',
+                telefono: '+39 333 1234567',
+                email: 'mario.rossi@email.com',
+                has_partita_iva: false,
+                tipo_rapporto: 'occasionale',
+                attivo: true
+            },
+            {
+                id: 'mock_2',
+                nome: 'Anna',
+                cognome: 'Verdi',
+                nome_arte: 'Anna Green',
+                codice_fiscale: 'VRDNNA85B15F205Y',
+                mansione: 'Musicista',
+                nazionalita: 'Italiana',
+                telefono: '+39 333 2345678',
+                email: 'anna.verdi@email.com',
+                has_partita_iva: true,
+                partita_iva: '12345678901',
+                tipo_rapporto: 'collaborazione',
+                attivo: true
+            },
+            {
+                id: 'mock_3',
+                nome: 'Luca',
+                cognome: 'Bianchi',
+                nome_arte: 'Luke White',
+                codice_fiscale: 'BNCLCU90C20G478X',
+                mansione: 'Ballerino',
+                nazionalita: 'Italiana',
+                telefono: '+39 333 3456789',
+                email: 'luca.bianchi@email.com',
+                has_partita_iva: false,
+                tipo_rapporto: 'occasionale',
+                attivo: true
+            }
+        ];
+    }
+    
+    getMockVenues() {
+        return [
+            {
+                id: 'mock_venue_1',
+                nome: 'Teatro dell\'Opera di Roma',
+                indirizzo: 'Piazza Beniamino Gigli, 7',
+                citta: 'Roma',
+                cap: '00184',
+                provincia: 'RM',
+                telefono: '06 481601',
+                email: 'info@operaroma.it'
+            },
+            {
+                id: 'mock_venue_2',
+                nome: 'Auditorium Parco della Musica',
+                indirizzo: 'Viale Pietro de Coubertin, 30',
+                citta: 'Roma',
+                cap: '00196',
+                provincia: 'RM',
+                telefono: '06 80241281',
+                email: 'info@auditorium.com'
+            },
+            {
+                id: 'mock_venue_3',
+                nome: 'Teatro alla Scala',
+                indirizzo: 'Via Filodrammatici, 2',
+                citta: 'Milano',
+                cap: '20121',
+                provincia: 'MI',
+                telefono: '02 88791',
+                email: 'info@teatroallascala.org'
+            }
+        ];
+    }
+    
+    getMockInvoiceData() {
+        return [
+            {
+                id: 'mock_invoice_1',
+                ragione_sociale: 'OKL SRL - RECORP',
+                codice_fiscale: '04433920248',
+                partita_iva: '04433920248',
+                indirizzo: 'Via Roma, 123',
+                citta: 'Milano',
+                cap: '20121',
+                provincia: 'MI',
+                telefono: '02 12345678',
+                email: 'amministrazione@recorp.it',
+                is_default: true,
+                last_updated: new Date().toISOString()
+            },
+            {
+                id: 'mock_invoice_2',
+                ragione_sociale: 'RECORP EVENTI SRL',
+                codice_fiscale: '12345678901',
+                partita_iva: '12345678901',
+                indirizzo: 'Via Milano, 456',
+                citta: 'Roma',
+                cap: '00100',
+                provincia: 'RM',
+                telefono: '06 87654321',
+                email: 'eventi@recorp.it',
+                is_default: false,
+                last_updated: new Date().toISOString()
+            }
+        ];
+    }
+    
+    getMockProvinces() {
+        return [
+            { code: 'RM', name: 'Roma' },
+            { code: 'MI', name: 'Milano' },
+            { code: 'NA', name: 'Napoli' },
+            { code: 'TO', name: 'Torino' },
+            { code: 'PA', name: 'Palermo' },
+            { code: 'GE', name: 'Genova' },
+            { code: 'BO', name: 'Bologna' },
+            { code: 'FI', name: 'Firenze' },
+            { code: 'BA', name: 'Bari' },
+            { code: 'CT', name: 'Catania' }
+        ];
+    }
+    
+    getMockCities() {
+        return {
+            'RM': [
+                { name: 'Roma', cap: ['00100', '00118', '00119', '00120', '00121'] },
+                { name: 'Tivoli', cap: ['00019'] },
+                { name: 'Frascati', cap: ['00044'] }
+            ],
+            'MI': [
+                { name: 'Milano', cap: ['20100', '20121', '20122', '20123', '20124'] },
+                { name: 'Monza', cap: ['20900'] },
+                { name: 'Bergamo', cap: ['24100'] }
+            ],
+            'NA': [
+                { name: 'Napoli', cap: ['80100', '80121', '80122', '80123'] },
+                { name: 'Caserta', cap: ['81100'] },
+                { name: 'Salerno', cap: ['84100'] }
+            ]
         };
-        
-        if (elements.bozzeCount) {
-            elements.bozzeCount.textContent = stats.bozzeCount || 0;
-        }
-        
-        if (elements.richiesteCount) {
-            elements.richiesteCount.textContent = stats.richiesteCount || 0;
-        }
-        
-        if (elements.agibilitaMese) {
-            elements.agibilitaMese.textContent = stats.agibilitaMese || 0;
-        }
-        
-        if (elements.bozzeInLavorazione) {
-            // Per ora mostra 0, sarà aggiornato dal sistema bozze
-            elements.bozzeInLavorazione.textContent = '0';
-        }
+    }
+    
+    getMockCAPs() {
+        return {
+            'Roma': ['00100', '00118', '00119', '00120', '00121', '00184', '00196'],
+            'Milano': ['20100', '20121', '20122', '20123', '20124'],
+            'Napoli': ['80100', '80121', '80122', '80123'],
+            'Torino': ['10100', '10121', '10122'],
+            'Palermo': ['90100', '90121', '90122'],
+            'Genova': ['16100', '16121', '16122'],
+            'Bologna': ['40100', '40121', '40122'],
+            'Firenze': ['50100', '50121', '50122'],
+            'Bari': ['70100', '70121', '70122'],
+            'Catania': ['95100', '95121', '95122']
+        };
+    }
+    
+    getMockStats() {
+        return {
+            agibilita_totali: 156,
+            agibilita_anno: 45,
+            bozze_attive: 8,
+            cache_size: 0,
+            ultimo_aggiornamento: new Date().toISOString(),
+            module: 'agibilita',
+            warning: 'Dati mock per sviluppo'
+        };
+    }
+    
+    // ==================== UTILITY METHODS ====================
+    
+    /**
+     * Verifica se il sistema è inizializzato
+     */
+    isInitialized() {
+        return this.initialized;
     }
     
     /**
-     * Setup listeners di sistema
+     * Ricarica tutti i database
      */
-    static setupSystemListeners(stateManager) {
-        console.log('🎧 Setup listeners di sistema...');
-        
-        // Listener per cambiamenti degli artisti selezionati
-        stateManager.addListener('selectedArtists', (artists) => {
-            const countElement = document.getElementById('selectedCount');
-            if (countElement) {
-                countElement.textContent = artists.length;
-            }
-        });
-        
-        // Listener per cambiamenti del step corrente
-        stateManager.addListener('currentStep', (step) => {
-            console.log(`📍 Step cambiato: ${step}`);
-        });
-        
-        // Listener per debug mode
-        stateManager.addListener('ui.debugMode', (debugMode) => {
-            const debugIndicator = document.getElementById('debugIndicator');
-            if (debugIndicator) {
-                debugIndicator.classList.toggle('show', debugMode);
-            }
-        });
-        
-        console.log('✅ Listeners di sistema configurati');
+    async reloadDatabases() {
+        console.log('🔄 Ricarica database...');
+        await this.loadDatabases();
+        console.log('✅ Database ricaricati');
     }
     
     /**
-     * Inizializza l'UI di base
+     * Aggiorna statistiche dashboard
      */
-    static initializeUI() {
-        console.log('🖥️ Inizializzazione UI...');
-        
-        // Nascondi loading overlay
-        const loadingOverlay = document.getElementById('loadingOverlay');
-        if (loadingOverlay) {
-            loadingOverlay.style.display = 'none';
-        }
-        
-        // Mostra system status come online
-        const systemStatus = document.getElementById('systemStatus');
-        if (systemStatus) {
-            systemStatus.style.display = 'flex';
-            const statusText = systemStatus.querySelector('.status-text');
-            if (statusText) {
-                statusText.textContent = 'Sistema Online';
-            }
-        }
-        
-        // Abilita debug mode in development
-        if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
-            const debugIndicator = document.getElementById('debugIndicator');
-            if (debugIndicator) {
-                debugIndicator.classList.add('show');
-            }
-        }
-        
-        console.log('✅ UI inizializzata');
+    async refreshStats() {
+        console.log('📊 Aggiornamento statistiche...');
+        await this.loadDashboardStats();
+        console.log('✅ Statistiche aggiornate');
     }
     
     /**
-     * Mostra errore di inizializzazione
+     * Debug system initializer
      */
-    static showInitializationError(error) {
-        console.error('💥 Errore critico inizializzazione:', error);
+    debug() {
+        const state = this.stateManager ? this.stateManager.getAll() : {};
         
-        const loadingOverlay = document.getElementById('loadingOverlay');
-        if (loadingOverlay) {
-            loadingOverlay.innerHTML = `
-                <div style="text-align: center; color: #ff3b30;">
-                    <i class="fas fa-exclamation-triangle" style="font-size: 3rem; margin-bottom: 1rem;"></i>
-                    <h3>Errore di Inizializzazione</h3>
-                    <p>${error.message}</p>
-                    <p style="font-size: 0.9em; margin-top: 1rem;">
-                        Controlla la console per dettagli (F12)
-                    </p>
-                    <button onclick="location.reload()" 
-                            style="padding: 12px 24px; background: #007aff; color: white; 
-                                   border: none; border-radius: 8px; cursor: pointer; margin-top: 1rem;">
-                        Ricarica Pagina
-                    </button>
-                </div>
-            `;
-            loadingOverlay.style.display = 'flex';
-        }
+        return {
+            initialized: this.initialized,
+            stateManager: !!this.stateManager,
+            databases: {
+                artists: state.artistsDatabase?.length || 0,
+                venues: state.venuesDatabase?.length || 0,
+                invoiceData: state.invoiceDatabase?.length || 0
+            },
+            userSession: state.userSession || null,
+            dashboardStats: state.dashboardStats || null,
+            locationSystem: !!state.locationSystem,
+            defaultDates: state.defaultDates || null
+        };
     }
     
     /**
-     * Cleanup risorse del sistema
+     * Cleanup system initializer
      */
-    static cleanup(stateManager) {
-        console.log('🧹 Cleanup sistema...');
+    cleanup() {
+        // Reset initialization flag
+        this.initialized = false;
         
-        // Ferma timer attivi
-        const agibilitaData = stateManager.get('agibilitaData');
-        if (agibilitaData && agibilitaData.warningTimer) {
-            clearTimeout(agibilitaData.warningTimer);
-        }
-        
-        const drafts = stateManager.get('drafts');
-        if (drafts) {
-            if (drafts.autosaveTimer) {
-                clearInterval(drafts.autosaveTimer);
-            }
-            if (drafts.lockTimer) {
-                clearInterval(drafts.lockTimer);
-            }
-        }
-        
-        console.log('✅ Cleanup completato');
+        console.log('🧹 SystemInitializer cleanup completato');
     }
 }
 
-// Esporta classe principale
+// Esporta classe
 export default SystemInitializer;
 
 console.log('✅ SystemInitializer module loaded');

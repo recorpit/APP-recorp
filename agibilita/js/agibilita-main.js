@@ -1,504 +1,488 @@
-// agibilita-main.js - Entry Point Sistema Agibilità RECORP
-console.log('🚀 Inizializzazione sistema agibilità...');
+// agibilita-main.js - Entry Point Sistema Agibilità
+// Import configurazioni dedicate agibilità
+import { DatabaseService } from './config/supabase-config-agibilita.js';
+import { AuthGuard } from './config/auth-guard-agibilita.js';
 
 // Import moduli core
-import DebugSystem from './utils/debug-system.js';
-import StateManager from './modules/core/state-management.js';
-import SystemInitializer from './modules/core/initialization.js';
-import EventManager from './modules/core/event-handlers.js';
+import { DebugSystem } from './utils/debug-system.js';
+import { StateManager } from './modules/core/state-management.js';
+import { SystemInitializer } from './modules/core/initialization.js';
+import { EventManager } from './modules/core/event-handlers.js';
+import { ToastSystem } from './modules/ui/toast-system.js';
+import { NavigationManager } from './modules/ui/navigation.js';
+import { ProgressBarManager } from './modules/ui/progress-bar.js';
+import { ModalManager } from './modules/ui/modals.js';
 
-// Import moduli UI base
-import ToastSystem from './modules/ui/toast-system.js';
-import NavigationManager from './modules/ui/navigation.js';
+console.log('🚀 Inizializzazione sistema agibilità...');
 
 /**
- * Classe principale del sistema Agibilità
+ * Sistema Agibilità - Coordinatore Principale
  */
 class AgibilitaSystem {
     constructor() {
-        console.log('🏗️ Costruzione AgibilitaSystem...');
+        this.modules = new Map();
+        this.initialized = false;
+        this.startTime = Date.now();
         
-        // Core components
-        this.stateManager = null;
-        this.eventManager = null;
-        this.debugSystem = DebugSystem;
-        
-        // UI Managers
-        this.uiManager = {
-            toast: null,
-            navigation: null,
-            modal: null,
-            progressBar: null
-        };
-        
-        // Moduli sistema
-        this.modules = {
-            // Artists
-            artistSearch: null,
-            artistList: null,
-            artistValidation: null,
-            
-            // Locations
-            locationLoader: null,
-            venueSearch: null,
-            invoiceData: null,
-            
-            // XML
-            xmlGenerator: null,
-            xmlIntermittenti: null,
-            xmlValidation: null,
-            
-            // Drafts
-            draftManager: null,
-            autoSave: null,
-            lockSystem: null,
-            
-            // Requests
-            requestManager: null,
-            requestTabs: null,
-            requestFilters: null,
-            
-            // Utils
-            databaseHelper: null,
-            formUtils: null,
-            validationUtils: null
-        };
-        
-        // Status
-        this.isInitialized = false;
-        this.loadedModules = [];
-        this.initializationStartTime = Date.now();
-        
-        console.log('✅ AgibilitaSystem costruito');
+        console.log('🎭 AgibilitaSystem creato');
     }
     
     /**
-     * Inizializza il sistema completo
+     * Inizializzazione principale del sistema
      */
     async initialize() {
         try {
-            console.log('⚙️ Inizializzazione sistema...');
+            console.log('🔧 Inizializzazione sistema agibilità in corso...');
             
-            // 1. Abilita debug in development
-            this.setupDebug();
+            // Phase 1: Core Systems
+            await this.initializeCoreModules();
             
-            // 2. Inizializza StateManager
-            this.stateManager = new StateManager();
-            DebugSystem.log(DebugSystem.zones.CORE, 'StateManager inizializzato');
+            // Phase 2: UI Systems  
+            await this.initializeUIModules();
             
-            // 3. Inizializza UI Manager base
-            await this.initializeBaseUI();
+            // Phase 3: Protezione autenticazione
+            await this.initializeAuthentication();
             
-            // 4. Inizializza EventManager
-            this.eventManager = new EventManager(this.stateManager, this.uiManager);
-            this.eventManager.setupGlobalListeners();
-            DebugSystem.log(DebugSystem.zones.EVENTS, 'EventManager inizializzato');
+            // Phase 4: Post-initialization
+            await this.finalizeInitialization();
             
-            // 5. Inizializza il sistema via SystemInitializer
-            const initSuccess = await SystemInitializer.init(this.stateManager);
-            if (!initSuccess) {
-                throw new Error('Errore inizializzazione SystemInitializer');
-            }
-            
-            // 6. Carica moduli lazy (non bloccanti)
-            this.loadModulesLazy();
-            
-            // 7. Espone sistema globalmente per debug
-            this.exposeGlobally();
-            
-            // 8. Marca come inizializzato
-            this.isInitialized = true;
-            const initTime = Date.now() - this.initializationStartTime;
+            this.initialized = true;
+            const initTime = Date.now() - this.startTime;
             
             console.log(`✅ Sistema agibilità inizializzato con successo in ${initTime}ms`);
-            DebugSystem.log(DebugSystem.zones.CORE, `Sistema inizializzato in ${initTime}ms`);
             
-            // Mostra toast di benvenuto
-            this.uiManager.toast.show('Sistema agibilità caricato con successo', 'success', 2000);
+            // Nascondi loading overlay
+            this.hideLoadingOverlay();
+            
+            // Mostra messaggio di benvenuto
+            this.showWelcomeMessage();
             
             return true;
             
         } catch (error) {
-            console.error('💥 Errore critico inizializzazione:', error);
+            console.error('❌ Errore inizializzazione sistema agibilità:', error);
             this.handleInitializationError(error);
-            return false;
+            throw error;
         }
     }
     
     /**
-     * Setup del sistema di debug
+     * Inizializza moduli core
      */
-    setupDebug() {
-        // Abilita debug in development
-        if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
-            DebugSystem.enableAll();
-            this.stateManager?.update('ui.debugMode', true);
-        } else {
-            // Production: abilita solo core e errori
-            DebugSystem.enable(DebugSystem.zones.CORE);
+    async initializeCoreModules() {
+        console.log('🏗️ Inizializzazione moduli core...');
+        
+        // Debug System
+        console.log('🔧 Caricamento DebugSystem...');
+        if (!window.DebugSystem) {
+            window.DebugSystem = DebugSystem;
+            DebugSystem.initialize();
+            console.log('✅ DebugSystem inizializzato');
         }
         
-        DebugSystem.log(DebugSystem.zones.CORE, 'Sistema debug configurato');
+        // State Manager
+        console.log('🗄️ Caricamento StateManager...');
+        const stateManager = new StateManager();
+        await stateManager.initialize();
+        this.modules.set('stateManager', stateManager);
+        window.stateManager = stateManager; // Per debug
+        console.log('✅ StateManager inizializzato');
+        
+        // System Initializer
+        console.log('🚀 Caricamento SystemInitializer...');
+        const systemInitializer = new SystemInitializer(stateManager);
+        await systemInitializer.initialize();
+        this.modules.set('systemInitializer', systemInitializer);
+        console.log('✅ SystemInitializer pronto');
+        
+        // Event Manager
+        console.log('🎧 Caricamento EventManager...');
+        const eventManager = new EventManager(stateManager);
+        await eventManager.initialize();
+        this.modules.set('eventManager', eventManager);
+        window.eventManager = eventManager; // Per debug
+        console.log('✅ EventManager inizializzato');
     }
     
     /**
-     * Inizializza i componenti UI di base
+     * Inizializza moduli UI
      */
-    async initializeBaseUI() {
+    async initializeUIModules() {
+        console.log('🎨 Inizializzazione moduli UI...');
+        
+        const stateManager = this.modules.get('stateManager');
+        
+        // Toast System
+        console.log('🔔 Caricamento ToastSystem...');
+        const toastSystem = new ToastSystem();
+        await toastSystem.initialize();
+        this.modules.set('toastSystem', toastSystem);
+        window.toastSystem = toastSystem; // Per uso globale
+        console.log('✅ ToastSystem pronto');
+        
+        // Navigation Manager
+        console.log('🧭 Caricamento NavigationManager...');
+        const navigationManager = new NavigationManager(stateManager);
+        await navigationManager.initialize();
+        this.modules.set('navigationManager', navigationManager);
+        window.navigationManager = navigationManager; // Per uso globale
+        console.log('✅ NavigationManager pronto');
+        
+        // Progress Bar Manager
+        console.log('📊 Caricamento ProgressBarManager...');
+        const progressBarManager = new ProgressBarManager(stateManager);
+        await progressBarManager.initialize();
+        this.modules.set('progressBarManager', progressBarManager);
+        window.progressBarManager = progressBarManager; // Per uso globale
+        console.log('✅ ProgressBarManager pronto');
+        
+        // Modal Manager
+        console.log('🔔 Caricamento ModalManager...');
+        const modalManager = new ModalManager();
+        await modalManager.initialize();
+        this.modules.set('modalManager', modalManager);
+        window.modalManager = modalManager; // Per uso globale
+        console.log('✅ ModalManager pronto');
+    }
+    
+    /**
+     * Inizializza protezione autenticazione
+     */
+    async initializeAuthentication() {
         try {
-            // Toast System (priorità alta)
-            this.uiManager.toast = new ToastSystem();
-            this.uiManager.toast.initialize();
-            this.loadedModules.push('ToastSystem');
-            DebugSystem.log(DebugSystem.zones.UI, 'ToastSystem inizializzato');
+            console.log('🛡️ Inizializzazione protezione autenticazione...');
             
-            // Navigation Manager (priorità alta)
-            this.uiManager.navigation = new NavigationManager(this.stateManager);
-            this.uiManager.navigation.initialize();
-            this.loadedModules.push('NavigationManager');
-            DebugSystem.log(DebugSystem.zones.UI, 'NavigationManager inizializzato');
+            // Inizializza protezione pagina agibilità
+            const session = await AuthGuard.initAgibilitaPageProtection();
+            
+            // Salva sessione nel state manager
+            const stateManager = this.modules.get('stateManager');
+            if (stateManager && session) {
+                const user = await AuthGuard.getCurrentUser();
+                stateManager.update('userSession', user);
+                console.log('✅ Sessione utente salvata nel state manager');
+            }
+            
+            console.log('✅ Protezione autenticazione attivata');
             
         } catch (error) {
-            console.error('❌ Errore inizializzazione UI base:', error);
-            throw new Error(`Errore UI base: ${error.message}`);
+            console.error('❌ Errore inizializzazione autenticazione:', error);
+            // L'errore viene gestito da AuthGuard che fa il redirect
+            throw error;
         }
     }
     
     /**
-     * Carica moduli in modo lazy (non bloccante)
+     * Finalizza inizializzazione
      */
-    loadModulesLazy() {
-        // Carica moduli con priorità differite
-        setTimeout(() => this.loadArtistModules(), 100);
-        setTimeout(() => this.loadLocationModules(), 200);
-        setTimeout(() => this.loadUIModules(), 300);
-        setTimeout(() => this.loadUtilModules(), 400);
-        setTimeout(() => this.loadAdvancedModules(), 500);
-    }
-    
-    /**
-     * Carica moduli artists
-     */
-    async loadArtistModules() {
-        try {
-            DebugSystem.log(DebugSystem.zones.ARTISTS, 'Caricamento moduli artisti...');
-            
-            // Carica in sequenza per gestire dipendenze
-            const { default: ArtistSearch } = await import('./modules/artists/artist-search.js');
-            this.modules.artistSearch = new ArtistSearch(this.stateManager);
-            
-            const { default: ArtistList } = await import('./modules/artists/artist-list.js');
-            this.modules.artistList = new ArtistList(this.stateManager);
-            
-            const { default: ArtistValidation } = await import('./modules/artists/artist-validation.js');
-            this.modules.artistValidation = new ArtistValidation(this.stateManager);
-            
-            this.loadedModules.push('ArtistModules');
-            DebugSystem.log(DebugSystem.zones.ARTISTS, 'Moduli artisti caricati');
-            
-        } catch (error) {
-            DebugSystem.error(DebugSystem.zones.ARTISTS, 'Errore caricamento moduli artisti', error);
+    async finalizeInitialization() {
+        console.log('🎯 Finalizzazione inizializzazione...');
+        
+        // Setup auto-update per navigation controls
+        const navigationManager = this.modules.get('navigationManager');
+        if (navigationManager && navigationManager.setupAutoUpdate) {
+            navigationManager.setupAutoUpdate();
         }
-    }
-    
-    /**
-     * Carica moduli location
-     */
-    async loadLocationModules() {
-        try {
-            DebugSystem.log(DebugSystem.zones.LOCATIONS, 'Caricamento moduli località...');
-            
-            const { default: LocationLoader } = await import('./modules/locations/location-loader.js');
-            this.modules.locationLoader = new LocationLoader(this.stateManager);
-            
-            const { default: VenueSearch } = await import('./modules/locations/venue-search.js');
-            this.modules.venueSearch = new VenueSearch(this.stateManager);
-            
-            const { default: InvoiceData } = await import('./modules/locations/invoice-data.js');
-            this.modules.invoiceData = new InvoiceData(this.stateManager);
-            
-            this.loadedModules.push('LocationModules');
-            DebugSystem.log(DebugSystem.zones.LOCATIONS, 'Moduli località caricati');
-            
-        } catch (error) {
-            DebugSystem.error(DebugSystem.zones.LOCATIONS, 'Errore caricamento moduli località', error);
-        }
-    }
-    
-    /**
-     * Carica moduli UI rimanenti
-     */
-    async loadUIModules() {
-        try {
-            DebugSystem.log(DebugSystem.zones.UI, 'Caricamento moduli UI...');
-            
-            const { default: ModalManager } = await import('./modules/ui/modals.js');
-            this.uiManager.modal = new ModalManager();
-            this.uiManager.modal.initialize();
-            
-            const { default: ProgressBar } = await import('./modules/ui/progress-bar.js');
-            this.uiManager.progressBar = new ProgressBar(this.stateManager);
-            this.uiManager.progressBar.initialize();
-            
-            this.loadedModules.push('UIModules');
-            DebugSystem.log(DebugSystem.zones.UI, 'Moduli UI caricati');
-            
-        } catch (error) {
-            DebugSystem.error(DebugSystem.zones.UI, 'Errore caricamento moduli UI', error);
-        }
-    }
-    
-    /**
-     * Carica moduli utils
-     */
-    async loadUtilModules() {
-        try {
-            DebugSystem.log(DebugSystem.zones.CORE, 'Caricamento moduli utils...');
-            
-            const { default: DatabaseHelper } = await import('./utils/database-helper.js');
-            this.modules.databaseHelper = DatabaseHelper;
-            
-            const { default: FormUtils } = await import('./utils/form-utils.js');
-            this.modules.formUtils = FormUtils;
-            
-            const { default: ValidationUtils } = await import('./utils/validation-utils.js');
-            this.modules.validationUtils = ValidationUtils;
-            
-            this.loadedModules.push('UtilModules');
-            DebugSystem.log(DebugSystem.zones.CORE, 'Moduli utils caricati');
-            
-        } catch (error) {
-            DebugSystem.error(DebugSystem.zones.CORE, 'Errore caricamento moduli utils', error);
-        }
-    }
-    
-    /**
-     * Carica moduli avanzati (drafts, XML, requests)
-     */
-    async loadAdvancedModules() {
-        try {
-            DebugSystem.log(DebugSystem.zones.CORE, 'Caricamento moduli avanzati...');
-            
-            // Drafts
-            const { default: DraftManager } = await import('./modules/drafts/draft-manager.js');
-            this.modules.draftManager = new DraftManager(this.stateManager);
-            
-            // XML
-            const { default: XMLGenerator } = await import('./modules/xml/xml-generator.js');
-            this.modules.xmlGenerator = new XMLGenerator(this.stateManager);
-            
-            // Requests
-            const { default: RequestManager } = await import('./modules/requests/request-manager.js');
-            this.modules.requestManager = new RequestManager(this.stateManager);
-            
-            const { default: RequestTabs } = await import('./modules/requests/request-tabs.js');
-            this.modules.requestTabs = new RequestTabs();
-            
-            this.loadedModules.push('AdvancedModules');
-            DebugSystem.log(DebugSystem.zones.CORE, 'Moduli avanzati caricati');
-            
-        } catch (error) {
-            DebugSystem.error(DebugSystem.zones.CORE, 'Errore caricamento moduli avanzati', error);
-        }
-    }
-    
-    /**
-     * Espone il sistema globalmente per debug e compatibilità
-     */
-    exposeGlobally() {
-        // Esponi sistema principale
+        
+        // Setup integrations tra moduli
+        this.setupModuleIntegrations();
+        
+        // Registra sistema globalmente per debug
         window.agibilitaSystem = this;
         
-        // Esponi funzioni legacy per compatibilità HTML
-        window.startNewAgibilita = () => this.eventManager?.executeAction('startNewAgibilita');
-        window.showEditAgibilita = () => this.eventManager?.executeAction('showEditAgibilita');
-        window.showBozzeRichieste = () => this.eventManager?.executeAction('showBozzeRichieste');
-        window.showAddArtistModal = () => this.eventManager?.executeAction('showAddArtistModal');
+        console.log('✅ Finalizzazione completata');
+    }
+    
+    /**
+     * Setup integrazioni tra moduli
+     */
+    setupModuleIntegrations() {
+        const stateManager = this.modules.get('stateManager');
+        const toastSystem = this.modules.get('toastSystem');
+        const navigationManager = this.modules.get('navigationManager');
+        const progressBarManager = this.modules.get('progressBarManager');
         
-        // Esponi debug utilities
-        window.agibilitaDebug = {
-            system: () => this.debug(),
-            state: () => this.stateManager?.getAll(),
-            modules: () => this.loadedModules,
-            logs: () => DebugSystem.showStats(),
-            zones: () => DebugSystem.showZoneToggle()
-        };
+        // Integrazione StateManager -> ToastSystem
+        if (stateManager && toastSystem) {
+            stateManager.addListener('error', (error) => {
+                toastSystem.show(error.message || 'Errore sistema', 'error');
+            });
+            
+            stateManager.addListener('success', (message) => {
+                toastSystem.show(message, 'success');
+            });
+        }
         
-        DebugSystem.log(DebugSystem.zones.CORE, 'Sistema esposto globalmente');
+        // Integrazione StateManager -> ProgressBar
+        if (stateManager && progressBarManager) {
+            stateManager.addListener('currentStep', (step) => {
+                progressBarManager.updateProgress(step);
+            });
+        }
+        
+        console.log('🔗 Integrazioni moduli configurate');
+    }
+    
+    /**
+     * Nasconde loading overlay
+     */
+    hideLoadingOverlay() {
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        if (loadingOverlay) {
+            loadingOverlay.style.transition = 'opacity 0.5s ease';
+            loadingOverlay.style.opacity = '0';
+            
+            setTimeout(() => {
+                loadingOverlay.style.display = 'none';
+            }, 500);
+            
+            console.log('✅ Loading overlay nascosto');
+        }
+    }
+    
+    /**
+     * Mostra messaggio di benvenuto
+     */
+    showWelcomeMessage() {
+        const toastSystem = this.modules.get('toastSystem');
+        if (toastSystem) {
+            setTimeout(() => {
+                toastSystem.show('🎭 Sistema agibilità pronto!', 'success', 3000);
+            }, 600);
+        }
     }
     
     /**
      * Gestisce errori di inizializzazione
      */
     handleInitializationError(error) {
-        console.error('💥 Errore critico sistema:', error);
+        console.error('💥 Errore critico inizializzazione:', error);
         
-        // Mostra errore nel loading overlay
+        // Mostra errore user-friendly
+        const errorDiv = document.createElement('div');
+        errorDiv.id = 'system-error';
+        errorDiv.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        `;
+        
+                    errorDiv.innerHTML = `
+            <div style="text-align: center; max-width: 500px; padding: 40px;">
+                <div style="font-size: 4rem; margin-bottom: 20px;">⚠️</div>
+                <h2 style="margin-bottom: 16px;">Errore Sistema Agibilità</h2>
+                <p style="margin-bottom: 24px; opacity: 0.8; line-height: 1.5;">
+                    Si è verificato un errore durante l'inizializzazione del sistema.
+                </p>
+                <div style="background: rgba(255, 255, 255, 0.1); padding: 16px; border-radius: 8px; margin-bottom: 24px; font-family: monospace; font-size: 14px; text-align: left;">
+                    ${error.message}
+                </div>
+                <button onclick="window.location.reload()" style="
+                    background: #3b82f6;
+                    color: white;
+                    border: none;
+                    padding: 12px 24px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    font-weight: 600;
+                ">
+                    🔄 Ricarica Pagina
+                </button>
+            </div>
+        `;
+        
+        document.body.appendChild(errorDiv);
+        
+        // Nascondi loading overlay se presente
         const loadingOverlay = document.getElementById('loadingOverlay');
         if (loadingOverlay) {
-            loadingOverlay.innerHTML = `
-                <div style="text-align: center; color: #ff3b30;">
-                    <i class="fas fa-exclamation-triangle" style="font-size: 3rem; margin-bottom: 1rem;"></i>
-                    <h3>Errore di Inizializzazione</h3>
-                    <p><strong>${error.message}</strong></p>
-                    <details style="margin: 1rem 0; text-align: left;">
-                        <summary style="cursor: pointer; color: #007aff;">Dettagli Tecnici</summary>
-                        <pre style="background: #f5f5f5; padding: 10px; border-radius: 4px; margin-top: 10px; overflow: auto;">
-${error.stack || 'Stack trace non disponibile'}
-                        </pre>
-                    </details>
-                    <div style="margin-top: 1rem;">
-                        <button onclick="location.reload()" 
-                                style="padding: 12px 24px; background: #007aff; color: white; 
-                                       border: none; border-radius: 8px; cursor: pointer; margin-right: 10px;">
-                            Ricarica Pagina
-                        </button>
-                        <button onclick="window.agibilitaDebug?.logs()" 
-                                style="padding: 12px 24px; background: #ff9500; color: white; 
-                                       border: none; border-radius: 8px; cursor: pointer;">
-                            Mostra Log
-                        </button>
-                    </div>
-                </div>
-            `;
-            loadingOverlay.style.display = 'flex';
-        }
-        
-        // Mostra toast di errore se disponibile
-        if (this.uiManager?.toast) {
-            this.uiManager.toast.show(`Errore sistema: ${error.message}`, 'error', 10000);
+            loadingOverlay.style.display = 'none';
         }
     }
     
     /**
-     * Ottiene informazioni sullo stato del sistema
+     * Ottiene modulo per nome
      */
-    getSystemInfo() {
+    getModule(name) {
+        return this.modules.get(name);
+    }
+    
+    /**
+     * Verifica se sistema è inizializzato
+     */
+    isInitialized() {
+        return this.initialized;
+    }
+    
+    /**
+     * Ottiene info sistema per debug
+     */
+    debug() {
+        const moduleStatus = {};
+        for (const [name, module] of this.modules) {
+            moduleStatus[name] = {
+                loaded: !!module,
+                hasDebug: typeof module.debug === 'function'
+            };
+        }
+        
         return {
-            isInitialized: this.isInitialized,
-            loadedModules: this.loadedModules,
-            initializationTime: Date.now() - this.initializationStartTime,
-            modulesCount: Object.keys(this.modules).length,
-            activeModules: Object.entries(this.modules)
-                .filter(([key, module]) => module !== null)
-                .map(([key]) => key)
+            initialized: this.initialized,
+            startTime: this.startTime,
+            initTime: this.initialized ? Date.now() - this.startTime : null,
+            modules: moduleStatus,
+            globalReferences: {
+                DebugSystem: !!window.DebugSystem,
+                stateManager: !!window.stateManager,
+                toastSystem: !!window.toastSystem,
+                navigationManager: !!window.navigationManager,
+                progressBarManager: !!window.progressBarManager,
+                modalManager: !!window.modalManager,
+                agibilitaSystem: !!window.agibilitaSystem
+            },
+            authentication: {
+                AuthGuard: !!window.AuthGuard,
+                DatabaseService: DatabaseService.isReady()
+            }
         };
     }
     
     /**
-     * Ricarica un modulo specifico
-     */
-    async reloadModule(moduleName) {
-        try {
-            DebugSystem.log(DebugSystem.zones.CORE, `Ricarica modulo: ${moduleName}`);
-            
-            // Implementa ricarica specifica per ogni tipo di modulo
-            if (moduleName.includes('artist')) {
-                await this.loadArtistModules();
-            } else if (moduleName.includes('location')) {
-                await this.loadLocationModules();
-            } else if (moduleName.includes('ui')) {
-                await this.loadUIModules();
-            }
-            
-            DebugSystem.log(DebugSystem.zones.CORE, `Modulo ${moduleName} ricaricato`);
-            return true;
-            
-        } catch (error) {
-            DebugSystem.error(DebugSystem.zones.CORE, `Errore ricarica modulo ${moduleName}`, error);
-            return false;
-        }
-    }
-    
-    /**
-     * Cleanup del sistema
+     * Cleanup completo sistema
      */
     cleanup() {
-        DebugSystem.log(DebugSystem.zones.CORE, 'Cleanup sistema...');
-        
-        // Cleanup SystemInitializer
-        SystemInitializer.cleanup(this.stateManager);
+        console.log('🧹 Cleanup sistema agibilità...');
         
         // Cleanup moduli
-        Object.values(this.modules).forEach(module => {
-            if (module && typeof module.cleanup === 'function') {
-                module.cleanup();
+        for (const [name, module] of this.modules) {
+            if (module.cleanup && typeof module.cleanup === 'function') {
+                try {
+                    module.cleanup();
+                    console.log(`✅ Cleanup ${name} completato`);
+                } catch (error) {
+                    console.warn(`⚠️ Errore cleanup ${name}:`, error);
+                }
             }
-        });
+        }
         
-        // Cleanup UI
-        Object.values(this.uiManager).forEach(uiModule => {
-            if (uiModule && typeof uiModule.cleanup === 'function') {
-                uiModule.cleanup();
-            }
-        });
+        // Cleanup AuthGuard
+        if (AuthGuard.cleanup) {
+            AuthGuard.cleanup();
+        }
         
-        // Reset stato
-        this.isInitialized = false;
+        // Cleanup variabili globali
+        delete window.DebugSystem;
+        delete window.stateManager;
+        delete window.eventManager;
+        delete window.toastSystem;
+        delete window.navigationManager;
+        delete window.progressBarManager;
+        delete window.modalManager;
+        delete window.agibilitaSystem;
         
-        DebugSystem.log(DebugSystem.zones.CORE, 'Cleanup completato');
+        this.modules.clear();
+        this.initialized = false;
+        
+        console.log('✅ Cleanup sistema agibilità completato');
     }
     
     /**
-     * Debug: mostra informazioni complete del sistema
+     * Ricarica sistema
      */
-    debug() {
-        console.group('🎭 Debug Sistema Agibilità');
-        console.log('🚀 Stato inizializzazione:', this.isInitialized);
-        console.log('📦 Moduli caricati:', this.loadedModules);
-        console.log('⏱️ Tempo inizializzazione:', Date.now() - this.initializationStartTime, 'ms');
-        console.log('🗄️ StateManager:', this.stateManager ? '✅' : '❌');
-        console.log('🎧 EventManager:', this.eventManager ? '✅' : '❌');
-        console.log('🖥️ UI Managers:', Object.entries(this.uiManager).map(([k,v]) => `${k}: ${v ? '✅' : '❌'}`));
-        console.log('🔧 Moduli attivi:', Object.entries(this.modules).filter(([k,v]) => v !== null).map(([k]) => k));
-        console.groupEnd();
+    async reload() {
+        console.log('🔄 Ricarica sistema agibilità...');
         
-        // Debug componenti individuali
-        this.stateManager?.debug();
-        this.eventManager?.debug();
-        DebugSystem.showStats();
+        this.cleanup();
+        await this.initialize();
         
-        return this.getSystemInfo();
+        console.log('✅ Sistema agibilità ricaricato');
     }
 }
 
-/**
- * Inizializzazione automatica del sistema
- */
-async function initializeAgibilitaSystem() {
-    try {
-        DebugSystem.log(DebugSystem.zones.CORE, 'Avvio inizializzazione automatica...');
-        
-        // Crea istanza sistema
-        const agibilitaSystem = new AgibilitaSystem();
-        
-        // Inizializza
-        const success = await agibilitaSystem.initialize();
-        
-        if (success) {
-            DebugSystem.log(DebugSystem.zones.CORE, 'Sistema agibilità operativo');
-        } else {
-            throw new Error('Inizializzazione fallita');
-        }
-        
-        return agibilitaSystem;
-        
-    } catch (error) {
-        console.error('💥 Errore inizializzazione automatica:', error);
-        throw error;
-    }
-}
+// ==================== INIZIALIZZAZIONE AUTOMATICA ====================
 
-// Avvia il sistema quando il DOM è pronto
+// Crea istanza sistema
+const agibilitaSystem = new AgibilitaSystem();
+
+// Inizializza quando DOM è pronto
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializeAgibilitaSystem);
+    document.addEventListener('DOMContentLoaded', () => {
+        agibilitaSystem.initialize().catch(error => {
+            console.error('❌ Fallimento inizializzazione agibilità:', error);
+        });
+    });
 } else {
-    // DOM già pronto, avvia subito
-    initializeAgibilitaSystem();
+    // DOM già pronto
+    agibilitaSystem.initialize().catch(error => {
+        console.error('❌ Fallimento inizializzazione agibilità:', error);
+    });
 }
 
-// Export per utilizzo modulare
-export { AgibilitaSystem, initializeAgibilitaSystem };
-export default AgibilitaSystem;
+// Timeout di sicurezza
+setTimeout(() => {
+    if (!agibilitaSystem.isInitialized()) {
+        console.error('⏰ Timeout inizializzazione sistema agibilità');
+        agibilitaSystem.handleInitializationError(
+            new Error('Sistema non si è inizializzato entro 10 secondi')
+        );
+    }
+}, 10000);
 
-console.log('✅ Agibilita-main module loaded');
+// ==================== EXPORT GLOBALI LEGACY ====================
+
+// Per compatibilità con HTML esistente
+window.showSection = (sectionId) => {
+    if (window.navigationManager) {
+        return window.navigationManager.showSection(sectionId);
+    }
+    console.warn('⚠️ NavigationManager non inizializzato');
+    return false;
+};
+
+window.goToStep = (stepNumber) => {
+    if (window.navigationManager) {
+        return window.navigationManager.showSection(`step${stepNumber}`);
+    }
+    console.warn('⚠️ NavigationManager non inizializzato');
+    return false;
+};
+
+window.goHome = () => {
+    if (window.navigationManager) {
+        return window.navigationManager.showSection('homeSection');
+    }
+    console.warn('⚠️ NavigationManager non inizializzato');
+    return false;
+};
+
+// Debug utilities globali
+window.debugAgibilita = () => {
+    if (window.agibilitaSystem) {
+        return window.agibilitaSystem.debug();
+    }
+    console.warn('⚠️ Sistema agibilità non inizializzato');
+    return null;
+};
+
+window.reloadAgibilita = () => {
+    if (window.agibilitaSystem) {
+        return window.agibilitaSystem.reload();
+    } else {
+        window.location.reload();
+    }
+};
+
+// Export per moduli
+export { agibilitaSystem };
+export default agibilitaSystem;
+
+console.log('🎭 Sistema agibilità configurato e pronto per l'inizializzazione');
