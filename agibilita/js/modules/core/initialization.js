@@ -1,6 +1,6 @@
 // initialization.js - Inizializzazione Sistema Agibilità
 // Import configurazioni dedicate
-import { DatabaseService } from '../config/supabase-config-agibilita.js';
+import { DatabaseService } from '../../config/supabase-config-agibilita.js';
 import { AuthGuard } from '../../config/auth-guard-agibilita.js';
 
 console.log('🚀 Caricamento SystemInitializer...');
