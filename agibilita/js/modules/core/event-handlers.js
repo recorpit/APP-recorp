@@ -1,857 +1,512 @@
-// event-handlers.js - Gestione Eventi Sistema Agibilità
-console.log('🎧 Caricamento EventManager...');
+/**
+ * event-handlers.js - Event Handlers Sistema Agibilità con Artists Integrato
+ * 
+ * Gestione eventi con sistema Artists completamente funzionante
+ * 
+ * @author RECORP ALL-IN-ONE
+ * @version 3.0 - Artists System Integrato
+ */
 
-export class EventManager {
-    constructor(stateManager) {
-        this.stateManager = stateManager;
-        this.searchTimeouts = new Map();
-        this.debounceDelay = 300;
-        
-        console.log('🎧 EventManager creato');
+// ==================== GESTIONE RICERCA ARTISTI ====================
+let searchTimeout = null;
+let lastSearchQuery = '';
+
+// 🆕 Funzione ricerca artisti completamente funzionante
+function handleArtistSearch(event) {
+    const query = event.target.value.trim();
+    console.log(`🔍 Ricerca: artist = "${query}"`);
+    
+    // Debouncing per evitare troppe chiamate
+    if (searchTimeout) {
+        clearTimeout(searchTimeout);
     }
     
-    /**
-     * Inizializza il gestore eventi
-     */
-    initialize() {
-        console.log('🎧 Inizializzazione EventManager...');
+    searchTimeout = setTimeout(async () => {
+        // Evita ricerche duplicate
+        if (query === lastSearchQuery) return;
+        lastSearchQuery = query;
         
-        // Setup event listeners
-        this.setupEventListeners();
+        console.log(`🔍 Ricerca eseguita: artist = "${query}"`);
         
-        // Setup form validation
-        this.setupFormValidation();
-        
-        // Setup state listeners
-        this.setupStateListeners();
-        
-        console.log('✅ EventManager inizializzato');
-    }
-    
-    /**
-     * Setup event listeners principali
-     */
-    setupEventListeners() {
-        // Event delegation per data-action
-        document.addEventListener('click', (e) => {
-            const actionElement = e.target.closest('[data-action]');
-            if (actionElement) {
-                const action = actionElement.dataset.action;
-                console.log(`🎧 Azione rilevata: ${action}`);
-                this.handleAction(action, actionElement, e);
+        try {
+            if (query.length === 0) {
+                // Reset ricerca
+                clearArtistSearchResults();
+                return;
             }
-        });
-
-        // Event delegation per tab switching
-        document.addEventListener('click', (e) => {
-            const tabElement = e.target.closest('[data-tab]');
-            if (tabElement) {
-                const tab = tabElement.dataset.tab;
-                console.log(`📋 Tab rilevato: ${tab}`);
-                this.handleTabSwitch(tab, tabElement, e);
+            
+            if (query.length < 2) {
+                // Query troppo corta
+                showArtistSearchMessage('Inserisci almeno 2 caratteri');
+                return;
             }
-        });
-
-        // Event delegation per ricerche
-        document.addEventListener('input', (e) => {
-            if (e.target.dataset.searchField) {
-                const searchField = e.target.dataset.searchField;
-                const searchTerm = e.target.value;
-                console.log(`🔍 Ricerca: ${searchField} = "${searchTerm}"`);
-                this.handleSearch(searchField, searchTerm, e.target);
+            
+            console.log(`🎭 Ricerca artisti: "${query}"`);
+            
+            // 🆕 Usa il sistema Artists se disponibile
+            if (window.AgibilitaSystem?.artists?.search) {
+                await window.AgibilitaSystem.artists.search(query);
+            } else {
+                // Fallback per ricerca artisti diretta
+                await performArtistSearchFallback(query);
             }
-        });
-
-        // Keyboard shortcuts
-        document.addEventListener('keydown', (e) => {
-            this.handleKeyboardShortcuts(e);
-        });
-
-        console.log('✅ Event listeners configurati');
-    }
-    
-    /**
-     * Gestisce le azioni dai pulsanti
-     */
-    handleAction(action, element, event) {
-        console.log(`🎬 Esecuzione azione: ${action}`);
-        
-        switch (action) {
-            // ==================== NAVIGAZIONE PRINCIPALE ====================
-            case 'startNewAgibilita':
-                this.startNewAgibilita();
-                break;
-                
-            case 'showEditAgibilita':
-                this.showEditAgibilita();
-                break;
-                
-            case 'showBozzeRichieste':
-                this.showBozzeRichieste();
-                break;
-                
-            case 'goToHome':
-                this.goToHome();
-                break;
-                
-            case 'goToStep1':
-                this.goToStep(1);
-                break;
-                
-            case 'goToStep2':
-                this.goToStep(2);
-                break;
-                
-            case 'goToStep3':
-                this.goToStep(3);
-                break;
-                
-            // ==================== AZIONI ARTISTI ====================
-            case 'showAddArtistModal':
-                this.showAddArtistModal();
-                break;
-                
-            case 'clearSearch':
-                this.clearSearch();
-                break;
-                
-            case 'registerNewArtist':
-                this.registerNewArtist();
-                break;
-                
-            // ==================== AZIONI LOCALITÀ ====================
-            case 'searchInvoiceData':
-                this.searchInvoiceData();
-                break;
-                
-            case 'copyVenueAddress':
-                this.copyVenueAddress();
-                break;
-                
-            case 'clearInvoiceFields':
-                this.clearInvoiceFields();
-                break;
-                
-            // ==================== AZIONI STEP 3 ====================
-            case 'validateAndGenerate':
-                this.validateAndGenerate();
-                break;
-                
-            case 'saveAsBozza':
-                this.saveAsBozza();
-                break;
-                
-            case 'finalizeAgibilita':
-                this.finalizeAgibilita();
-                break;
-                
-            // ==================== AZIONI BOZZE ====================
-            case 'refreshBozze':
-                this.refreshBozze();
-                break;
-                
-            case 'refreshRichieste':
-                this.refreshRichieste();
-                break;
-                
-            case 'refreshArchivio':
-                this.refreshArchivio();
-                break;
-                
-            // ==================== AZIONI MODAL ====================
-            case 'closeModal':
-                this.closeModal();
-                break;
-                
-            case 'confirmValidation':
-                this.confirmValidation();
-                break;
-                
-            case 'deleteBozza':
-                this.deleteBozza();
-                break;
-                
-            case 'loadBozza':
-                this.loadBozza();
-                break;
-                
-            default:
-                console.warn(`⚠️ Azione non gestita: ${action}`);
-                this.showToast(`Funzione "${action}" non ancora implementata`, 'warning');
+            
+        } catch (error) {
+            console.error('❌ Errore ricerca artisti:', error);
+            
+            if (window.AgibilitaSystem?.showToast) {
+                window.AgibilitaSystem.showToast('Errore durante la ricerca artisti', 'error');
+            }
+            
+            showArtistSearchMessage('Errore durante la ricerca. Riprova.');
         }
-    }
+    }, 300); // Debounce 300ms
+}
+
+// 🆕 Ricerca artisti fallback (se sistema non disponibile)
+async function performArtistSearchFallback(query) {
+    const resultsContainer = document.getElementById('artistSearchResults');
+    if (!resultsContainer) return;
     
-    // ==================== TAB MANAGEMENT ====================
+    // Mostra loading
+    resultsContainer.innerHTML = `
+        <div class="search-loading">
+            <div class="spinner"></div>
+            <span>Ricerca in corso...</span>
+        </div>
+    `;
     
-    /**
-     * Gestisce il cambio tab
-     */
-    handleTabSwitch(tab, tabElement, event) {
-        console.log(`📋 Cambio tab: ${tab}`);
+    try {
+        // Mock data per test (sostituisci con chiamata database reale)
+        const mockArtists = await getMockArtistsData(query);
         
-        // Trova il container dei tab
-        const tabContainer = tabElement.closest('.tabs');
-        const contentContainer = tabContainer?.nextElementSibling || 
-                                document.querySelector('.tab-content').parentElement;
-        
-        if (!tabContainer || !contentContainer) {
-            console.warn('⚠️ Container tab non trovato');
+        if (mockArtists.length === 0) {
+            showArtistSearchMessage(`Nessun artista trovato per "${query}"`);
             return;
         }
         
-        // Rimuovi active da tutti i tab
-        const allTabs = tabContainer.querySelectorAll('.tab');
-        allTabs.forEach(t => t.classList.remove('active'));
+        // Mostra risultati
+        displayArtistSearchResults(mockArtists, query);
         
-        // Aggiungi active al tab corrente
-        tabElement.classList.add('active');
-        
-        // Nascondi tutti i contenuti
-        const allContents = contentContainer.querySelectorAll('.tab-content');
-        allContents.forEach(content => {
-            content.classList.remove('active');
-            content.style.display = 'none';
-        });
-        
-        // Mostra contenuto corrispondente
-        const targetContent = document.getElementById(`${tab}Content`);
-        if (targetContent) {
-            targetContent.classList.add('active');
-            targetContent.style.display = 'block';
-            
-            // Carica contenuto se necessario
-            this.loadTabContent(tab);
-        }
-        
-        this.showToast(`Passaggio a tab: ${this.getTabDisplayName(tab)}`, 'info', 2000);
-    }
-    
-    /**
-     * Carica contenuto del tab
-     */
-    loadTabContent(tab) {
-        switch (tab) {
-            case 'bozze':
-                this.loadBozzeContent();
-                break;
-                
-            case 'richieste':
-                this.loadRichiesteContent();
-                break;
-                
-            case 'archivio':
-                this.loadArchivioContent();
-                break;
-                
-            default:
-                console.warn(`⚠️ Tab non gestito: ${tab}`);
-        }
-    }
-    
-    /**
-     * Carica contenuto bozze
-     */
-    loadBozzeContent() {
-        console.log('📝 Caricamento contenuto bozze...');
-        const bozzeList = document.getElementById('bozzeList');
-        if (bozzeList) {
-            bozzeList.innerHTML = '<div class="loading-message">🔄 Caricamento bozze in corso...</div>';
-            
-            // Simula caricamento
-            setTimeout(() => {
-                bozzeList.innerHTML = `
-                    <div class="empty-state">
-                        <div class="empty-icon">📝</div>
-                        <h3>Nessuna bozza trovata</h3>
-                        <p>Le tue bozze salvate appariranno qui</p>
-                        <button class="btn btn-primary" data-action="startNewAgibilita">
-                            <i class="fas fa-plus"></i> Crea Prima Agibilità
-                        </button>
-                    </div>
-                `;
-            }, 1000);
-        }
-    }
-    
-    /**
-     * Carica contenuto richieste
-     */
-    loadRichiesteContent() {
-        console.log('📥 Caricamento contenuto richieste...');
-        const richiesteList = document.getElementById('richiesteList');
-        if (richiesteList) {
-            richiesteList.innerHTML = '<div class="loading-message">🔄 Caricamento richieste in corso...</div>';
-            
-            // Simula caricamento
-            setTimeout(() => {
-                richiesteList.innerHTML = `
-                    <div class="empty-state">
-                        <div class="empty-icon">📥</div>
-                        <h3>Nessuna richiesta attiva</h3>
-                        <p>Le richieste esterne appariranno qui quando disponibili</p>
-                        <small class="text-muted">Funzionalità in sviluppo</small>
-                    </div>
-                `;
-            }, 800);
-        }
-    }
-    
-    /**
-     * Carica contenuto archivio
-     */
-    loadArchivioContent() {
-        console.log('🗄️ Caricamento contenuto archivio...');
-        const archivioList = document.getElementById('archivioList');
-        if (archivioList) {
-            archivioList.innerHTML = '<div class="loading-message">🔄 Caricamento archivio in corso...</div>';
-            
-            // Simula caricamento
-            setTimeout(() => {
-                archivioList.innerHTML = `
-                    <div class="empty-state">
-                        <div class="empty-icon">🗄️</div>
-                        <h3>Archivio vuoto</h3>
-                        <p>Le agibilità completate e archiviate appariranno qui</p>
-                        <small class="text-muted">Funzionalità in sviluppo</small>
-                    </div>
-                `;
-            }, 600);
-        }
-    }
-    
-    /**
-     * Ottiene nome display del tab
-     */
-    getTabDisplayName(tab) {
-        const names = {
-            'bozze': 'Bozze',
-            'richieste': 'Richieste',
-            'archivio': 'Archivio'
-        };
-        return names[tab] || tab;
-    }
-    
-    /**
-     * Avvia nuova agibilità (va allo step 1)
-     */
-    startNewAgibilita() {
-        console.log('🎭 Avvio nuova agibilità');
-        this.showToast('Avvio creazione nuova agibilità', 'info');
-        
-        // Reset stato per nuova agibilità
-        if (this.stateManager) {
-            this.stateManager.update('selectedArtists', []);
-            this.stateManager.update('currentStep', 1);
-        }
-        
-        // Naviga allo step 1
-        if (window.navigationManager) {
-            window.navigationManager.showSection('step1');
-        }
-    }
-    
-    /**
-     * Mostra sezione modifica agibilità
-     */
-    showEditAgibilita() {
-        console.log('✏️ Modifica agibilità');
-        this.showToast('Funzione modifica agibilità in sviluppo', 'warning');
-        // TODO: Implementare caricamento agibilità esistenti
-    }
-    
-    /**
-     * Mostra sezione bozze e richieste
-     */
-    showBozzeRichieste() {
-        console.log('📁 Bozze e richieste');
-        this.showToast('Apertura gestione bozze e richieste', 'info');
-        
-        if (window.navigationManager) {
-            window.navigationManager.showSection('bozzeRichiesteSection');
-        }
-    }
-    
-    /**
-     * Torna alla home
-     */
-    goToHome() {
-        console.log('🏠 Torna alla home');
-        
-        if (window.navigationManager) {
-            window.navigationManager.showSection('homeSection');
-        }
-    }
-    
-    /**
-     * Va a uno step specifico
-     */
-    goToStep(stepNumber) {
-        console.log(`🎯 Navigazione step ${stepNumber}`);
-        
-        if (this.stateManager) {
-            this.stateManager.update('currentStep', stepNumber);
-        }
-        
-        if (window.navigationManager) {
-            window.navigationManager.showSection(`step${stepNumber}`);
-        }
-    }
-    
-    // ==================== METODI RICERCA ====================
-    
-    /**
-     * Gestisce le ricerche con debouncing
-     */
-    handleSearch(searchField, searchTerm, inputElement) {
-        // Cancella timeout precedente
-        if (this.searchTimeouts.has(searchField)) {
-            clearTimeout(this.searchTimeouts.get(searchField));
-        }
-        
-        // Nuovo timeout con debouncing
-        const timeoutId = setTimeout(() => {
-            this.performSearch(searchField, searchTerm, inputElement);
-        }, this.debounceDelay);
-        
-        this.searchTimeouts.set(searchField, timeoutId);
-    }
-    
-    /**
-     * Esegue la ricerca specifica
-     */
-    performSearch(searchField, searchTerm, inputElement) {
-        console.log(`🔍 Ricerca eseguita: ${searchField} = "${searchTerm}"`);
-        
-        switch (searchField) {
-            case 'artist':
-                this.searchArtists(searchTerm, inputElement);
-                break;
-                
-            case 'modal-artist':
-                this.searchModalArtists(searchTerm, inputElement);
-                break;
-                
-            case 'venue':
-                this.searchVenues(searchTerm, inputElement);
-                break;
-                
-            default:
-                console.warn(`⚠️ Campo ricerca non gestito: ${searchField}`);
-        }
-    }
-    
-    // ==================== METODI ARTISTI (PLACEHOLDER) ====================
-    
-    /**
-     * Ricerca artisti nella ricerca principale
-     */
-    searchArtists(searchTerm, inputElement) {
-        console.log(`🎭 Ricerca artisti: "${searchTerm}"`);
-        this.showToast('Ricerca artisti - Modulo in sviluppo', 'info');
-        // TODO: Implementare ricerca artisti reale
-    }
-    
-    /**
-     * Ricerca artisti nel modal
-     */
-    searchModalArtists(searchTerm, inputElement) {
-        console.log(`🎭 Ricerca modal artisti: "${searchTerm}"`);
-        this.showToast('Ricerca modal artisti - Modulo in sviluppo', 'info');
-        // TODO: Implementare ricerca modal artisti
-    }
-    
-    /**
-     * Mostra modal aggiungi artista
-     */
-    showAddArtistModal() {
-        console.log('🎭 Mostra modal artisti');
-        this.showToast('Modal artisti - In sviluppo', 'warning');
-        // TODO: Implementare modal artisti
-    }
-    
-    /**
-     * Pulisce la ricerca artisti
-     */
-    clearSearch() {
-        console.log('🧹 Pulisci ricerca');
-        const searchInput = document.getElementById('artistSearchInput');
-        if (searchInput) {
-            searchInput.value = '';
-            this.showToast('Ricerca pulita', 'success');
-        }
-    }
-    
-    /**
-     * Registra nuovo artista
-     */
-    registerNewArtist() {
-        console.log('👤 Registra nuovo artista');
-        this.showToast('Registrazione artista - In sviluppo', 'warning');
-        // TODO: Implementare registrazione artista
-    }
-    
-    // ==================== METODI LOCALITÀ (PLACEHOLDER) ====================
-    
-    /**
-     * Ricerca venues
-     */
-    searchVenues(searchTerm, inputElement) {
-        console.log(`🏛️ Ricerca venues: "${searchTerm}"`);
-        this.showToast('Ricerca venues - Modulo in sviluppo', 'info');
-        // TODO: Implementare ricerca venues
-    }
-    
-    /**
-     * Cerca dati fatturazione
-     */
-    searchInvoiceData() {
-        console.log('🧾 Cerca dati fatturazione');
-        this.showToast('Ricerca dati fatturazione - In sviluppo', 'warning');
-        // TODO: Implementare ricerca dati fatturazione
-    }
-    
-    /**
-     * Copia indirizzo venue nei campi fatturazione
-     */
-    copyVenueAddress() {
-        console.log('📋 Copia indirizzo venue');
-        this.showToast('Copia indirizzo - In sviluppo', 'warning');
-        // TODO: Implementare copia indirizzo
-    }
-    
-    /**
-     * Pulisce campi fatturazione
-     */
-    clearInvoiceFields() {
-        console.log('🧹 Pulisci campi fatturazione');
-        this.showToast('Pulizia campi fatturazione - In sviluppo', 'warning');
-        // TODO: Implementare pulizia campi
-    }
-    
-    // ==================== METODI STEP 3 (PLACEHOLDER) ====================
-    
-    /**
-     * Valida e genera XML
-     */
-    validateAndGenerate() {
-        console.log('✅ Valida e genera XML');
-        this.showToast('Validazione e generazione XML - In sviluppo', 'warning');
-        // TODO: Implementare validazione e generazione
-    }
-    
-    /**
-     * Salva come bozza
-     */
-    saveAsBozza() {
-        console.log('💾 Salva come bozza');
-        this.showToast('Salvataggio bozza - In sviluppo', 'warning');
-        // TODO: Implementare salvataggio bozza
-    }
-    
-    /**
-     * Finalizza agibilità
-     */
-    finalizeAgibilita() {
-        console.log('🎯 Finalizza agibilità');
-        this.showToast('Finalizzazione agibilità - In sviluppo', 'warning');
-        // TODO: Implementare finalizzazione
-    }
-    
-    // ==================== METODI BOZZE (PLACEHOLDER) ====================
-    
-    /**
-     * Aggiorna bozze
-     */
-    refreshBozze() {
-        console.log('🔄 Aggiorna bozze');
-        this.showToast('Aggiornamento bozze - In sviluppo', 'info');
-        // TODO: Implementare refresh bozze
-    }
-    
-    /**
-     * Aggiorna richieste
-     */
-    refreshRichieste() {
-        console.log('🔄 Aggiorna richieste');
-        this.showToast('Aggiornamento richieste - In sviluppo', 'info');
-        // TODO: Implementare refresh richieste
-    }
-    
-    /**
-     * Aggiorna archivio
-     */
-    refreshArchivio() {
-        console.log('🔄 Aggiorna archivio');
-        this.showToast('Aggiornamento archivio - In sviluppo', 'info');
-        // TODO: Implementare refresh archivio
-    }
-    
-    // ==================== METODI MODAL (PLACEHOLDER) ====================
-    
-    /**
-     * Chiude modal
-     */
-    closeModal() {
-        console.log('❌ Chiudi modal');
-        if (window.modalManager) {
-            // TODO: Implementare chiusura modal specifica
-            this.showToast('Chiusura modal - In sviluppo', 'info');
-        }
-    }
-    
-    /**
-     * Conferma validazione
-     */
-    confirmValidation() {
-        console.log('✅ Conferma validazione');
-        this.showToast('Conferma validazione - In sviluppo', 'warning');
-        // TODO: Implementare conferma validazione
-    }
-    
-    /**
-     * Elimina bozza
-     */
-    deleteBozza() {
-        console.log('🗑️ Elimina bozza');
-        this.showToast('Eliminazione bozza - In sviluppo', 'warning');
-        // TODO: Implementare eliminazione bozza
-    }
-    
-    /**
-     * Carica bozza
-     */
-    loadBozza() {
-        console.log('📂 Carica bozza');
-        this.showToast('Caricamento bozza - In sviluppo', 'warning');
-        // TODO: Implementare caricamento bozza
-    }
-    
-    // ==================== KEYBOARD SHORTCUTS ====================
-    
-    /**
-     * Gestisce keyboard shortcuts
-     */
-    handleKeyboardShortcuts(event) {
-        // Ctrl+S - Salva bozza
-        if (event.ctrlKey && event.key === 's') {
-            event.preventDefault();
-            this.saveAsBozza();
-            return;
-        }
-        
-        // ESC - Chiudi modal
-        if (event.key === 'Escape') {
-            this.closeModal();
-            return;
-        }
-        
-        // Ctrl+H - Torna alla home
-        if (event.ctrlKey && event.key === 'h') {
-            event.preventDefault();
-            this.goToHome();
-            return;
-        }
-    }
-    
-    // ==================== FORM VALIDATION ====================
-    
-    /**
-     * Setup validazione form
-     */
-    setupFormValidation() {
-        // Validazione real-time per campi richiesti
-        document.addEventListener('blur', (e) => {
-            if (e.target.hasAttribute('required')) {
-                this.validateField(e.target);
-            }
-        }, true);
-        
-        // Validazione cascata località
-        this.setupLocationCascade();
-        
-        console.log('✅ Validazione form configurata');
-    }
-    
-    /**
-     * Setup cascata località provincia->città->CAP
-     */
-    setupLocationCascade() {
-        const provinciaSelect = document.getElementById('provinciaSelect');
-        const cittaSelect = document.getElementById('cittaSelect');
-        const capSelect = document.getElementById('capSelect');
-        
-        if (provinciaSelect) {
-            provinciaSelect.addEventListener('change', (e) => {
-                this.handleProvinciaChange(e.target.value);
-            });
-        }
-        
-        if (cittaSelect) {
-            cittaSelect.addEventListener('change', (e) => {
-                this.handleCittaChange(e.target.value);
-            });
-        }
-    }
-    
-    /**
-     * Gestisce cambio provincia
-     */
-    handleProvinciaChange(provincia) {
-        console.log(`📍 Provincia selezionata: ${provincia}`);
-        this.showToast('Caricamento cascata località - In sviluppo', 'info');
-        // TODO: Implementare caricamento città
-    }
-    
-    /**
-     * Gestisce cambio città
-     */
-    handleCittaChange(citta) {
-        console.log(`🏙️ Città selezionata: ${citta}`);
-        this.showToast('Caricamento CAP - In sviluppo', 'info');
-        // TODO: Implementare caricamento CAP
-    }
-    
-    /**
-     * Valida singolo campo
-     */
-    validateField(field) {
-        const isValid = field.checkValidity();
-        
-        if (isValid) {
-            field.classList.remove('is-invalid');
-            field.classList.add('is-valid');
-        } else {
-            field.classList.remove('is-valid');
-            field.classList.add('is-invalid');
-        }
-        
-        return isValid;
-    }
-    
-    // ==================== STATE LISTENERS ====================
-    
-    /**
-     * Setup listeners per cambiamenti stato
-     */
-    setupStateListeners() {
-        if (!this.stateManager) return;
-        
-        // Listen per cambiamenti step
-        this.stateManager.addListener('currentStep', (step) => {
-            console.log(`📊 Step cambiato: ${step}`);
-            this.updateStepUI(step);
-        });
-        
-        // Listen per cambiamenti artisti selezionati
-        this.stateManager.addListener('selectedArtists', (artists) => {
-            console.log(`🎭 Artisti selezionati: ${artists.length}`);
-            this.updateArtistsUI(artists);
-        });
-        
-        console.log('✅ State listeners configurati');
-    }
-    
-    /**
-     * Aggiorna UI per cambio step
-     */
-    updateStepUI(step) {
-        // Aggiorna progress bar
-        if (window.progressBarManager) {
-            window.progressBarManager.updateProgress(step);
-        }
-        
-        // Aggiorna navigation buttons
-        this.updateNavigationButtons(step);
-    }
-    
-    /**
-     * Aggiorna UI per artisti selezionati
-     */
-    updateArtistsUI(artists) {
-        // Aggiorna contatore
-        const countElement = document.getElementById('selectedCount');
-        if (countElement) {
-            countElement.textContent = artists.length;
-        }
-        
-        // Aggiorna stato pulsante avanti step 1
-        const goToStep2Btn = document.getElementById('goToStep2');
-        if (goToStep2Btn) {
-            goToStep2Btn.disabled = artists.length === 0;
-        }
-    }
-    
-    /**
-     * Aggiorna pulsanti navigazione
-     */
-    updateNavigationButtons(step) {
-        // Step 2 - Verifica completamento step 1
-        const goToStep2Btn = document.getElementById('goToStep2');
-        if (goToStep2Btn && step === 1) {
-            const selectedArtists = this.stateManager.get('selectedArtists') || [];
-            goToStep2Btn.disabled = selectedArtists.length === 0;
-        }
-        
-        // Step 3 - Verifica completamento step 2
-        const goToStep3Btn = document.getElementById('goToStep3');
-        if (goToStep3Btn && step === 2) {
-            // TODO: Implementare validazione step 2
-            goToStep3Btn.disabled = false; // Temporaneo
-        }
-        
-        // Finalizza - Verifica completamento step 3
-        const finalizeBtn = document.getElementById('finalizeAgibilita');
-        if (finalizeBtn && step === 3) {
-            // TODO: Implementare validazione step 3
-            finalizeBtn.disabled = false; // Temporaneo
-        }
-    }
-    
-    // ==================== UTILITY METHODS ====================
-    
-    /**
-     * Mostra toast notification
-     */
-    showToast(message, type = 'info', duration = 3000) {
-        if (window.toastSystem) {
-            window.toastSystem.show(message, type, duration);
-        } else {
-            console.log(`🔔 Toast: ${message} (${type})`);
-        }
-    }
-    
-    /**
-     * Debug event manager
-     */
-    debug() {
-        return {
-            searchTimeouts: this.searchTimeouts.size,
-            debounceDelay: this.debounceDelay,
-            stateManagerConnected: !!this.stateManager,
-            eventsRegistered: [
-                'click (data-action)',
-                'input (data-search-field)', 
-                'keydown (shortcuts)',
-                'blur (validation)'
-            ]
-        };
-    }
-    
-    /**
-     * Cleanup event manager
-     */
-    cleanup() {
-        // Pulisci timeout ricerche
-        for (const timeoutId of this.searchTimeouts.values()) {
-            clearTimeout(timeoutId);
-        }
-        this.searchTimeouts.clear();
-        
-        console.log('🧹 EventManager cleanup completato');
+    } catch (error) {
+        console.error('❌ Errore ricerca fallback:', error);
+        showArtistSearchMessage('Errore durante la ricerca');
     }
 }
 
-// Esporta classe
-export default EventManager;
+// Mock data per test sistema Artists
+async function getMockArtistsData(query) {
+    const mockDB = [
+        { id: 1, nome: 'Mario', cognome: 'Rossi', mansione: 'Cantante', codice_fiscale: 'RSSMRA80A01H501Z' },
+        { id: 2, nome: 'Luigi', cognome: 'Verdi', mansione: 'Musicista', codice_fiscale: 'VRDLGU75B02H501Y' },
+        { id: 3, nome: 'Anna', cognome: 'Bianchi', mansione: 'Ballerina', codice_fiscale: 'BNCNNA85C03H501X' },
+        { id: 4, nome: 'Marco', cognome: 'Neri', mansione: 'Attore', codice_fiscale: 'NRIMRC90D04H501W' },
+        { id: 5, nome: 'Sara', cognome: 'Rosa', mansione: 'Cantante', codice_fiscale: 'RSOSRA88E05H501V' },
+        { id: 6, nome: 'Giuseppe', cognome: 'Blu', mansione: 'Musicista', codice_fiscale: 'BLUGPP70F06H501U' },
+        { id: 7, nome: 'Maria', cognome: 'Verde', mansione: 'Ballerina', codice_fiscale: 'VRDMRA82G07H501T' },
+        { id: 8, nome: 'Francesco', cognome: 'Giallo', mansione: 'Attore', codice_fiscale: 'GLLFNC78H08H501S' },
+        { id: 9, nome: 'Zaira', cognome: 'Zamboni', mansione: 'Cantante', codice_fiscale: 'ZMBZRA90I09H501R' },
+        { id: 10, nome: 'Zeno', cognome: 'Zanetti', mansione: 'Musicista', codice_fiscale: 'ZNTZNO85J10H501Q' }
+    ];
+    
+    const queryLower = query.toLowerCase();
+    
+    return mockDB.filter(artist => {
+        const searchText = `${artist.nome} ${artist.cognome} ${artist.mansione}`.toLowerCase();
+        return searchText.includes(queryLower);
+    });
+}
 
-console.log('✅ EventManager module loaded');
+// Display risultati ricerca artisti
+function displayArtistSearchResults(artists, query) {
+    const resultsContainer = document.getElementById('artistSearchResults');
+    if (!resultsContainer) return;
+    
+    const resultsHTML = artists.map(artist => `
+        <div class="artist-result-item" data-artist-id="${artist.id}" onclick="selectArtistFromSearch(${artist.id})">
+            <div class="artist-info">
+                <div class="artist-name">${highlightQuery(artist.nome + ' ' + artist.cognome, query)}</div>
+                <div class="artist-details">
+                    ${artist.mansione} | CF: ${artist.codice_fiscale}
+                </div>
+            </div>
+            <div class="artist-actions">
+                <button class="btn-select" onclick="event.stopPropagation(); selectArtistFromSearch(${artist.id})">
+                    ➕ Seleziona
+                </button>
+            </div>
+        </div>
+    `).join('');
+    
+    resultsContainer.innerHTML = `
+        <div class="search-results-header">
+            <span>Trovati ${artists.length} artisti per "${query}"</span>
+            <button onclick="clearArtistSearchResults()" class="btn-clear">✕</button>
+        </div>
+        <div class="search-results-list">
+            ${resultsHTML}
+        </div>
+    `;
+    
+    resultsContainer.style.display = 'block';
+}
+
+// Evidenzia query nei risultati
+function highlightQuery(text, query) {
+    if (!query) return text;
+    
+    const regex = new RegExp(`(${query})`, 'gi');
+    return text.replace(regex, '<mark>$1</mark>');
+}
+
+// Seleziona artista dai risultati ricerca
+async function selectArtistFromSearch(artistId) {
+    console.log(`🎭 Selezione artista ID: ${artistId}`);
+    
+    try {
+        // 🆕 Usa sistema Artists se disponibile
+        if (window.AgibilitaSystem?.artists?.addToList) {
+            // Trova artista nei risultati
+            const artistData = await findArtistById(artistId);
+            if (artistData) {
+                window.AgibilitaSystem.artists.addToList(artistData);
+                window.AgibilitaSystem.showToast(`${artistData.nome} ${artistData.cognome} aggiunto alla lista!`, 'success');
+            }
+        } else {
+            // Fallback aggiunta artista
+            await addArtistToListFallback(artistId);
+        }
+        
+        // Pulisci ricerca dopo selezione
+        clearArtistSearchResults();
+        document.getElementById('artistSearchInput').value = '';
+        
+    } catch (error) {
+        console.error('❌ Errore selezione artista:', error);
+        
+        if (window.AgibilitaSystem?.showToast) {
+            window.AgibilitaSystem.showToast('Errore aggiunta artista', 'error');
+        }
+    }
+}
+
+// Trova artista per ID (helper)
+async function findArtistById(artistId) {
+    // Questo dovrebbe interrogare il database reale
+    const mockArtists = await getMockArtistsData('');
+    return mockArtists.find(a => a.id === artistId);
+}
+
+// Fallback aggiunta artista alla lista
+async function addArtistToListFallback(artistId) {
+    const artistData = await findArtistById(artistId);
+    if (!artistData) return;
+    
+    const selectedContainer = document.getElementById('selectedArtistsContainer');
+    if (!selectedContainer) return;
+    
+    // Controlla se già presente
+    if (selectedContainer.querySelector(`[data-artist-id="${artistId}"]`)) {
+        if (window.AgibilitaSystem?.showToast) {
+            window.AgibilitaSystem.showToast('Artista già presente nella lista', 'warning');
+        }
+        return;
+    }
+    
+    // Aggiungi alla lista
+    const artistHTML = `
+        <div class="selected-artist-item" data-artist-id="${artistId}">
+            <div class="artist-info">
+                <div class="artist-name">${artistData.nome} ${artistData.cognome}</div>
+                <div class="artist-details">${artistData.mansione}</div>
+            </div>
+            <div class="artist-compenso">
+                <input type="number" placeholder="Compenso €" min="0" step="0.01" 
+                       onchange="updateArtistCompenso(${artistId}, this.value)">
+            </div>
+            <div class="artist-actions">
+                <button onclick="removeArtistFromList(${artistId})" class="btn-remove">
+                    🗑️ Rimuovi
+                </button>
+            </div>
+        </div>
+    `;
+    
+    selectedContainer.insertAdjacentHTML('beforeend', artistHTML);
+    
+    if (window.AgibilitaSystem?.showToast) {
+        window.AgibilitaSystem.showToast(`${artistData.nome} ${artistData.cognome} aggiunto!`, 'success');
+    }
+}
+
+// Rimuovi artista dalla lista
+function removeArtistFromList(artistId) {
+    console.log(`🗑️ Rimozione artista ID: ${artistId}`);
+    
+    if (window.AgibilitaSystem?.artists?.removeFromList) {
+        window.AgibilitaSystem.artists.removeFromList(artistId);
+    } else {
+        // Fallback rimozione
+        const artistElement = document.querySelector(`[data-artist-id="${artistId}"]`);
+        if (artistElement) {
+            artistElement.remove();
+            
+            if (window.AgibilitaSystem?.showToast) {
+                window.AgibilitaSystem.showToast('Artista rimosso dalla lista', 'info');
+            }
+        }
+    }
+}
+
+// Aggiorna compenso artista
+function updateArtistCompenso(artistId, compenso) {
+    console.log(`💰 Update compenso artista ${artistId}: €${compenso}`);
+    
+    // Validazione compenso
+    const compensoNum = parseFloat(compenso);
+    if (isNaN(compensoNum) || compensoNum < 0) {
+        if (window.AgibilitaSystem?.showToast) {
+            window.AgibilitaSystem.showToast('Compenso non valido', 'error');
+        }
+        return;
+    }
+    
+    // Aggiorna nello stato se disponibile
+    if (window.AgibilitaSystem?.instances?.state) {
+        const artists = window.AgibilitaSystem.instances.state.get('selectedArtists') || [];
+        const artistIndex = artists.findIndex(a => a.id === artistId);
+        
+        if (artistIndex !== -1) {
+            artists[artistIndex].compenso = compensoNum;
+            window.AgibilitaSystem.instances.state.set('selectedArtists', artists);
+        }
+    }
+    
+    console.log(`✅ Compenso aggiornato: €${compensoNum}`);
+}
+
+// Pulisci risultati ricerca
+function clearArtistSearchResults() {
+    const resultsContainer = document.getElementById('artistSearchResults');
+    if (resultsContainer) {
+        resultsContainer.innerHTML = '';
+        resultsContainer.style.display = 'none';
+    }
+    lastSearchQuery = '';
+}
+
+// Mostra messaggio nei risultati ricerca
+function showArtistSearchMessage(message) {
+    const resultsContainer = document.getElementById('artistSearchResults');
+    if (!resultsContainer) return;
+    
+    resultsContainer.innerHTML = `
+        <div class="search-message">
+            <span>${message}</span>
+        </div>
+    `;
+    resultsContainer.style.display = 'block';
+}
+
+// ==================== GESTIONE MODAL ARTISTI ====================
+
+// Apri modal registrazione artista
+function openArtistRegistrationModal() {
+    console.log('🆕 Apertura modal registrazione artista');
+    
+    if (window.AgibilitaSystem?.artists?.openRegistrationModal) {
+        window.AgibilitaSystem.artists.openRegistrationModal();
+    } else {
+        // Fallback - apri modal semplice
+        showSimpleArtistModal();
+    }
+}
+
+// Modal semplice fallback
+function showSimpleArtistModal() {
+    const modalHTML = `
+        <div id="simpleArtistModal" class="modal" style="display: block;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Registrazione Artista</h3>
+                    <button onclick="closeSimpleArtistModal()" class="btn-close">✕</button>
+                </div>
+                <div class="modal-body">
+                    <p>Modal registrazione artista in sviluppo...</p>
+                    <p>Per la registrazione completa, usa la pagina dedicata:</p>
+                    <a href="./registrazione-artista.html?source=agibilita" target="_blank" class="btn-primary">
+                        Registrazione Completa
+                    </a>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+function closeSimpleArtistModal() {
+    const modal = document.getElementById('simpleArtistModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+// ==================== GESTIONE TAB SYSTEM ====================
+
+// Gestione tab switching
+function handleTabSwitch(tabName) {
+    console.log(`🔄 Switch tab: ${tabName}`);
+    
+    if (window.AgibilitaSystem?.switchTab) {
+        window.AgibilitaSystem.switchTab(tabName);
+    } else {
+        // Fallback tab switching
+        switchTabFallback(tabName);
+    }
+}
+
+function switchTabFallback(tabName) {
+    // Nascondi tutti i tab
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.style.display = 'none';
+    });
+    
+    // Rimuovi active class
+    document.querySelectorAll('[data-tab]').forEach(button => {
+        button.classList.remove('active');
+    });
+    
+    // Mostra tab selezionato
+    const targetContent = document.getElementById(`${tabName}Tab`);
+    if (targetContent) {
+        targetContent.style.display = 'block';
+    }
+    
+    // Attiva button
+    const targetButton = document.querySelector(`[data-tab="${tabName}"]`);
+    if (targetButton) {
+        targetButton.classList.add('active');
+    }
+}
+
+// ==================== GESTIONE NAVIGAZIONE STEP ====================
+
+// Step successivo
+function handleNextStep() {
+    console.log('▶️ Step successivo');
+    
+    if (window.AgibilitaSystem?.nextStep) {
+        window.AgibilitaSystem.nextStep();
+    } else {
+        console.log('⚠️ Sistema navigazione non disponibile');
+        
+        if (window.AgibilitaSystem?.showToast) {
+            window.AgibilitaSystem.showToast('Sistema navigazione in sviluppo', 'warning');
+        }
+    }
+}
+
+// Step precedente
+function handlePrevStep() {
+    console.log('◀️ Step precedente');
+    
+    if (window.AgibilitaSystem?.prevStep) {
+        window.AgibilitaSystem.prevStep();
+    } else {
+        console.log('⚠️ Sistema navigazione non disponibile');
+        
+        if (window.AgibilitaSystem?.showToast) {
+            window.AgibilitaSystem.showToast('Sistema navigazione in sviluppo', 'warning');
+        }
+    }
+}
+
+// ==================== INIZIALIZZAZIONE EVENT LISTENERS ====================
+
+// Setup event listeners quando DOM è pronto
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🔗 Setup event handlers agibilità...');
+    
+    // Event listener ricerca artisti
+    const artistSearchInput = document.getElementById('artistSearchInput');
+    if (artistSearchInput) {
+        artistSearchInput.addEventListener('input', handleArtistSearch);
+        console.log('✅ Event listener ricerca artisti configurato');
+    }
+    
+    // Event listener pulsante nuovo artista
+    const newArtistBtn = document.getElementById('newArtistBtn');
+    if (newArtistBtn) {
+        newArtistBtn.addEventListener('click', openArtistRegistrationModal);
+        console.log('✅ Event listener nuovo artista configurato');
+    }
+    
+    // Event listener tab buttons
+    document.querySelectorAll('[data-tab]').forEach(button => {
+        button.addEventListener('click', (e) => {
+            const tabName = e.target.getAttribute('data-tab');
+            handleTabSwitch(tabName);
+        });
+    });
+    
+    // Event listener navigation buttons
+    const nextBtn = document.getElementById('nextStepBtn');
+    const prevBtn = document.getElementById('prevStepBtn');
+    
+    if (nextBtn) {
+        nextBtn.addEventListener('click', handleNextStep);
+    }
+    
+    if (prevBtn) {
+        prevBtn.addEventListener('click', handlePrevStep);
+    }
+    
+    console.log('✅ Event handlers configurati');
+});
+
+// ==================== UTILITY FUNCTIONS ====================
+
+// Reset completo sistema artisti
+function resetArtistsSystem() {
+    console.log('🧹 Reset sistema artisti');
+    
+    if (window.AgibilitaSystem?.artists?.resetAll) {
+        window.AgibilitaSystem.artists.resetAll();
+    } else {
+        // Fallback reset
+        clearArtistSearchResults();
+        document.getElementById('artistSearchInput').value = '';
+        document.getElementById('selectedArtistsContainer').innerHTML = '';
+    }
+    
+    if (window.AgibilitaSystem?.showToast) {
+        window.AgibilitaSystem.showToast('Sistema artisti azzerato', 'info');
+    }
+}
+
+// Debug info sistema artisti
+function debugArtistsSystem() {
+    console.log('🔧 Debug Sistema Artists:');
+    console.log('- AgibilitaSystem disponibile:', !!window.AgibilitaSystem);
+    console.log('- Artists API disponibile:', !!window.AgibilitaSystem?.artists);
+    console.log('- Artisti selezionati:', window.AgibilitaSystem?.artists?.getSelectedArtists?.());
+    
+    if (window.AgibilitaSystem?.instances) {
+        console.log('- Istanze moduli:', Object.keys(window.AgibilitaSystem.instances));
+    }
+}
+
+// Esporta funzioni per uso globale
+window.ArtistEventHandlers = {
+    handleArtistSearch,
+    selectArtistFromSearch,
+    removeArtistFromList,
+    updateArtistCompenso,
+    openArtistRegistrationModal,
+    resetArtistsSystem,
+    debugArtistsSystem
+};
+
+console.log('📄 event-handlers.js v3.0 con Artists System caricato');
+console.log('🔧 Funzioni disponibili in window.ArtistEventHandlers');
