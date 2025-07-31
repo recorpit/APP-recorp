@@ -1,466 +1,465 @@
-// agibilita-main.js - Entry Point Sistema Agibilità
-// Import configurazioni dedicate agibilità
-import { DatabaseService } from './config/supabase-config-agibilita.js';
-import { AuthGuard } from './config/auth-guard-agibilita.js';
-
-// Import moduli core
-import { DebugSystem } from './utils/debug-system.js';
-import { StateManager } from './modules/core/state-management.js';
-import { SystemInitializer } from './modules/core/initialization.js';
-import { EventManager } from './modules/core/event-handlers.js';
-import { ToastSystem } from './modules/ui/toast-system.js';
-import { NavigationManager } from './modules/ui/navigation.js';
-import { ProgressBarManager } from './modules/ui/progress-bar.js';
-import { ModalManager } from './modules/ui/modals.js';
-
-console.log('🚀 Inizializzazione sistema agibilità...');
-
 /**
- * Sistema Agibilità - Coordinatore Principale
+ * agibilita-main.js - Entry Point Sistema Agibilità con Moduli Artists
+ * 
+ * Sistema completo per gestione agibilità RECORP con ricerca artisti funzionante
+ * 
+ * @author RECORP ALL-IN-ONE
+ * @version 3.0 - Con Artists System Integrato
  */
-class AgibilitaSystem {
-    constructor() {
-        this.modules = new Map();
-        this.initialized = false;
-        this.startTime = Date.now();
-        
-        console.log('🎭 AgibilitaSystem creato');
+
+// ==================== IMPORT MODULI CORE ====================
+import { DatabaseService } from '../config/supabase-config-agibilita.js';
+import { AuthGuard } from '../config/auth-guard-agibilita.js';
+import { DebugSystem } from '../utils/debug-system.js';
+
+// ==================== IMPORT MODULI UI CORE ====================
+import { StateManager } from '../modules/core/state-manager.js';
+import { ToastSystem } from '../modules/ui/toast-system.js';
+import { NavigationManager } from '../modules/ui/navigation-manager.js';
+import { ProgressBar } from '../modules/ui/progress-bar.js';
+import { ModalSystem } from '../modules/ui/modal-system.js';
+import { EventManager } from '../modules/core/event-manager.js';
+
+// 🆕 ==================== IMPORT MODULI ARTISTS ====================
+import { ArtistSearch } from '../modules/features/artist-search.js';
+import { ArtistList } from '../modules/features/artist-list.js';
+import { ArtistValidation } from '../modules/features/artist-validation.js';
+import { ArtistModal } from '../modules/features/artist-modal.js';
+import { ArtistsIntegration } from '../modules/features/artists-integration.js';
+
+// ==================== CONFIGURAZIONE SISTEMA ====================
+const AGIBILITA_CONFIG = {
+    debug: true,
+    environment: 'development',
+    version: '3.0',
+    modules: {
+        core: ['state', 'events', 'auth', 'database'],
+        ui: ['toast', 'navigation', 'progress', 'modal'],
+        features: ['artists', 'locations', 'generation'] // 🆕 Artists ora disponibile
+    },
+    artists: {
+        searchEnabled: true,           // 🆕 Ricerca artisti abilitata
+        validationEnabled: true,       // 🆕 Validazione artisti abilitata
+        modalEnabled: true,            // 🆕 Modal registrazione abilitato
+        listManagementEnabled: true    // 🆕 Gestione lista abilitata
     }
+};
+
+// ==================== VARIABILI GLOBALI ====================
+let systemInstances = {};
+let systemReady = false;
+
+// ==================== INIZIALIZZAZIONE SISTEMA ====================
+document.addEventListener('DOMContentLoaded', async function() {
+    DebugSystem.log('🚀 Inizializzazione Sistema Agibilità v3.0 con Artists...');
     
-    /**
-     * Inizializzazione principale del sistema
-     */
-    async initialize() {
-        try {
-            console.log('🔧 Inizializzazione sistema agibilità in corso...');
-            
-            // Phase 1: Protezione autenticazione (PRIMA DI TUTTO)
-            await this.initializeAuthentication();
-            
-            // Phase 2: Core Systems
-            await this.initializeCoreModules();
-            
-            // Phase 3: UI Systems  
-            await this.initializeUIModules();
-            
-            // Phase 4: Post-initialization
-            await this.finalizeInitialization();
-            
-            this.initialized = true;
-            const initTime = Date.now() - this.startTime;
-            
-            console.log('✅ Sistema agibilità inizializzato con successo in ' + initTime + 'ms');
-            
-            // Nascondi loading overlay
-            this.hideLoadingOverlay();
-            
-            // Mostra messaggio di benvenuto
-            this.showWelcomeMessage();
-            
-            return true;
-            
-        } catch (error) {
-            console.error('❌ Errore inizializzazione sistema agibilità:', error);
-            this.handleInitializationError(error);
-            throw error;
-        }
-    }
-    
-    /**
-     * Inizializza moduli core
-     */
-    async initializeCoreModules() {
-        console.log('🏗️ Inizializzazione moduli core...');
+    try {
+        // 1. Inizializza sistemi core
+        await initializeCoreModules();
         
-        // Debug System
-        console.log('🔧 Caricamento DebugSystem...');
-        if (!window.DebugSystem) {
-            window.DebugSystem = DebugSystem;
-            DebugSystem.initialize();
-            console.log('✅ DebugSystem inizializzato');
-        }
+        // 2. Inizializza sistemi UI
+        await initializeUIModules();
         
-        // State Manager
-        console.log('🗄️ Caricamento StateManager...');
-        const stateManager = new StateManager();
-        // StateManager non richiede initialize()
-        this.modules.set('stateManager', stateManager);
-        window.stateManager = stateManager; // Per debug
-        console.log('✅ StateManager inizializzato');
+        // 3. 🆕 Inizializza moduli Artists
+        await initializeArtistsModules();
         
-        // System Initializer
-        console.log('🚀 Caricamento SystemInitializer...');
-        const systemInitializer = new SystemInitializer(stateManager);
-        if (systemInitializer.initialize) {
-            await systemInitializer.initialize();
-        }
-        this.modules.set('systemInitializer', systemInitializer);
-        console.log('✅ SystemInitializer pronto');
+        // 4. Setup event handlers finali
+        setupFinalEventHandlers();
         
-        // Event Manager
-        console.log('🎧 Caricamento EventManager...');
-        const eventManager = new EventManager(stateManager);
-        if (eventManager.initialize) {
-            await eventManager.initialize();
-        }
-        this.modules.set('eventManager', eventManager);
-        window.eventManager = eventManager; // Per debug
-        console.log('✅ EventManager inizializzato');
-    }
-    
-    /**
-     * Inizializza moduli UI
-     */
-    async initializeUIModules() {
-        console.log('🎨 Inizializzazione moduli UI...');
+        // 5. Sistema pronto
+        systemReady = true;
+        DebugSystem.log('✅ Sistema Agibilità completamente inizializzato!');
         
-        const stateManager = this.modules.get('stateManager');
+        // Nascondi loading e mostra interfaccia
+        hideLoadingAndShowInterface();
         
-        // Toast System
-        console.log('🔔 Caricamento ToastSystem...');
-        const toastSystem = new ToastSystem();
-        if (toastSystem.initialize) {
-            await toastSystem.initialize();
-        }
-        this.modules.set('toastSystem', toastSystem);
-        window.toastSystem = toastSystem; // Per uso globale
-        console.log('✅ ToastSystem pronto');
-        
-        // Navigation Manager
-        console.log('🧭 Caricamento NavigationManager...');
-        const navigationManager = new NavigationManager(stateManager);
-        if (navigationManager.initialize) {
-            await navigationManager.initialize();
-        }
-        this.modules.set('navigationManager', navigationManager);
-        window.navigationManager = navigationManager; // Per uso globale
-        console.log('✅ NavigationManager pronto');
-        
-        // Progress Bar Manager
-        console.log('📊 Caricamento ProgressBarManager...');
-        const progressBarManager = new ProgressBarManager(stateManager);
-        if (progressBarManager.initialize) {
-            await progressBarManager.initialize();
-        }
-        this.modules.set('progressBarManager', progressBarManager);
-        window.progressBarManager = progressBarManager; // Per uso globale
-        console.log('✅ ProgressBarManager pronto');
-        
-        // Modal Manager
-        console.log('🔔 Caricamento ModalManager...');
-        const modalManager = new ModalManager();
-        if (modalManager.initialize) {
-            await modalManager.initialize();
-        }
-        this.modules.set('modalManager', modalManager);
-        window.modalManager = modalManager; // Per uso globale
-        console.log('✅ ModalManager pronto');
-    }
-    
-    /**
-     * Inizializza protezione autenticazione
-     */
-    async initializeAuthentication() {
-        try {
-            console.log('🛡️ Inizializzazione protezione autenticazione...');
-            
-            // Inizializza protezione pagina agibilità
-            const session = await AuthGuard.initAgibilitaPageProtection();
-            
-            console.log('✅ Protezione autenticazione attivata');
-            return session;
-            
-        } catch (error) {
-            console.error('❌ Errore inizializzazione autenticazione:', error);
-            // L'errore viene gestito da AuthGuard che fa il redirect
-            throw error;
-        }
-    }
-    
-    /**
-     * Finalizza inizializzazione
-     */
-    async finalizeInitialization() {
-        console.log('🎯 Finalizzazione inizializzazione...');
-        
-        // Setup auto-update per navigation controls
-        const navigationManager = this.modules.get('navigationManager');
-        if (navigationManager && navigationManager.setupAutoUpdate) {
-            navigationManager.setupAutoUpdate();
-        }
-        
-        // Setup integrations tra moduli
-        this.setupModuleIntegrations();
-        
-        // Registra sistema globalmente per debug
-        window.agibilitaSystem = this;
-        
-        console.log('✅ Finalizzazione completata');
-    }
-    
-    /**
-     * Setup integrazioni tra moduli
-     */
-    setupModuleIntegrations() {
-        const stateManager = this.modules.get('stateManager');
-        const toastSystem = this.modules.get('toastSystem');
-        const navigationManager = this.modules.get('navigationManager');
-        const progressBarManager = this.modules.get('progressBarManager');
-        
-        // Integrazione StateManager -> ToastSystem
-        if (stateManager && toastSystem) {
-            stateManager.addListener('error', (error) => {
-                toastSystem.show(error.message || 'Errore sistema', 'error');
-            });
-            
-            stateManager.addListener('success', (message) => {
-                toastSystem.show(message, 'success');
-            });
-        }
-        
-        // Integrazione StateManager -> ProgressBar
-        if (stateManager && progressBarManager) {
-            stateManager.addListener('currentStep', (step) => {
-                progressBarManager.updateProgress(step);
-            });
-        }
-        
-        console.log('🔗 Integrazioni moduli configurate');
-    }
-    
-    /**
-     * Nasconde loading overlay
-     */
-    hideLoadingOverlay() {
-        const loadingOverlay = document.getElementById('loadingOverlay');
-        if (loadingOverlay) {
-            loadingOverlay.style.transition = 'opacity 0.5s ease';
-            loadingOverlay.style.opacity = '0';
-            
+        // 🆕 Test immediato ricerca artisti se in debug
+        if (AGIBILITA_CONFIG.debug) {
             setTimeout(() => {
-                loadingOverlay.style.display = 'none';
-            }, 500);
-            
-            console.log('✅ Loading overlay nascosto');
-        }
-    }
-    
-    /**
-     * Mostra messaggio di benvenuto
-     */
-    showWelcomeMessage() {
-        const toastSystem = this.modules.get('toastSystem');
-        if (toastSystem) {
-            setTimeout(() => {
-                toastSystem.show('🎭 Sistema agibilità pronto!', 'success', 3000);
-            }, 600);
-        }
-    }
-    
-    /**
-     * Gestisce errori di inizializzazione
-     */
-    handleInitializationError(error) {
-        console.error('💥 Errore critico inizializzazione:', error);
-        
-        // Mostra errore user-friendly
-        const errorDiv = document.createElement('div');
-        errorDiv.id = 'system-error';
-        errorDiv.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.9); color: white; display: flex; align-items: center; justify-content: center; z-index: 9999; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;';
-        
-        const errorMessage = error.message || 'Errore sconosciuto';
-        
-        errorDiv.innerHTML = '<div style="text-align: center; max-width: 500px; padding: 40px;">' +
-            '<div style="font-size: 4rem; margin-bottom: 20px;">⚠️</div>' +
-            '<h2 style="margin-bottom: 16px;">Errore Sistema Agibilità</h2>' +
-            '<p style="margin-bottom: 24px; opacity: 0.8; line-height: 1.5;">Si è verificato un errore durante l\'inizializzazione del sistema.</p>' +
-            '<div style="background: rgba(255, 255, 255, 0.1); padding: 16px; border-radius: 8px; margin-bottom: 24px; font-family: monospace; font-size: 14px; text-align: left;">' + errorMessage + '</div>' +
-            '<button onclick="window.location.reload()" style="background: #3b82f6; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-weight: 600;">🔄 Ricarica Pagina</button>' +
-            '</div>';
-        
-        document.body.appendChild(errorDiv);
-        
-        // Nascondi loading overlay se presente
-        const loadingOverlay = document.getElementById('loadingOverlay');
-        if (loadingOverlay) {
-            loadingOverlay.style.display = 'none';
-        }
-    }
-    
-    /**
-     * Ottiene modulo per nome
-     */
-    getModule(name) {
-        return this.modules.get(name);
-    }
-    
-    /**
-     * Verifica se sistema è inizializzato
-     */
-    isInitialized() {
-        return this.initialized;
-    }
-    
-    /**
-     * Ottiene info sistema per debug
-     */
-    debug() {
-        const moduleStatus = {};
-        for (const [name, module] of this.modules) {
-            moduleStatus[name] = {
-                loaded: !!module,
-                hasDebug: typeof module.debug === 'function'
-            };
+                testArtistsSystemImmediate();
+            }, 1000);
         }
         
-        return {
-            initialized: this.initialized,
-            startTime: this.startTime,
-            initTime: this.initialized ? Date.now() - this.startTime : null,
-            modules: moduleStatus,
-            globalReferences: {
-                DebugSystem: !!window.DebugSystem,
-                stateManager: !!window.stateManager,
-                toastSystem: !!window.toastSystem,
-                navigationManager: !!window.navigationManager,
-                progressBarManager: !!window.progressBarManager,
-                modalManager: !!window.modalManager,
-                agibilitaSystem: !!window.agibilitaSystem
-            },
-            authentication: {
-                AuthGuard: !!window.AuthGuard,
-                DatabaseService: DatabaseService.isReady()
+    } catch (error) {
+        DebugSystem.error('❌ Errore inizializzazione sistema:', error);
+        showCriticalError(error);
+    }
+});
+
+// ==================== INIZIALIZZAZIONE MODULI CORE ====================
+async function initializeCoreModules() {
+    DebugSystem.log('🔧 Inizializzazione moduli core...');
+    
+    // State Manager
+    systemInstances.state = new StateManager({
+        debug: AGIBILITA_CONFIG.debug,
+        persistent: true
+    });
+    
+    // Event Manager  
+    systemInstances.events = new EventManager({
+        debug: AGIBILITA_CONFIG.debug
+    });
+    
+    // Auth Guard
+    systemInstances.auth = new AuthGuard({
+        requiredRole: 'user',
+        redirectOnFail: '/login.html'
+    });
+    
+    // Database Service (già inizializzato nel config)
+    systemInstances.database = DatabaseService;
+    
+    DebugSystem.log('✅ Moduli core inizializzati');
+}
+
+// ==================== INIZIALIZZAZIONE MODULI UI ====================
+async function initializeUIModules() {
+    DebugSystem.log('🎨 Inizializzazione moduli UI...');
+    
+    // Toast System
+    systemInstances.toast = new ToastSystem({
+        position: 'top-right',
+        duration: 4000,
+        debug: AGIBILITA_CONFIG.debug
+    });
+    
+    // Navigation Manager
+    systemInstances.navigation = new NavigationManager({
+        steps: ['artists', 'locations', 'generation'],
+        currentStep: 'artists',
+        validation: true
+    });
+    
+    // Progress Bar
+    systemInstances.progress = new ProgressBar({
+        container: 'progressBarContainer',
+        steps: 3,
+        currentStep: 1
+    });
+    
+    // Modal System
+    systemInstances.modal = new ModalSystem({
+        debug: AGIBILITA_CONFIG.debug
+    });
+    
+    DebugSystem.log('✅ Moduli UI inizializzati');
+}
+
+// 🆕 ==================== INIZIALIZZAZIONE MODULI ARTISTS ====================
+async function initializeArtistsModules() {
+    DebugSystem.log('🎭 Inizializzazione moduli Artists...');
+    
+    // Artist Search - Ricerca artisti real-time
+    systemInstances.artistSearch = new ArtistSearch({
+        container: 'artistSearchContainer',
+        input: 'artistSearchInput',
+        results: 'artistSearchResults',
+        database: systemInstances.database,
+        toast: systemInstances.toast,
+        debug: AGIBILITA_CONFIG.debug
+    });
+    
+    // Artist List - Gestione lista artisti selezionati
+    systemInstances.artistList = new ArtistList({
+        container: 'selectedArtistsContainer',
+        template: 'artistItemTemplate',
+        state: systemInstances.state,
+        toast: systemInstances.toast,
+        debug: AGIBILITA_CONFIG.debug
+    });
+    
+    // Artist Validation - Validazione dati artisti
+    systemInstances.artistValidation = new ArtistValidation({
+        container: 'validationPanelContainer',
+        state: systemInstances.state,
+        navigation: systemInstances.navigation,
+        toast: systemInstances.toast,
+        debug: AGIBILITA_CONFIG.debug
+    });
+    
+    // Artist Modal - Modal registrazione nuovi artisti
+    systemInstances.artistModal = new ArtistModal({
+        modalId: 'artistRegistrationModal',
+        database: systemInstances.database,
+        toast: systemInstances.toast,
+        callback: (artist) => handleNewArtistRegistered(artist),
+        debug: AGIBILITA_CONFIG.debug
+    });
+    
+    // Artists Integration - Coordinamento moduli
+    systemInstances.artistsIntegration = new ArtistsIntegration({
+        search: systemInstances.artistSearch,
+        list: systemInstances.artistList,
+        validation: systemInstances.artistValidation,
+        modal: systemInstances.artistModal,
+        state: systemInstances.state,
+        events: systemInstances.events,
+        debug: AGIBILITA_CONFIG.debug
+    });
+    
+    DebugSystem.log('✅ Moduli Artists inizializzati e integrati');
+}
+
+// ==================== EVENT HANDLERS FINALI ====================
+function setupFinalEventHandlers() {
+    DebugSystem.log('🔗 Setup event handlers finali...');
+    
+    // Event handlers per navigazione
+    const nextBtn = document.getElementById('nextStepBtn');
+    const prevBtn = document.getElementById('prevStepBtn');
+    
+    if (nextBtn) {
+        nextBtn.addEventListener('click', handleNextStep);
+    }
+    
+    if (prevBtn) {
+        prevBtn.addEventListener('click', handlePrevStep);
+    }
+    
+    // 🆕 Event handlers per Artists system
+    setupArtistsEventHandlers();
+    
+    // Event handlers per tab switching
+    setupTabEventHandlers();
+    
+    DebugSystem.log('✅ Event handlers configurati');
+}
+
+// 🆕 ==================== EVENT HANDLERS ARTISTS ====================
+function setupArtistsEventHandlers() {
+    // Pulsante apertura modal registrazione artista
+    const newArtistBtn = document.getElementById('newArtistBtn');
+    if (newArtistBtn) {
+        newArtistBtn.addEventListener('click', () => {
+            DebugSystem.log('🆕 Apertura modal registrazione artista');
+            systemInstances.artistModal.show();
+        });
+    }
+    
+    // Pulsante reset ricerca
+    const resetSearchBtn = document.getElementById('resetArtistSearchBtn');
+    if (resetSearchBtn) {
+        resetSearchBtn.addEventListener('click', () => {
+            systemInstances.artistSearch.reset();
+            systemInstances.toast.show('Ricerca azzerata', 'info');
+        });
+    }
+    
+    // Pulsante reset lista artisti
+    const resetListBtn = document.getElementById('resetArtistsListBtn');
+    if (resetListBtn) {
+        resetListBtn.addEventListener('click', () => {
+            if (confirm('Confermi di voler rimuovere tutti gli artisti dalla lista?')) {
+                systemInstances.artistList.reset();
+                systemInstances.toast.show('Lista artisti azzerata', 'warning');
             }
-        };
+        });
     }
     
-    /**
-     * Cleanup completo sistema
-     */
-    cleanup() {
-        console.log('🧹 Cleanup sistema agibilità...');
-        
-        // Cleanup moduli
-        for (const [name, module] of this.modules) {
-            if (module.cleanup && typeof module.cleanup === 'function') {
-                try {
-                    module.cleanup();
-                    console.log('✅ Cleanup ' + name + ' completato');
-                } catch (error) {
-                    console.warn('⚠️ Errore cleanup ' + name + ':', error);
-                }
-            }
-        }
-        
-        // Cleanup AuthGuard
-        if (AuthGuard.cleanup) {
-            AuthGuard.cleanup();
-        }
-        
-        // Cleanup variabili globali
-        delete window.DebugSystem;
-        delete window.stateManager;
-        delete window.eventManager;
-        delete window.toastSystem;
-        delete window.navigationManager;
-        delete window.progressBarManager;
-        delete window.modalManager;
-        delete window.agibilitaSystem;
-        
-        this.modules.clear();
-        this.initialized = false;
-        
-        console.log('✅ Cleanup sistema agibilità completato');
-    }
+    DebugSystem.log('✅ Event handlers Artists configurati');
+}
+
+// ==================== GESTIONE NAVIGAZIONE ====================
+function handleNextStep() {
+    DebugSystem.log('▶️ Richiesta step successivo');
     
-    /**
-     * Ricarica sistema
-     */
-    async reload() {
-        console.log('🔄 Ricarica sistema agibilità...');
+    const currentStep = systemInstances.navigation.getCurrentStep();
+    
+    if (currentStep === 'artists') {
+        // Valida step artisti prima di procedere
+        const validation = systemInstances.artistValidation.validateStep();
         
-        this.cleanup();
-        await this.initialize();
-        
-        console.log('✅ Sistema agibilità ricaricato');
+        if (validation.isValid) {
+            systemInstances.navigation.next();
+            systemInstances.progress.next();
+            systemInstances.toast.show('Step artisti completato!', 'success');
+        } else {
+            systemInstances.toast.show(`Errori step artisti: ${validation.errors.join(', ')}`, 'error');
+        }
+    } else {
+        // Altri step (locations, generation)
+        systemInstances.navigation.next();
+        systemInstances.progress.next();
     }
 }
 
-// ==================== INIZIALIZZAZIONE AUTOMATICA ====================
+function handlePrevStep() {
+    DebugSystem.log('◀️ Richiesta step precedente');
+    systemInstances.navigation.prev();
+    systemInstances.progress.prev();
+}
 
-// Crea istanza sistema
-const agibilitaSystem = new AgibilitaSystem();
-
-// Inizializza quando DOM è pronto
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        agibilitaSystem.initialize().catch(error => {
-            console.error('❌ Fallimento inizializzazione agibilità:', error);
+// ==================== GESTIONE TAB ====================
+function setupTabEventHandlers() {
+    const tabButtons = document.querySelectorAll('[data-tab]');
+    
+    tabButtons.forEach(button => {
+        button.addEventListener('click', (e) => {
+            const tabName = e.target.getAttribute('data-tab');
+            switchTab(tabName);
         });
     });
-} else {
-    // DOM già pronto
-    agibilitaSystem.initialize().catch(error => {
-        console.error('❌ Fallimento inizializzazione agibilità:', error);
-    });
 }
 
-// Timeout di sicurezza
+function switchTab(tabName) {
+    DebugSystem.log(`🔄 Switch tab: ${tabName}`);
+    
+    // Nascondi tutti i tab content
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.style.display = 'none';
+    });
+    
+    // Rimuovi active class da tutti i tab button
+    document.querySelectorAll('[data-tab]').forEach(button => {
+        button.classList.remove('active');
+    });
+    
+    // Mostra tab selezionato
+    const targetContent = document.getElementById(`${tabName}Tab`);
+    if (targetContent) {
+        targetContent.style.display = 'block';
+    }
+    
+    // Attiva button
+    const targetButton = document.querySelector(`[data-tab="${tabName}"]`);
+    if (targetButton) {
+        targetButton.classList.add('active');
+    }
+    
+    systemInstances.toast.show(`Tab ${tabName} attivato`, 'info');
+}
+
+// 🆕 ==================== CALLBACK ARTISTI ====================
+function handleNewArtistRegistered(artist) {
+    DebugSystem.log('🎭 Nuovo artista registrato:', artist);
+    
+    // Aggiungi automaticamente alla lista se richiesto
+    const shouldAddToList = confirm(`Artista ${artist.nome} ${artist.cognome} registrato! Aggiungerlo alla lista agibilità?`);
+    
+    if (shouldAddToList) {
+        systemInstances.artistList.addArtist(artist);
+        systemInstances.toast.show(`${artist.nome} ${artist.cognome} aggiunto alla lista!`, 'success');
+    }
+    
+    // Aggiorna ricerca per includere il nuovo artista
+    systemInstances.artistSearch.refreshData();
+}
+
+// 🆕 ==================== TEST SISTEMA ARTISTS ====================
+function testArtistsSystemImmediate() {
+    DebugSystem.log('🧪 Test immediato sistema Artists...');
+    
+    // Test ricerca artisti
+    const searchInput = document.getElementById('artistSearchInput');
+    if (searchInput) {
+        searchInput.value = 'mario';
+        searchInput.dispatchEvent(new Event('input'));
+        
+        setTimeout(() => {
+            searchInput.value = '';
+            searchInput.dispatchEvent(new Event('input'));
+        }, 2000);
+    }
+    
+    systemInstances.toast.show('Test Artists system avviato', 'info');
+}
+
+// ==================== GESTIONE ERRORI ====================
+function hideLoadingAndShowInterface() {
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    const mainInterface = document.getElementById('mainInterface');
+    
+    if (loadingIndicator) {
+        loadingIndicator.style.display = 'none';
+    }
+    
+    if (mainInterface) {
+        mainInterface.style.display = 'block';
+    }
+    
+    // Inizializza tab di default
+    switchTab('bozze');
+}
+
+function showCriticalError(error) {
+    const errorContainer = document.getElementById('errorContainer') || document.body;
+    
+    errorContainer.innerHTML = `
+        <div style="
+            position: fixed; 
+            top: 50%; 
+            left: 50%; 
+            transform: translate(-50%, -50%);
+            background: #fee2e2; 
+            border: 2px solid #dc2626; 
+            border-radius: 8px; 
+            padding: 20px; 
+            max-width: 500px;
+            z-index: 10000;
+        ">
+            <h3 style="color: #dc2626; margin: 0 0 10px 0;">❌ Errore Sistema Agibilità</h3>
+            <p style="margin: 0 0 15px 0;">${error.message}</p>
+            <button onclick="location.reload()" style="
+                background: #dc2626; 
+                color: white; 
+                border: none; 
+                padding: 8px 16px; 
+                border-radius: 4px; 
+                cursor: pointer;
+            ">Ricarica Pagina</button>
+        </div>
+    `;
+}
+
+// ==================== API PUBBLICHE ====================
+// Esporta istanze per debug e uso esterno
+window.AgibilitaSystem = {
+    instances: systemInstances,
+    config: AGIBILITA_CONFIG,
+    ready: () => systemReady,
+    
+    // 🆕 API Artists pubbliche
+    artists: {
+        search: (query) => systemInstances.artistSearch?.search(query),
+        addToList: (artist) => systemInstances.artistList?.addArtist(artist),
+        removeFromList: (artistId) => systemInstances.artistList?.removeArtist(artistId),
+        getSelectedArtists: () => systemInstances.artistList?.getArtists(),
+        validateStep: () => systemInstances.artistValidation?.validateStep(),
+        openRegistrationModal: () => systemInstances.artistModal?.show(),
+        resetAll: () => {
+            systemInstances.artistSearch?.reset();
+            systemInstances.artistList?.reset();
+        }
+    },
+    
+    // API sistema
+    switchTab: switchTab,
+    nextStep: handleNextStep,
+    prevStep: handlePrevStep,
+    showToast: (message, type = 'info') => systemInstances.toast?.show(message, type)
+};
+
+// ==================== DEBUG E LOGGING ====================
+DebugSystem.log('📄 agibilita-main.js v3.0 con Artists System caricato');
+
+// Verifica che tutti i moduli siano disponibili
 setTimeout(() => {
-    if (!agibilitaSystem.isInitialized()) {
-        console.error('⏰ Timeout inizializzazione sistema agibilità');
-        agibilitaSystem.handleInitializationError(
-            new Error('Sistema non si è inizializzato entro 10 secondi')
-        );
+    if (systemReady) {
+        DebugSystem.log('🎉 Sistema Agibilità completamente operativo!');
+        DebugSystem.log('🔧 API disponibili in window.AgibilitaSystem');
+        
+        // 🆕 Notifica che Artists system è pronto
+        const artistModulesReady = [
+            systemInstances.artistSearch,
+            systemInstances.artistList, 
+            systemInstances.artistValidation,
+            systemInstances.artistModal
+        ].every(module => module !== undefined);
+        
+        if (artistModulesReady) {
+            DebugSystem.log('🎭 Moduli Artists completamente operativi!');
+            systemInstances.toast?.show('Sistema Artists pronto!', 'success');
+        }
     }
-}, 10000);
-
-// ==================== EXPORT GLOBALI LEGACY ====================
-
-// Per compatibilità con HTML esistente
-window.showSection = (sectionId) => {
-    if (window.navigationManager) {
-        return window.navigationManager.showSection(sectionId);
-    }
-    console.warn('⚠️ NavigationManager non inizializzato');
-    return false;
-};
-
-window.goToStep = (stepNumber) => {
-    if (window.navigationManager) {
-        return window.navigationManager.showSection('step' + stepNumber);
-    }
-    console.warn('⚠️ NavigationManager non inizializzato');
-    return false;
-};
-
-window.goHome = () => {
-    if (window.navigationManager) {
-        return window.navigationManager.showSection('homeSection');
-    }
-    console.warn('⚠️ NavigationManager non inizializzato');
-    return false;
-};
-
-// Debug utilities globali
-window.debugAgibilita = () => {
-    if (window.agibilitaSystem) {
-        return window.agibilitaSystem.debug();
-    }
-    console.warn('⚠️ Sistema agibilità non inizializzato');
-    return null;
-};
-
-window.reloadAgibilita = () => {
-    if (window.agibilitaSystem) {
-        return window.agibilitaSystem.reload();
-    } else {
-        window.location.reload();
-    }
-};
-
-// Export per moduli
-export { agibilitaSystem };
-export default agibilitaSystem;
-
-console.log('🎭 Sistema agibilità configurato e pronto per l\'inizializzazione');
+}, 2000);
