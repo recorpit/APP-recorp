@@ -15,286 +15,6 @@
     <!-- Preload important resources -->
     <link rel="preload" href="../assets/style.css" as="style">
     <link rel="preload" href="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" as="script">
-
-    <!-- CSS aggiuntivo per le modifiche -->
-    <style>
-        /* ✅ STILI PER AUTORE BOZZE */
-        .bozza-author {
-            color: #666;
-            font-size: 0.85rem;
-            margin-left: 1rem;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.25rem;
-        }
-
-        .bozza-modified {
-            color: #888;
-            font-size: 0.8rem;
-            font-style: italic;
-        }
-
-        /* ✅ MIGLIORAMENTI LAYOUT BOZZE */
-        .bozza-header {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            align-items: center;
-            margin-bottom: 0.5rem;
-        }
-
-        .bozza-code {
-            font-weight: bold;
-            color: #007bff;
-            font-size: 0.9rem;
-        }
-
-        /* ✅ STILI RICHIESTE */
-        .richiesta-code {
-            font-weight: bold;
-            color: #28a745;
-            font-size: 0.9rem;
-        }
-
-        .richiesta-item {
-            border-left: 4px solid #28a745;
-            background: #f8f9fa;
-        }
-
-        .richiesta-item.archived {
-            opacity: 0.7;
-            border-left-color: #6c757d;
-        }
-
-        .status-badge {
-            display: inline-block;
-            padding: 0.25rem 0.5rem;
-            border-radius: 0.25rem;
-            font-size: 0.75rem;
-            font-weight: bold;
-            text-transform: uppercase;
-        }
-
-        .status-nuova {
-            background: #d4edda;
-            color: #155724;
-        }
-
-        .status-in-lavorazione {
-            background: #fff3cd;
-            color: #856404;
-        }
-
-        .status-completata {
-            background: #d1ecf1;
-            color: #0c5460;
-        }
-
-        .status-archiviata {
-            background: #e2e3e5;
-            color: #495057;
-        }
-
-        .bozza-dates {
-            display: flex;
-            flex-direction: column;
-            gap: 0.25rem;
-            font-size: 0.8rem;
-            color: #666;
-        }
-
-        .bozza-meta {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 1rem;
-            align-items: center;
-            margin-top: 0.5rem;
-            padding-top: 0.5rem;
-            border-top: 1px solid #eee;
-        }
-
-        /* ✅ TABS PER BOZZE/RICHIESTE */
-        .content-tabs {
-            display: flex;
-            border-bottom: 2px solid #e9ecef;
-            margin-bottom: 1.5rem;
-        }
-
-        .content-tab {
-            padding: 0.75rem 1.5rem;
-            background: none;
-            border: none;
-            cursor: pointer;
-            border-bottom: 3px solid transparent;
-            font-weight: 500;
-            color: #6c757d;
-            transition: all 0.2s ease;
-        }
-
-        .content-tab:hover {
-            color: #495057;
-            background: #f8f9fa;
-        }
-
-        .content-tab.active {
-            color: #007bff;
-            border-bottom-color: #007bff;
-            background: #fff;
-        }
-
-        .tab-content-section {
-            display: none;
-        }
-
-        .tab-content-section.active {
-            display: block;
-        }
-
-        /* ✅ BADGE MIGLIORATO */
-        .type-card .badge {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: #dc3545;
-            color: white;
-            border-radius: 50%;
-            width: 24px;
-            height: 24px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.75rem;
-            font-weight: bold;
-        }
-
-        .type-card {
-            position: relative;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .type-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-        }
-
-        .type-card:active {
-            transform: translateY(0);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-
-        /* ✅ ALERT MIGLIORATO */
-        .alert-info-enhanced {
-            background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
-            border: 1px solid #90caf9;
-            border-radius: 8px;
-            padding: 1rem;
-            margin: 1rem 0;
-        }
-
-        .alert-info-enhanced .alert-icon {
-            font-size: 1.2rem;
-            margin-right: 0.5rem;
-        }
-
-        /* ✅ FILTRI E CONTROLLI */
-        .controls-section {
-            display: flex;
-            gap: 1rem;
-            margin-bottom: 1rem;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-
-        .filter-group {
-            display: flex;
-            gap: 0.5rem;
-            align-items: center;
-        }
-
-        .filter-select {
-            padding: 0.375rem 0.75rem;
-            border: 1px solid #ced4da;
-            border-radius: 0.375rem;
-            font-size: 0.875rem;
-        }
-
-        /* ✅ STILI PER INDICATORI DI STATO */
-        .status-indicator {
-            animation: slideInFromRight 0.3s ease-out;
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 12px 16px;
-            border-radius: 6px;
-            z-index: 10000;
-            font-weight: 500;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }
-
-        .status-indicator.status-success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-
-        .status-indicator.status-error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-
-        .status-indicator.status-info {
-            background: #d1ecf1;
-            color: #0c5460;
-            border: 1px solid #bee5eb;
-        }
-
-        @keyframes slideInFromRight {
-            from {
-                transform: translateX(100%);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-
-        /* ✅ LAYOUT RESPONSIVE MIGLIORATO */
-        @media (max-width: 768px) {
-            .bozza-header {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-            
-            .bozza-meta {
-                flex-direction: column;
-                gap: 0.5rem;
-                align-items: flex-start;
-            }
-
-            .content-tabs {
-                flex-direction: column;
-            }
-
-            .content-tab {
-                text-align: left;
-                border-bottom: 1px solid #dee2e6;
-                border-right: none;
-            }
-
-            .content-tab.active {
-                border-bottom-color: #dee2e6;
-                border-left: 3px solid #007bff;
-            }
-
-            .controls-section {
-                flex-direction: column;
-                align-items: stretch;
-            }
-        }
-    </style>
 </head>
 <body>
     <!-- 🛡️ USER INFO BAR: Viene creata automaticamente da AuthGuard -->
@@ -306,16 +26,20 @@
             <p>Sistema integrato per la creazione e gestione delle agibilità ex-ENPALS</p>
         </div>
 
-        <!-- Breadcrumb semplificato -->
+        <!-- Breadcrumb con supporto per numero riservato -->
         <div class="breadcrumb-container">
             <div class="breadcrumb">
                 <a href="../index.html" class="breadcrumb-item">Dashboard</a>
                 <span class="breadcrumb-separator">›</span>
                 <span class="breadcrumb-item active">Gestione Agibilità</span>
             </div>
+            <!-- Area per mostrare numero riservato -->
+            <div id="reservedNumberDisplay" class="reserved-number-display">
+                <!-- Popolato automaticamente da updateReservedNumberDisplay() -->
+            </div>
         </div>
 
-        <!-- Dashboard Stats (rimossa vista calendario) -->
+        <!-- Dashboard Stats -->
         <div class="stats-section">
             <div class="stats-grid">
                 <div class="stat-card">
@@ -323,12 +47,12 @@
                     <div class="stat-label">Bozze in sospeso</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value" id="richieste-badge">0</div>
-                    <div class="stat-label">Richieste da evadere</div>
-                </div>
-                <div class="stat-card">
                     <div class="stat-value" id="month-badge">0</div>
                     <div class="stat-label">Agibilità questo mese</div>
+                </div>
+                <div class="stat-card clickable" onclick="showCalendarView()">
+                    <div class="stat-value">📅</div>
+                    <div class="stat-label">Vista calendario</div>
                 </div>
             </div>
         </div>
@@ -337,25 +61,22 @@
         <div id="tipoSection" class="step-section">
             <h2>Seleziona Tipo di Operazione</h2>
             <div class="type-cards">
-                <!-- ✅ MODIFICATO: Rimossi onclick attributes -->
-                <div class="type-card" data-action="startNewAgibilita">
+                <div class="type-card" onclick="startNewAgibilita()">
                     <div class="type-card-icon">📄</div>
                     <h3>Nuova Agibilità</h3>
                     <p>Crea una nuova pratica di agibilità</p>
                     <small class="text-muted">Numero riservato automaticamente</small>
                 </div>
-                <div class="type-card" data-action="showEditAgibilita">
+                <div class="type-card" onclick="showEditAgibilita()">
                     <div class="type-card-icon">📝</div>
                     <h3>Modifica Agibilità</h3>
                     <p>Modifica o gestisci agibilità esistenti</p>
                 </div>
-                <!-- ✅ MODIFICATO: Bozze/Richieste -->
-                <div class="type-card" data-action="showBozzeRichieste">
+                <div class="type-card" onclick="showBozzeAgibilita()">
                     <div class="type-card-icon">📋</div>
-                    <h3>Bozze/Richieste</h3>
-                    <p>Gestisci bozze salvate e richieste esterne</p>
-                    <small class="text-muted">Include archivio richieste completate</small>
-                    <span class="badge" id="total-items-count">0</span>
+                    <h3>Bozze Agibilità</h3>
+                    <p>Riprendi le bozze salvate</p>
+                    <span class="badge" id="bozze-count">0</span>
                 </div>
             </div>
             
@@ -370,81 +91,13 @@
                 <div id="agibilitaList"></div>
             </div>
             
-            <!-- ✅ NUOVO: Sezione Bozze e Richieste con Tabs -->
-            <div id="bozzeRichiesteSection" style="display: none;">
-                <h3>Gestione Bozze e Richieste</h3>
-                
-                <div class="alert alert-info-enhanced">
-                    <span class="alert-icon">💡</span>
-                    <strong>Funzioni disponibili:</strong>
-                    <ul style="margin: 0.5rem 0 0 1.5rem;">
-                        <li>✅ Bozze agibilità con autosalvataggio</li>
-                        <li>✅ Richieste da clienti esterni</li>
-                        <li>✅ Archivio richieste completate</li>
-                        <li>👤 Tracciamento autore e modifiche</li>
-                    </ul>
+            <!-- Lista bozze -->
+            <div id="bozzeSection" style="display: none;">
+                <h3>Bozze Salvate</h3>
+                <div class="alert alert-info">
+                    <small>💡 Le bozze includono il numero riservato e scadono automaticamente se non utilizzate</small>
                 </div>
-
-                <!-- ✅ TABS PER SELEZIONE CONTENUTO -->
-                <div class="content-tabs">
-                    <button class="content-tab active" onclick="showContentTab('bozze')">
-                        📝 Bozze <span id="bozze-count-tab">(0)</span>
-                    </button>
-                    <button class="content-tab" onclick="showContentTab('richieste')">
-                        📨 Richieste Attive <span id="richieste-count-tab">(0)</span>
-                    </button>
-                    <button class="content-tab" onclick="showContentTab('archivio')">
-                        📦 Archivio <span id="archivio-count-tab">(0)</span>
-                    </button>
-                </div>
-
-                <!-- ✅ CONTROLLI E FILTRI -->
-                <div class="controls-section">
-                    <div class="filter-group">
-                        <label for="filterStatus">Filtra per stato:</label>
-                        <select id="filterStatus" class="filter-select" onchange="applyFilters()">
-                            <option value="">Tutti</option>
-                            <option value="nuova">Nuove</option>
-                            <option value="in-lavorazione">In Lavorazione</option>
-                            <option value="completata">Completate</option>
-                            <option value="archiviata">Archiviate</option>
-                        </select>
-                    </div>
-                    <div class="filter-group">
-                        <label for="filterAuthor">Filtra per autore:</label>
-                        <select id="filterAuthor" class="filter-select" onchange="applyFilters()">
-                            <option value="">Tutti gli autori</option>
-                        </select>
-                    </div>
-                    <div class="filter-group">
-                        <input type="text" class="form-control" id="searchItems" 
-                               placeholder="Cerca..." style="width: 200px;"
-                               oninput="applyFilters()">
-                    </div>
-                </div>
-
-                <!-- ✅ CONTENUTO BOZZE -->
-                <div id="contentBozze" class="tab-content-section active">
-                    <div id="bozzeList"></div>
-                </div>
-
-                <!-- ✅ CONTENUTO RICHIESTE ATTIVE -->
-                <div id="contentRichieste" class="tab-content-section">
-                    <div class="alert alert-success">
-                        <strong>💼 Richieste Esterne Attive</strong><br>
-                        <small>Gestisci le richieste di agibilità inviate dai clienti. Una volta completate, verranno archiviate automaticamente.</small>
-                    </div>
-                    <div id="richiesteList"></div>
-                </div>
-
-                <!-- ✅ CONTENUTO ARCHIVIO -->
-                <div id="contentArchivio" class="tab-content-section">
-                    <div class="alert alert-secondary">
-                        <strong>📦 Archivio Richieste Completate</strong><br>
-                        <small>Storico delle richieste elaborate. Visibili per consultazione e reportistica.</small>
-                    </div>
-                    <div id="archivioList"></div>
-                </div>
+                <div id="bozzeList"></div>
             </div>
         </div>
 
@@ -644,8 +297,8 @@
                 <div class="form-section">
                     <h3>Opzioni di Invio</h3>
                     <div class="alert alert-success">
-                        <strong>✅ Pronto per il salvataggio!</strong><br>
-                        <small>La bozza verrà rimossa automaticamente dopo il salvataggio definitivo.</small>
+                        <strong>✅ Numero agibilità confermato!</strong><br>
+                        <small>Il numero verrà automaticamente confermato al completamento del salvataggio.</small>
                     </div>
                     <div class="btn-group" style="flex-direction: column; gap: 1rem;">
                         <button class="btn btn-primary" onclick="downloadAndSave()">
@@ -688,6 +341,22 @@
         </div>
     </div>
 
+    <!-- Modal Calendario -->
+    <div class="modal" id="calendar-modal" style="display: none;">
+        <div class="modal-content modal-content-wide">
+            <div class="modal-header">
+                <h2>📅 Calendario Agibilità</h2>
+                <button class="close-modal" onclick="closeCalendarModal()">&times;</button>
+            </div>
+            <div class="calendar-controls">
+                <button class="btn btn-sm" onclick="changeCalendarMonth(-1)">◀ Mese precedente</button>
+                <h3 id="calendar-month-year"></h3>
+                <button class="btn btn-sm" onclick="changeCalendarMonth(1)">Mese successivo ▶</button>
+            </div>
+            <div id="calendar-grid" class="calendar-grid"></div>
+        </div>
+    </div>
+
     <!-- Loading indicator (creato dinamicamente) -->
     <div id="loading-indicator" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 9999; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
         <div style="text-align: center;">
@@ -716,11 +385,10 @@
     <!-- 6. Agibilità Module (ultimo, dipende da tutto) -->
     <script type="module" src="agibilita.js"></script>
 
-    <!-- ✅ SCRIPT CORRETTIVO PER I PULSANTI -->
     <script>
         // === GESTIONE CLASSE AUTHENTICATED ===
         document.addEventListener('DOMContentLoaded', () => {
-            console.log('🎯 DOM Ready - Setup auth class management e event listeners');
+            console.log('🎯 DOM Ready - Setup auth class management');
             
             // Funzione per mostrare contenuto quando autenticato
             function showAuthenticatedContent() {
@@ -744,9 +412,6 @@
             // Esporta funzioni globalmente per AuthGuard
             window.showAuthenticatedContent = showAuthenticatedContent;
             window.hideUnauthenticatedContent = hideUnauthenticatedContent;
-            
-            // ✅ AGGIUNTO: Event listeners diretti per i pulsanti principali
-            setupButtonEventListeners();
             
             // Controlla auth state ogni secondo per i primi 10 secondi
             let attempts = 0;
@@ -774,157 +439,6 @@
                 }
             }, 1000);
         });
-
-        // ✅ NUOVA FUNZIONE: Setup event listeners diretti per i pulsanti
-        function setupButtonEventListeners() {
-            console.log('🔧 Setup event listeners diretti per i pulsanti...');
-            
-            // Event listener per tutte le type-cards
-            document.addEventListener('click', function(e) {
-                const typeCard = e.target.closest('.type-card[data-action]');
-                if (typeCard) {
-                    e.preventDefault();
-                    const action = typeCard.getAttribute('data-action');
-                    console.log('🖱️ Click rilevato su type-card con action:', action);
-                    
-                    handleCardClick(action);
-                }
-            });
-            
-            // Backup: event listeners diretti sulle cards
-            setTimeout(() => {
-                const cards = document.querySelectorAll('.type-card[data-action]');
-                cards.forEach(card => {
-                    const action = card.getAttribute('data-action');
-                    const title = card.querySelector('h3')?.textContent || 'Sconosciuto';
-                    
-                    // Rimuovi eventuali listener precedenti
-                    card.removeEventListener('click', card._clickHandler);
-                    
-                    // Crea nuovo handler
-                    card._clickHandler = function(e) {
-                        e.preventDefault();
-                        console.log(`🔄 Handler diretto per "${title}" (${action})`);
-                        handleCardClick(action);
-                    };
-                    
-                    // Aggiungi listener
-                    card.addEventListener('click', card._clickHandler);
-                    console.log(`✅ Event listener aggiunto per "${title}"`);
-                });
-            }, 500);
-        }
-
-        // ✅ NUOVA FUNZIONE: Gestisce i click sulle cards
-        function handleCardClick(action) {
-            console.log('🎯 Esecuzione action:', action);
-            
-            // Mostra indicatore di caricamento
-            showStatusIndicator('⏳ Caricamento in corso...', 'info');
-            
-            switch(action) {
-                case 'startNewAgibilita':
-                    console.log('🆕 Tentativo chiamata startNewAgibilita...');
-                    if (typeof window.startNewAgibilita === 'function') {
-                        try {
-                            window.startNewAgibilita();
-                            showStatusIndicator('✅ Nuova agibilità avviata', 'success');
-                        } catch (error) {
-                            console.error('❌ Errore in startNewAgibilita:', error);
-                            showStatusIndicator('❌ Errore: ' + error.message, 'error');
-                        }
-                    } else {
-                        console.error('❌ startNewAgibilita non disponibile');
-                        showStatusIndicator('⚠️ Funzione non caricata - Ricarica la pagina', 'error');
-                    }
-                    break;
-                    
-                case 'showEditAgibilita':
-                    console.log('📝 Tentativo chiamata showEditAgibilita...');
-                    if (typeof window.showEditAgibilita === 'function') {
-                        try {
-                            window.showEditAgibilita();
-                            showStatusIndicator('✅ Lista agibilità caricata', 'success');
-                        } catch (error) {
-                            console.error('❌ Errore in showEditAgibilita:', error);
-                            showStatusIndicator('❌ Errore: ' + error.message, 'error');
-                        }
-                    } else {
-                        console.error('❌ showEditAgibilita non disponibile');
-                        showStatusIndicator('⚠️ Funzione non caricata - Ricarica la pagina', 'error');
-                    }
-                    break;
-                    
-                case 'showBozzeRichieste':
-                    console.log('📋 Tentativo chiamata showBozzeRichieste...');
-                    if (typeof window.showBozzeRichieste === 'function') {
-                        try {
-                            window.showBozzeRichieste();
-                            showStatusIndicator('✅ Bozze/Richieste caricate', 'success');
-                        } catch (error) {
-                            console.error('❌ Errore in showBozzeRichieste:', error);
-                            showStatusIndicator('❌ Errore: ' + error.message, 'error');
-                        }
-                    } else {
-                        console.error('❌ showBozzeRichieste non disponibile');
-                        showStatusIndicator('⚠️ Funzione non caricata - Ricarica la pagina', 'error');
-                    }
-                    break;
-                    
-                default:
-                    console.warn('⚠️ Action non riconosciuta:', action);
-                    showStatusIndicator('⚠️ Azione non riconosciuta', 'error');
-            }
-        }
-
-        // ✅ NUOVA FUNZIONE: Mostra indicatori di stato
-        function showStatusIndicator(message, type = 'info') {
-            // Rimuovi indicatori esistenti
-            const existing = document.querySelector('.status-indicator');
-            if (existing) existing.remove();
-            
-            const indicator = document.createElement('div');
-            indicator.className = `status-indicator status-${type}`;
-            indicator.innerHTML = message;
-            
-            document.body.appendChild(indicator);
-            
-            // Rimuovi automaticamente dopo 3 secondi (tranne errori)
-            if (type !== 'error') {
-                setTimeout(() => {
-                    if (indicator && indicator.parentNode) {
-                        indicator.remove();
-                    }
-                }, 3000);
-            }
-        }
-
-        // ✅ CONTROLLO PERIODICO DISPONIBILITÀ FUNZIONI
-        let functionCheckInterval = setInterval(() => {
-            const functionsStatus = {
-                startNewAgibilita: typeof window.startNewAgibilita === 'function',
-                showEditAgibilita: typeof window.showEditAgibilita === 'function',
-                showBozzeRichieste: typeof window.showBozzeRichieste === 'function'
-            };
-            
-            console.log('🔍 Status funzioni:', functionsStatus);
-            
-            // Se tutte le funzioni sono disponibili, ferma il controllo
-            if (functionsStatus.startNewAgibilita && 
-                functionsStatus.showEditAgibilita && 
-                functionsStatus.showBozzeRichieste) {
-                
-                console.log('✅ Tutte le funzioni disponibili - Stopping check');
-                clearInterval(functionCheckInterval);
-                showStatusIndicator('🚀 Sistema completamente caricato', 'success');
-            }
-        }, 2000);
-
-        // Ferma il controllo dopo 30 secondi
-        setTimeout(() => {
-            clearInterval(functionCheckInterval);
-            console.log('⏰ Controllo funzioni terminato (timeout 30s)');
-        }, 30000);
         
         // Global error handler for auth issues
         window.addEventListener('error', (e) => {
@@ -933,66 +447,6 @@
                 // AuthGuard will handle the redirect
             }
         });
-
-        // ✅ DEBUGGING: Log dello stato delle funzioni ogni 5 secondi per i primi 30 secondi
-        let debugCount = 0;
-        const debugInterval = setInterval(() => {
-            debugCount++;
-            console.log(`🔍 Debug ${debugCount}/6 - Funzioni disponibili:`, {
-                startNewAgibilita: typeof window.startNewAgibilita,
-                showEditAgibilita: typeof window.showEditAgibilita,
-                showBozzeRichieste: typeof window.showBozzeRichieste,
-                showContentTab: typeof window.showContentTab,
-                applyFilters: typeof window.applyFilters
-            });
-            
-            if (debugCount >= 6) {
-                clearInterval(debugInterval);
-                console.log('🔍 Debug terminato');
-            }
-        }, 5000);
-
-        // ✅ FUNZIONI PLACEHOLDER PER TABS (se non caricate dal modulo)
-        window.showContentTab = window.showContentTab || function(tabName) {
-            console.log('📋 Placeholder showContentTab chiamata per:', tabName);
-            
-            // Rimuovi active da tutti i tab
-            document.querySelectorAll('.content-tab').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            
-            // Rimuovi active da tutte le sezioni
-            document.querySelectorAll('.tab-content-section').forEach(section => {
-                section.classList.remove('active');
-            });
-            
-            // Attiva tab selezionato
-            const activeTab = document.querySelector(`.content-tab[onclick*="${tabName}"]`);
-            if (activeTab) {
-                activeTab.classList.add('active');
-            }
-            
-            // Attiva sezione corrispondente
-            const activeSection = document.getElementById(`content${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`);
-            if (activeSection) {
-                activeSection.classList.add('active');
-                
-                // Mostra placeholder content
-                if (tabName === 'bozze') {
-                    activeSection.innerHTML = '<div class="alert alert-info">🔄 Caricamento bozze in corso...</div>';
-                } else if (tabName === 'richieste') {
-                    activeSection.innerHTML = '<div class="alert alert-info">🔄 Caricamento richieste in corso...</div>';
-                } else if (tabName === 'archivio') {
-                    activeSection.innerHTML = '<div class="alert alert-info">🔄 Caricamento archivio in corso...</div>';
-                }
-            }
-        };
-
-        // ✅ FUNZIONE PLACEHOLDER PER FILTRI
-        window.applyFilters = window.applyFilters || function() {
-            console.log('🔍 Placeholder applyFilters chiamata');
-            showStatusIndicator('🔍 Filtri applicati', 'info');
-        };
     </script>
 </body>
 </html>
