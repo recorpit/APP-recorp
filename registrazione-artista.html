@@ -5,69 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Registrazione Artista - RECORP ALL-IN-ONE</title>
     <link rel="stylesheet" href="./assets/style.css">
-    <style>
-        /* Stili aggiuntivi per la gestione paesi esteri */
-        .foreign-address-notice {
-            margin: 1rem 0;
-        }
-
-        .alert-info {
-            background-color: #e3f2fd;
-            border: 1px solid #90caf9;
-            color: #0d47a1;
-            padding: 1rem;
-            border-radius: 4px;
-            margin-bottom: 1rem;
-        }
-
-        #paeseResidenzaGroup {
-            margin-bottom: 1.5rem;
-        }
-
-        /* Stile per il select del paese */
-        #paeseResidenza {
-            background-color: #f8f9fa;
-        }
-
-        /* Evidenzia quando è selezionato straniero */
-        #nazionalita option[value="EU"],
-        #nazionalita option[value="EX"] {
-            font-weight: 600;
-        }
-
-        /* Fix per campi nascosti */
-        .form-group[style*="display: none"] {
-            margin: 0 !important;
-        }
-        
-        /* Stile per campo opzionale */
-        .optional {
-            color: #6c757d;
-            font-weight: normal;
-            font-size: 0.875rem;
-        }
-        
-        .cf-alternative-notice {
-            margin-top: 0.5rem;
-            padding: 0.5rem;
-            background-color: #e3f2fd;
-            border-radius: 4px;
-        }
-        
-        .text-info {
-            color: #0d47a1;
-        }
-        
-        /* Evidenzia quando il CF non è obbligatorio */
-        #codiceFiscale:not([required]) {
-            border-color: #6c757d;
-        }
-        
-        #codiceFiscale:not([required]):focus {
-            border-color: #80bdff;
-            box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
-        }
-    </style>
 </head>
 <body>
     <!-- Navbar -->
@@ -117,7 +54,7 @@
                 </div>
                 
                 <!-- Selezione artista per modifica -->
-                <div class="artist-selection" id="artistSelection" style="display: none;">
+                <div class="artist-selection d-none" id="artistSelection">
                     <div class="search-container">
                         <input type="text" 
                                class="form-control search-input" 
@@ -135,7 +72,7 @@
                 </div>
                 
                 <!-- Form registrazione/modifica -->
-                <form class="registration-form" id="registrationForm" style="display: none;">
+                <form class="registration-form d-none" id="registrationForm">
                     <!-- Sezione Dati Anagrafici -->
                     <div class="form-section">
                         <div class="section-header">
@@ -156,7 +93,7 @@
                                        required 
                                        placeholder="RSSMRA85T10A562S">
                                 <small class="form-text">Il codice fiscale deve essere inserito per primo - la data di nascita verrà compilata automaticamente</small>
-                                <div class="cf-alternative-notice" id="cfAlternativeNotice" style="display: none;">
+                                <div class="cf-alternative-notice d-none" id="cfAlternativeNotice">
                                     <small class="text-info">
                                         <strong>ℹ️ Nota:</strong> Per artisti stranieri senza codice fiscale, il sistema genererà un identificativo temporaneo
                                     </small>
@@ -326,7 +263,7 @@
                             </div>
                             
                             <!-- Campo Paese per stranieri -->
-                            <div class="form-group" id="paeseResidenzaGroup" style="display: none;">
+                            <div class="form-group d-none" id="paeseResidenzaGroup">
                                 <label class="form-label" for="paeseResidenza">
                                     Paese di Residenza <span class="required">*</span>
                                 </label>
@@ -337,7 +274,7 @@
                             </div>
                             
                             <!-- Avviso per stranieri -->
-                            <div class="foreign-address-notice" id="foreignAddressNotice" style="display: none;">
+                            <div class="foreign-address-notice d-none" id="foreignAddressNotice">
                                 <div class="alert alert-info">
                                     <strong>📍 Artista Straniero:</strong> Per gli artisti stranieri non è necessario compilare provincia, comune e CAP italiani. L'indirizzo completo (via, numero, CAP e città) va inserito nel campo indirizzo sopra.
                                 </div>
@@ -418,7 +355,7 @@
                                 </div>
                             </div>
                             
-                            <div class="form-group" id="partitaIvaGroup" style="display: none;">
+                            <div class="form-group d-none" id="partitaIvaGroup">
                                 <label class="form-label" for="partitaIva">
                                     Partita IVA <span class="required">*</span>
                                 </label>
@@ -432,7 +369,7 @@
                                 <small class="form-text">Inserire 11 cifre della partita IVA</small>
                             </div>
                             
-                            <div class="form-group" id="tipoRapportoGroup" style="display: none;">
+                            <div class="form-group d-none" id="tipoRapportoGroup">
                                 <label class="form-label" for="tipoRapporto">
                                     Tipologia Rapporto di Lavoro <span class="required">*</span>
                                 </label>
@@ -444,7 +381,7 @@
                                 <small class="form-text">Tipo di contratto per chi non ha partita IVA</small>
                             </div>
                             
-                            <div class="form-group" id="codiceComunicazioneGroup" style="display: none;">
+                            <div class="form-group d-none" id="codiceComunicazioneGroup">
                                 <label class="form-label" for="codiceComunicazione">
                                     Codice Comunicazione INPS <span class="required">*</span>
                                 </label>
@@ -505,109 +442,5 @@
     <script type="module" src="./supabase-config.js"></script>
     <!-- Include Registration Scripts -->
     <script type="module" src="./registrazione-artista.js"></script>
-    
-    <!-- Aggiungi stili CSS per le modalità -->
-    <style>
-        .mode-selection {
-            margin: 2rem 0;
-        }
-        
-        .mode-cards {
-            display: flex;
-            gap: 2rem;
-            justify-content: center;
-        }
-        
-        .mode-card {
-            background: var(--card-bg);
-            border: 2px solid var(--border-light);
-            border-radius: 12px;
-            padding: 2rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-align: center;
-            min-width: 200px;
-        }
-        
-        .mode-card:hover {
-            border-color: var(--primary);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-        
-        .mode-icon {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-        }
-        
-        .mode-card h3 {
-            margin: 0 0 0.5rem 0;
-            color: var(--text-primary);
-        }
-        
-        .mode-card p {
-            margin: 0;
-            color: var(--text-muted);
-            font-size: 0.875rem;
-        }
-        
-        .artist-selection {
-            margin: 2rem 0;
-        }
-        
-        .search-container {
-            margin-bottom: 1.5rem;
-        }
-        
-        .search-input {
-            width: 100%;
-            padding: 0.75rem 1rem;
-            font-size: 1rem;
-        }
-        
-        .artists-list {
-            max-height: 400px;
-            overflow-y: auto;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            background: var(--card-bg);
-        }
-        
-        .artist-item {
-            padding: 1rem;
-            border-bottom: 1px solid var(--border-light);
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-        
-        .artist-item:hover {
-            background-color: var(--bg-hover);
-        }
-        
-        .artist-item:last-child {
-            border-bottom: none;
-        }
-        
-        .artist-name {
-            font-weight: 600;
-            color: var(--text-primary);
-            margin-bottom: 0.25rem;
-        }
-        
-        .artist-details {
-            font-size: 0.875rem;
-            color: var(--text-muted);
-        }
-        
-        .no-artists {
-            padding: 3rem;
-            text-align: center;
-            color: var(--text-muted);
-        }
-        
-        .no-artists h3 {
-            margin-bottom: 0.5rem;
-        }
-    </style>
 </body>
 </html>
