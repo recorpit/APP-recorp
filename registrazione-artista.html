@@ -5,6 +5,69 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Registrazione Artista - RECORP ALL-IN-ONE</title>
     <link rel="stylesheet" href="./assets/style.css">
+    <style>
+        /* Stili aggiuntivi per la gestione paesi esteri */
+        .foreign-address-notice {
+            margin: 1rem 0;
+        }
+
+        .alert-info {
+            background-color: #e3f2fd;
+            border: 1px solid #90caf9;
+            color: #0d47a1;
+            padding: 1rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+        }
+
+        #paeseResidenzaGroup {
+            margin-bottom: 1.5rem;
+        }
+
+        /* Stile per il select del paese */
+        #paeseResidenza {
+            background-color: #f8f9fa;
+        }
+
+        /* Evidenzia quando è selezionato straniero */
+        #nazionalita option[value="EU"],
+        #nazionalita option[value="EX"] {
+            font-weight: 600;
+        }
+
+        /* Fix per campi nascosti */
+        .form-group[style*="display: none"] {
+            margin: 0 !important;
+        }
+        
+        /* Stile per campo opzionale */
+        .optional {
+            color: #6c757d;
+            font-weight: normal;
+            font-size: 0.875rem;
+        }
+        
+        .cf-alternative-notice {
+            margin-top: 0.5rem;
+            padding: 0.5rem;
+            background-color: #e3f2fd;
+            border-radius: 4px;
+        }
+        
+        .text-info {
+            color: #0d47a1;
+        }
+        
+        /* Evidenzia quando il CF non è obbligatorio */
+        #codiceFiscale:not([required]) {
+            border-color: #6c757d;
+        }
+        
+        #codiceFiscale:not([required]):focus {
+            border-color: #80bdff;
+            box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+        }
+    </style>
 </head>
 <body>
     <!-- Navbar -->
@@ -14,13 +77,6 @@
                 <img src="./assets/logo.png" alt="RECORP Logo">
                 <span class="logo-text">RECORP ALL-IN-ONE</span>
             </a>
-            
-            <!-- 🆕 Indicatore sorgente agibilità -->
-            <div class="source-indicator" id="sourceIndicator" style="display: none;">
-                <span class="source-badge">
-                    <i class="fas fa-theater-masks"></i> Da Agibilità
-                </span>
-            </div>
         </div>
     </nav>
 
@@ -30,50 +86,18 @@
                 <div class="header text-center">
                     <h1 class="page-title" id="pageTitle">Gestione Artisti</h1>
                     <p class="page-subtitle" id="pageSubtitle">Scegli un'azione da eseguire</p>
-                    
-                    <!-- 🆕 Breadcrumb per agibilità -->
-                    <div class="agibilita-breadcrumb" id="agibilitaBreadcrumb" style="display: none;">
-                        <nav class="breadcrumb">
-                            <span class="breadcrumb-item">
-                                <i class="fas fa-theater-masks"></i> Sistema Agibilità
-                            </span>
-                            <span class="breadcrumb-separator">›</span>
-                            <span class="breadcrumb-item active">
-                                <i class="fas fa-user-plus"></i> Registrazione Completa Artista
-                            </span>
-                        </nav>
-                    </div>
                 </div>
                 
                 <div class="loading-indicator" id="loadingIndicator">
                     <span class="loading-icon spinning">⌛</span> Caricamento database località...
                 </div>
                 
-                <!-- 🆕 Alert di successo migliorato -->
                 <div class="alert alert-success" id="successMessage">
-                    <i class="fas fa-check-circle"></i>
-                    <span id="successText">Artista registrato con successo!</span>
-                    <div class="success-actions" id="successActions" style="display: none;">
-                        <button class="btn btn-sm btn-outline-success" id="addToAgibilitaBtn">
-                            <i class="fas fa-plus"></i> Aggiungi ad Agibilità
-                        </button>
-                        <button class="btn btn-sm btn-outline-primary" id="backToAgibilitaBtn">
-                            <i class="fas fa-arrow-left"></i> Torna ad Agibilità
-                        </button>
-                    </div>
+                    Artista registrato con successo!
                 </div>
                 
                 <div class="alert alert-error" id="errorMessage">
                     Errore durante la registrazione. Riprova.
-                </div>
-                
-                <!-- 🆕 Info prefill da agibilità -->
-                <div class="alert alert-info" id="prefillInfo" style="display: none;">
-                    <i class="fas fa-info-circle"></i>
-                    <strong>Dati precompilati:</strong> Alcuni campi sono stati compilati automaticamente dal sistema agibilità.
-                    <button class="btn btn-sm btn-outline-info" id="clearPrefillBtn">
-                        <i class="fas fa-eraser"></i> Cancella Precompilazione
-                    </button>
                 </div>
                 
                 <!-- Selezione modalità -->
@@ -93,7 +117,7 @@
                 </div>
                 
                 <!-- Selezione artista per modifica -->
-                <div class="artist-selection d-none" id="artistSelection">
+                <div class="artist-selection" id="artistSelection" style="display: none;">
                     <div class="search-container">
                         <input type="text" 
                                class="form-control search-input" 
@@ -111,7 +135,7 @@
                 </div>
                 
                 <!-- Form registrazione/modifica -->
-                <form class="registration-form d-none" id="registrationForm">
+                <form class="registration-form" id="registrationForm" style="display: none;">
                     <!-- Sezione Dati Anagrafici -->
                     <div class="form-section">
                         <div class="section-header">
@@ -132,7 +156,7 @@
                                        required 
                                        placeholder="RSSMRA85T10A562S">
                                 <small class="form-text">Il codice fiscale deve essere inserito per primo - la data di nascita verrà compilata automaticamente</small>
-                                <div class="cf-alternative-notice d-none" id="cfAlternativeNotice">
+                                <div class="cf-alternative-notice" id="cfAlternativeNotice" style="display: none;">
                                     <small class="text-info">
                                         <strong>ℹ️ Nota:</strong> Per artisti stranieri senza codice fiscale, il sistema genererà un identificativo temporaneo
                                     </small>
@@ -302,7 +326,7 @@
                             </div>
                             
                             <!-- Campo Paese per stranieri -->
-                            <div class="form-group d-none" id="paeseResidenzaGroup">
+                            <div class="form-group" id="paeseResidenzaGroup" style="display: none;">
                                 <label class="form-label" for="paeseResidenza">
                                     Paese di Residenza <span class="required">*</span>
                                 </label>
@@ -313,7 +337,7 @@
                             </div>
                             
                             <!-- Avviso per stranieri -->
-                            <div class="foreign-address-notice d-none" id="foreignAddressNotice">
+                            <div class="foreign-address-notice" id="foreignAddressNotice" style="display: none;">
                                 <div class="alert alert-info">
                                     <strong>📍 Artista Straniero:</strong> Per gli artisti stranieri non è necessario compilare provincia, comune e CAP italiani. L'indirizzo completo (via, numero, CAP e città) va inserito nel campo indirizzo sopra.
                                 </div>
@@ -394,7 +418,7 @@
                                 </div>
                             </div>
                             
-                            <div class="form-group d-none" id="partitaIvaGroup">
+                            <div class="form-group" id="partitaIvaGroup" style="display: none;">
                                 <label class="form-label" for="partitaIva">
                                     Partita IVA <span class="required">*</span>
                                 </label>
@@ -408,7 +432,7 @@
                                 <small class="form-text">Inserire 11 cifre della partita IVA</small>
                             </div>
                             
-                            <div class="form-group d-none" id="tipoRapportoGroup">
+                            <div class="form-group" id="tipoRapportoGroup" style="display: none;">
                                 <label class="form-label" for="tipoRapporto">
                                     Tipologia Rapporto di Lavoro <span class="required">*</span>
                                 </label>
@@ -420,7 +444,7 @@
                                 <small class="form-text">Tipo di contratto per chi non ha partita IVA</small>
                             </div>
                             
-                            <div class="form-group d-none" id="codiceComunicazioneGroup">
+                            <div class="form-group" id="codiceComunicazioneGroup" style="display: none;">
                                 <label class="form-label" for="codiceComunicazione">
                                     Codice Comunicazione INPS <span class="required">*</span>
                                 </label>
@@ -467,11 +491,6 @@
                         <button type="button" class="btn btn-secondary btn-lg" id="cancelBtn">
                             <span class="btn-icon">❌</span> Annulla
                         </button>
-                        
-                        <!-- 🆕 Pulsante ritorno agibilità -->
-                        <button type="button" class="btn btn-outline-info btn-lg" id="backToAgibilitaFormBtn" style="display: none;">
-                            <span class="btn-icon">🎭</span> Torna ad Agibilità senza Salvare
-                        </button>
                     </div>
                 </form>
             </div>
@@ -486,5 +505,109 @@
     <script type="module" src="./supabase-config.js"></script>
     <!-- Include Registration Scripts -->
     <script type="module" src="./registrazione-artista.js"></script>
+    
+    <!-- Aggiungi stili CSS per le modalità -->
+    <style>
+        .mode-selection {
+            margin: 2rem 0;
+        }
+        
+        .mode-cards {
+            display: flex;
+            gap: 2rem;
+            justify-content: center;
+        }
+        
+        .mode-card {
+            background: var(--card-bg);
+            border: 2px solid var(--border-light);
+            border-radius: 12px;
+            padding: 2rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+            min-width: 200px;
+        }
+        
+        .mode-card:hover {
+            border-color: var(--primary);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .mode-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+        
+        .mode-card h3 {
+            margin: 0 0 0.5rem 0;
+            color: var(--text-primary);
+        }
+        
+        .mode-card p {
+            margin: 0;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+        
+        .artist-selection {
+            margin: 2rem 0;
+        }
+        
+        .search-container {
+            margin-bottom: 1.5rem;
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            font-size: 1rem;
+        }
+        
+        .artists-list {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--card-bg);
+        }
+        
+        .artist-item {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-light);
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .artist-item:hover {
+            background-color: var(--bg-hover);
+        }
+        
+        .artist-item:last-child {
+            border-bottom: none;
+        }
+        
+        .artist-name {
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.25rem;
+        }
+        
+        .artist-details {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+        
+        .no-artists {
+            padding: 3rem;
+            text-align: center;
+            color: var(--text-muted);
+        }
+        
+        .no-artists h3 {
+            margin-bottom: 0.5rem;
+        }
+    </style>
 </body>
 </html>
